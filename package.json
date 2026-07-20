@@ -11,6 +11,8 @@
     "preview": "astro preview",
     "typecheck": "astro check && tsc --noEmit --project functions/tsconfig.json",
     "test": "vitest run",
+    "db:migrate": "wrangler d1 migrations apply scientfactory-downloads --remote",
+    "analytics:report": "node scripts/analytics-report.mjs",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "check": "bun run format:check && bun run typecheck && bun run test && bun run build && bun run build:edge"

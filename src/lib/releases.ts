@@ -4,6 +4,8 @@
 
 import { parseRelease, type Release, type ReleaseAsset } from "./release-schema";
 
+export { DOWNLOAD_ASSETS, findDownloadAsset } from "./download-assets";
+export type { DownloadAssetKey } from "./download-assets";
 export { parseRelease } from "./release-schema";
 export type { Release, ReleaseAsset } from "./release-schema";
 
@@ -17,15 +19,6 @@ let inFlightRelease: Promise<Release> | null = null;
 export const REPO_URL = `https://github.com/${REPO}`;
 export const RELEASES_URL = `${REPO_URL}/releases`;
 export const LATEST_RELEASE_URL = `${RELEASES_URL}/latest`;
-
-export const DOWNLOAD_ASSETS = {
-  macArm64: { suffix: "-arm64.dmg", label: "macOS Apple Silicon" },
-  macX64: { suffix: "-x64.dmg", label: "macOS Intel" },
-  windowsX64: { suffix: "-x64.exe", label: "Windows x64" },
-  linuxX64: { suffix: "-x86_64.AppImage", label: "Linux x64" },
-} as const;
-
-export type DownloadAssetKey = keyof typeof DOWNLOAD_ASSETS;
 
 interface CachedRelease {
   readonly cachedAt: number;
@@ -114,11 +107,6 @@ async function fetchReleaseFromNetwork(
       ? "Release request failed before receiving a response."
       : `Release request failed (${lastStatus}).`,
   );
-}
-
-export function findDownloadAsset(release: Release, key: DownloadAssetKey): ReleaseAsset | null {
-  const expected = DOWNLOAD_ASSETS[key];
-  return release.assets.find((asset) => asset.name.endsWith(expected.suffix)) ?? null;
 }
 
 export function findChecksumAsset(release: Release): ReleaseAsset | null {

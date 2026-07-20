@@ -4,6 +4,14 @@
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-07-20",
   "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DOWNLOAD_DB",
+      "database_name": "scientfactory-downloads",
+      "database_id": "e106f11e-18e3-4d9d-b61e-7003ac4dd994",
+      "migrations_dir": "migrations",
+    },
+  ],
   "observability": {
     "enabled": true,
   },

@@ -31,3 +31,28 @@ Cloudflare Pages owns production and preview deployment. The project is `scientf
 Do not deploy production from a feature branch or store Cloudflare credentials in this repository.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow. The cross-repository operating model is maintained in [`ScientFactory/Scient`](https://github.com/ScientFactory/Scient).
+
+## First-party event measurement
+
+Cloudflare D1 stores four anonymous event types:
+
+- `page_viewed`
+- `download_clicked`
+- `download_failed`
+- `outbound_link_clicked`
+
+The implementation intentionally stores no IP address, cookie, fingerprint, referrer, or persistent visitor identifier. Counts therefore represent events rather than unique visitors. `download_failed` is limited to a failure in ScientFactory's redirect service; the website cannot observe a transfer failure after GitHub begins serving an installer.
+
+The production binding is `DOWNLOAD_DB`, backed by the `scientfactory-downloads` D1 database. Apply new migrations before deploying code that depends on them:
+
+```sh
+bun run db:migrate
+```
+
+To view the lifetime event summary plus 30-day download, outbound-link, and failure breakdowns:
+
+```sh
+bun run analytics:report
+```
+
+Local and Cloudflare preview hosts do not write events, which keeps production counts free of development traffic.
