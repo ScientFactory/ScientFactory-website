@@ -13,9 +13,13 @@
     "test": "vitest run",
     "db:migrate": "wrangler d1 migrations apply scientfactory-downloads --remote",
     "analytics:report": "node scripts/analytics-report.mjs",
+    "events:types": "wrangler types workers/events/worker-configuration.d.ts --config workers/events/wrangler.jsonc --env-interface AnalyticsWorkerBindings --include-runtime false",
+    "events:types:check": "wrangler types workers/events/worker-configuration.d.ts --config workers/events/wrangler.jsonc --env-interface AnalyticsWorkerBindings --include-runtime false --check",
+    "events:typecheck": "tsc --noEmit --project workers/events/tsconfig.json",
+    "events:deploy": "wrangler deploy --config workers/events/wrangler.jsonc",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "check": "bun run format:check && bun run typecheck && bun run test && bun run build && bun run build:edge"
+    "check": "bun run format:check && bun run typecheck && bun run events:types:check && bun run events:typecheck && bun run test && bun run build && bun run build:edge"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "5.3.0",

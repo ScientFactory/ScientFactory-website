@@ -49,15 +49,12 @@ describe("browser event endpoint", () => {
     expect(response.status).toBe(204);
     await context.waitUntil.mock.calls[0]?.[0];
     expect(database.bind).toHaveBeenCalledWith(
+      expect.any(String),
       "page_viewed",
-      "/docs",
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      "product",
+      expect.any(String),
+      expect.stringMatching(/^web-event:/),
+      JSON.stringify({ page_path: "/docs" }),
     );
   });
 
@@ -73,15 +70,16 @@ describe("browser event endpoint", () => {
     expect(response.status).toBe(204);
     await context.waitUntil.mock.calls[0]?.[0];
     expect(database.bind).toHaveBeenCalledWith(
+      expect.any(String),
       "outbound_link_clicked",
-      "/about",
-      null,
-      null,
-      null,
-      "github.com",
-      "/ScientFactory/scient-desktop",
-      null,
-      null,
+      "product",
+      expect.any(String),
+      expect.stringMatching(/^web-event:/),
+      JSON.stringify({
+        page_path: "/about",
+        destination_host: "github.com",
+        destination_path: "/ScientFactory/scient-desktop",
+      }),
     );
   });
 

@@ -30,17 +30,15 @@ export interface SiteEventContext {
 }
 
 const INSERT_EVENT = `
-  INSERT INTO site_events (
+  INSERT OR IGNORE INTO analytics_events (
+    event_id,
     event_name,
-    page_path,
-    asset_key,
-    release_tag,
-    asset_name,
-    destination_host,
-    destination_path,
-    failure_stage,
-    failure_reason
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    source,
+    privacy_level,
+    occurred_at,
+    distinct_id,
+    properties_json
+  ) VALUES (?, ?, 'website', ?, ?, ?, ?)
 `;
 
 const PRODUCTION_HOSTS = new Set(["scientfactory.com", "www.scientfactory.com"]);
@@ -82,18 +80,29 @@ export function shouldPersistSiteEvents(request: Request): boolean {
 }
 
 export async function insertSiteEvent(db: D1Database, event: SiteEvent): Promise<void> {
+  const eventId = crypto.randomUUID();
+  const properties = Object.fromEntries(
+    Object.entries({
+      page_path: cleanPath(event.pagePath),
+      asset_key: limited(event.assetKey, 64),
+      release_tag: limited(event.releaseTag, 80),
+      asset_name: limited(event.assetName, 255),
+      destination_host: limited(event.destinationHost, 253),
+      destination_path: cleanPath(event.destinationPath),
+      failure_stage: limited(event.failureStage, 80),
+      failure_reason: limited(event.failureReason, 120),
+    }).filter((entry): entry is [string, string] => entry[1] !== null),
+  );
+
   await db
     .prepare(INSERT_EVENT)
     .bind(
+      eventId,
       event.eventName,
-      cleanPath(event.pagePath),
-      limited(event.assetKey, 64),
-      limited(event.releaseTag, 80),
-      limited(event.assetName, 255),
-      limited(event.destinationHost, 253),
-      cleanPath(event.destinationPath),
-      limited(event.failureStage, 80),
-      limited(event.failureReason, 120),
+      event.eventName === "download_failed" ? "diagnostic" : "product",
+      new Date().toISOString(),
+      `web-event:${eventId}`,
+      JSON.stringify(properties),
     )
     .run();
 }
