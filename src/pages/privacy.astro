@@ -1,0 +1,80 @@
+---
+import Prose from "../components/Prose.astro";
+import Layout from "../layouts/Layout.astro";
+import { REPO_URL } from "../lib/releases";
+---
+
+<Layout
+  theme="light"
+  title="Privacy — ScientFactory"
+  description="A plain-language explanation of how the ScientFactory website handles visitor information."
+>
+  <Prose
+    eyebrow="Last updated 19 July 2026"
+    title="Privacy, plainly stated."
+    intro="This notice covers the ScientFactory website at scientfactory.com. It describes the website as it operates today."
+  >
+    <section class="content-section" aria-labelledby="privacy-analytics">
+      <p class="content-section__label">Analytics</p>
+      <div class="content-section__body">
+        <h2 id="privacy-analytics">No analytics or advertising trackers.</h2>
+        <p>
+          The ScientFactory website currently uses no analytics service, tracking pixels, advertising cookies, or behavioral recording tools.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="privacy-hosting">
+      <p class="content-section__label">Hosting</p>
+      <div class="content-section__body">
+        <h2 id="privacy-hosting">Standard infrastructure data may be processed to deliver the site.</h2>
+        <p>
+          The website is delivered through Cloudflare. Like other web infrastructure providers, Cloudflare may process standard request information such as an IP address, browser type, timestamp, and requested page to operate, secure, and troubleshoot the service.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="privacy-downloads">
+      <p class="content-section__label">Downloads</p>
+      <div class="content-section__body">
+        <h2 id="privacy-downloads">Release information comes from GitHub.</h2>
+        <p>
+          The download page checks ScientFactory's public GitHub release information to locate the latest installer. If the website's release endpoint is unavailable, your browser may request that public information directly from GitHub.
+        </p>
+        <p>
+          Release details may be cached temporarily in your browser's session storage for up to 15 minutes. This avoids repeating the same release lookup and is cleared with the browser session.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="privacy-app">
+      <p class="content-section__label">Scient desktop</p>
+      <div class="content-section__body">
+        <h2 id="privacy-app">The desktop application and connected AI providers are separate from this website.</h2>
+        <p>
+          Scient runs as a workspace layer on your computer. When you use a connected AI provider, that provider receives the prompts and supporting context needed for the session under its own terms and privacy policy.
+        </p>
+        <p>
+          This website notice does not replace the privacy terms of any AI provider you choose to use.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="privacy-changes">
+      <p class="content-section__label">Changes and questions</p>
+      <div class="content-section__body">
+        <h2 id="privacy-changes">We will update this page when the website changes.</h2>
+        <p>
+          If we introduce analytics, accounts, forms, or other ways of collecting visitor information, this notice will be updated to describe them.
+        </p>
+        <p>
+          For non-sensitive questions, use GitHub Issues. Security concerns should be reported privately through GitHub's security reporting flow rather than in a public issue.
+        </p>
+        <div class="content-actions">
+          <a class="content-action content-action--primary" href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">Open GitHub Issues</a>
+          <a class="content-action" href={`${REPO_URL}/security/advisories/new`} target="_blank" rel="noopener noreferrer">Report a security concern</a>
+        </div>
+      </div>
+    </section>
+  </Prose>
+</Layout>

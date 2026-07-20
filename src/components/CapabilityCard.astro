@@ -1,0 +1,135 @@
+---
+import {
+  faBookmark,
+  faCalendarCheck,
+  faChartBar,
+  faFileLines,
+  faImage,
+  faPenToSquare,
+} from "@fortawesome/free-regular-svg-icons";
+
+interface Props {
+  kind: "literature" | "planning" | "analysis" | "figures" | "writing" | "citations";
+  label: string;
+  description: string;
+}
+
+const { kind, label, description } = Astro.props;
+const icons = {
+  literature: faFileLines,
+  planning: faCalendarCheck,
+  analysis: faChartBar,
+  figures: faImage,
+  writing: faPenToSquare,
+  citations: faBookmark,
+};
+const icon = icons[kind];
+const [iconWidth, iconHeight, , , iconPathData] = icon.icon;
+const iconPaths = Array.isArray(iconPathData) ? iconPathData : [iconPathData];
+---
+
+<li class={`capability-card capability-card--${kind}`}>
+  <span class="capability-card__icon" aria-hidden="true">
+    <svg viewBox={`0 0 ${iconWidth} ${iconHeight}`}>
+      {iconPaths.map((path) => <path d={path}></path>)}
+    </svg>
+  </span>
+  <span class="capability-card__copy">
+    <span class="capability-card__label">{label}</span>
+    <span class="capability-card__description">{description}</span>
+  </span>
+</li>
+
+<style>
+  .capability-card {
+    min-width: 0;
+    min-height: 6.45rem;
+    display: grid;
+    grid-template-columns: 1.45rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.95rem;
+    padding: 1rem 1.05rem;
+    border-radius: 0.72rem;
+    background: transparent;
+    color: var(--ink);
+    transition: background-color 220ms var(--ease-out);
+  }
+
+  .capability-card__icon {
+    width: 1.45rem;
+    height: 1.45rem;
+    display: grid;
+    place-items: center;
+    color: color-mix(in srgb, var(--ink-muted) 58%, transparent);
+  }
+
+  .capability-card__icon svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: currentColor;
+  }
+
+  .capability-card__copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.34rem;
+  }
+
+  .capability-card__label {
+    color: var(--ink);
+    font-size: 0.94rem;
+    font-weight: 500;
+    letter-spacing: -0.016em;
+    line-height: 1.25;
+  }
+
+  .capability-card__description {
+    color: color-mix(in srgb, var(--ink-muted) 76%, white);
+    font-size: 0.79rem;
+    font-weight: 400;
+    letter-spacing: -0.006em;
+    line-height: 1.46;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .capability-card:hover {
+      background: #faf9f6;
+    }
+
+  }
+
+  @media (max-width: 600px) {
+    .capability-card {
+      min-height: 6rem;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.5rem;
+      padding: 0.85rem 0.35rem;
+      border-radius: 0.6rem;
+    }
+
+    .capability-card__icon {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+
+    .capability-card__icon svg {
+      width: 0.9rem;
+      height: 0.9rem;
+    }
+
+    .capability-card__label {
+      font-size: 0.84rem;
+    }
+
+    .capability-card__description {
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .capability-card {
+      transition-duration: 0.01ms;
+    }
+  }
+</style>

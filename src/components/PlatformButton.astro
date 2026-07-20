@@ -1,0 +1,195 @@
+---
+import { faApple, faLinux, faWindows } from "@fortawesome/free-brands-svg-icons";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
+
+import type { DownloadAssetKey } from "../lib/releases";
+
+interface Props {
+  platform: "macOS" | "Windows" | "Linux";
+  tone: "burgundy" | "slate";
+  href: string;
+  assetKey?: DownloadAssetKey;
+}
+
+const { platform, tone, href, assetKey } = Astro.props;
+const icons = {
+  macOS: faApple,
+  Windows: faWindows,
+  Linux: faLinux,
+};
+const icon = icons[platform];
+const [iconWidth, iconHeight, , , iconPathData] = icon.icon;
+const iconPath = Array.isArray(iconPathData) ? iconPathData[0] : iconPathData;
+const [downloadWidth, downloadHeight, , , downloadPathData] = faDownload.icon;
+const downloadPath = Array.isArray(downloadPathData) ? downloadPathData[0] : downloadPathData;
+---
+
+<a
+  class={`platform-button platform-button--${tone}`}
+  href={href}
+  data-platform-download={assetKey}
+  aria-label={`Download Scient for ${platform}`}
+>
+  <svg class="platform-button__icon" viewBox={`0 0 ${iconWidth} ${iconHeight}`} aria-hidden="true">
+    <path d={iconPath}></path>
+  </svg>
+  <span class="platform-button__label">{platform}</span>
+  <svg class="platform-button__download-icon" viewBox={`0 0 ${downloadWidth} ${downloadHeight}`} aria-hidden="true">
+    <path d={downloadPath}></path>
+  </svg>
+</a>
+
+<script>
+  import { fetchLatestRelease, findDownloadAsset, type DownloadAssetKey } from "../lib/releases";
+
+  const buttons = [
+    ...document.querySelectorAll<HTMLAnchorElement>("[data-platform-download]"),
+  ];
+
+  if (buttons.length > 0) {
+    void fetchLatestRelease()
+      .then((release) => {
+        buttons.forEach((button) => {
+          const key = button.dataset.platformDownload as DownloadAssetKey | undefined;
+          if (!key) return;
+          const asset = findDownloadAsset(release, key);
+          if (asset) button.href = asset.browser_download_url;
+        });
+      })
+      .catch(() => {
+        // The server-rendered platform page remains a reliable fallback.
+      });
+  }
+</script>
+
+<style>
+  .platform-button {
+    --button-accent: var(--burgundy);
+    --button-hover: var(--burgundy-soft);
+    min-height: 5.45rem;
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1.35rem;
+    padding: 1.15rem 2rem;
+    border: 1px solid var(--button-accent);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    font-size: 1.2rem;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0), 0 0 0 rgba(17, 17, 17, 0);
+    will-change: transform, box-shadow;
+    transition:
+      transform 320ms var(--ease-out),
+      border-color 280ms var(--ease-out),
+      background-color 280ms var(--ease-out),
+      color 280ms var(--ease-out),
+      box-shadow 320ms var(--ease-out);
+  }
+
+  .platform-button--slate {
+    --button-accent: var(--slate);
+    --button-hover: var(--slate-soft);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .platform-button:hover {
+      transform: translate3d(5px, -3px, 0);
+      border-color: color-mix(in srgb, var(--button-accent) 82%, var(--ink));
+      background: var(--button-hover);
+      color: color-mix(in srgb, var(--ink) 86%, var(--button-accent));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--button-accent) 10%, transparent),
+        -10px 18px 42px rgba(17, 17, 17, 0.09);
+    }
+
+    .platform-button:hover .platform-button__icon {
+      transform: translate3d(4px, -1px, 0) scale(1.09);
+    }
+
+    .platform-button:hover .platform-button__label {
+      transform: translateX(2px);
+    }
+
+    .platform-button:hover .platform-button__download-icon {
+      opacity: 0.9;
+      transform: translateY(3px) scale(1.04);
+    }
+  }
+
+  .platform-button:active {
+    transform: translate3d(3px, -1px, 0) scale(0.992);
+    box-shadow: 0 8px 20px rgba(17, 17, 17, 0.07);
+  }
+
+  .platform-button:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 5px;
+    transform: translate3d(3px, -2px, 0);
+    box-shadow: 0 14px 34px rgba(17, 17, 17, 0.08);
+  }
+
+  .platform-button__icon {
+    width: 1.9rem;
+    height: 1.9rem;
+    flex: 0 0 auto;
+    fill: currentColor;
+    transition: transform 320ms var(--ease-out);
+  }
+
+  .platform-button__label {
+    transition: transform 320ms var(--ease-out);
+  }
+
+  .platform-button__download-icon {
+    width: 0.9rem;
+    height: 0.9rem;
+    margin-left: auto;
+    flex: 0 0 auto;
+    fill: var(--button-accent);
+    opacity: 0.55;
+    transition: opacity 260ms var(--ease-out), transform 320ms var(--ease-out);
+  }
+
+  @media (max-width: 600px) {
+    .platform-button {
+      min-height: 4.65rem;
+      gap: 1.1rem;
+      padding-inline: 1.5rem;
+      font-size: 1.05rem;
+    }
+
+    .platform-button__icon {
+      width: 1.65rem;
+      height: 1.65rem;
+    }
+
+    .platform-button__download-icon {
+      width: 0.82rem;
+      height: 0.82rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .platform-button,
+    .platform-button__icon,
+    .platform-button__label,
+    .platform-button__download-icon {
+      transition-duration: 0.01ms;
+    }
+
+    .platform-button:hover,
+    .platform-button:active,
+    .platform-button:focus-visible,
+    .platform-button:hover .platform-button__icon,
+    .platform-button:hover .platform-button__label,
+    .platform-button:hover .platform-button__download-icon {
+      transform: none;
+    }
+  }
+</style>

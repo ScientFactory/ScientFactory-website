@@ -1,0 +1,393 @@
+---
+// FILE: Layout.astro
+// Purpose: Shared metadata, navigation, theme tokens, and footer for Scient's marketing pages.
+// Layer: Marketing layout
+// Depends on: release repo metadata from ../lib/releases and bundled Scient brand assets.
+
+import "@fontsource-variable/dm-sans";
+import { REPO_URL } from "../lib/releases";
+
+interface Props {
+  title?: string;
+  description?: string;
+  theme?: "dark" | "light";
+  robots?: string;
+}
+
+const {
+  title = "Scient",
+  description = "One intelligent workspace for every stage of research.",
+  theme = "dark",
+  robots,
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, "https://scientfactory.com");
+const brandIcon = theme === "light" ? "/scient-symbol.svg" : "/icon.png";
+const currentPath = Astro.url.pathname;
+
+const primaryLinks = [
+  { href: "/about", label: "About", active: currentPath === "/about" },
+  { href: "/docs", label: "Docs", active: currentPath.startsWith("/docs") },
+] as const;
+---
+
+<html lang="en" data-theme={theme}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    {robots && <meta name="robots" content={robots} />}
+    <meta name="theme-color" content={theme === "light" ? "#ffffff" : "#09090b"} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ScientFactory" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+
+    <div class="page">
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="/" class="nav-brand" aria-label="Scient home">
+          <img src={brandIcon} alt="" class="nav-icon" width="42" height="45" />
+          <span class="nav-wordmark">ScientFactory</span>
+        </a>
+        <div class="nav-links">
+          {primaryLinks.map((link) => (
+            <a href={link.href} class="nav-link" aria-current={link.active ? "page" : undefined}>
+              {link.label}
+            </a>
+          ))}
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="nav-link nav-github"
+          >
+            <span>GitHub</span>
+            <span class="nav-github-arrow" aria-hidden="true">&#8599;</span>
+          </a>
+        </div>
+      </nav>
+
+      <main id="main-content" class="main">
+        <slot />
+      </main>
+
+      <footer class="footer">
+        <span class="footer-copy">&copy; {new Date().getFullYear()} ScientFactory</span>
+        <div class="footer-links">
+          <a href="/privacy">Privacy</a>
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">Issues</a>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --surface: #ffffff;
+    --surface-muted: #f6f7f8;
+    --ink: #111111;
+    --ink-muted: #474747;
+    --ink-dim: #6c6c70;
+    --burgundy: #541b1d;
+    --burgundy-soft: #fbf6f6;
+    --slate: #526687;
+    --slate-soft: #f5f7fb;
+    --line: #dedfe2;
+    --focus-ring: rgba(82, 102, 135, 0.3);
+    --radius-sm: 6px;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --page-gutter: clamp(1.25rem, 5vw, 5.75rem);
+    --bg: var(--surface);
+    --fg: var(--ink);
+    --fg-muted: var(--ink-muted);
+    --fg-dim: var(--ink-dim);
+    --border: var(--line);
+    color-scheme: light;
+  }
+
+  html[data-theme="dark"] {
+    --surface: #09090b;
+    --surface-muted: #131316;
+    --ink: #fafafa;
+    --ink-muted: #a1a1aa;
+    --ink-dim: #71717a;
+    --line: rgba(255, 255, 255, 0.08);
+    --focus-ring: rgba(250, 250, 250, 0.25);
+    color-scheme: dark;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-width: 320px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: "DM Sans Variable", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  img,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  .skip-link {
+    position: fixed;
+    z-index: 100;
+    top: 0.75rem;
+    left: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--radius-sm);
+    background: var(--ink);
+    color: var(--surface);
+    transform: translateY(-160%);
+    transition: transform 180ms var(--ease-out);
+  }
+
+  .skip-link:focus {
+    transform: translateY(0);
+  }
+
+  @keyframes reveal-up {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes geometry-in {
+    from {
+      opacity: 0;
+      transform: translate3d(3rem, -1rem, 0) scale(1.02);
+    }
+    to {
+      opacity: var(--geometry-opacity, 0.1);
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+
+<style>
+  .page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: clip;
+  }
+
+  .nav {
+    position: relative;
+    z-index: 10;
+    min-height: 7rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.75rem clamp(3rem, 3.4vw, 3.25rem);
+  }
+
+  .nav-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.78rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .nav-icon {
+    width: 3rem;
+    height: 3.2rem;
+    object-fit: contain;
+    flex: 0 0 auto;
+    transition: transform 260ms var(--ease-out);
+  }
+
+  html[data-theme="dark"] .nav-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-sm);
+  }
+
+  .nav-wordmark {
+    font-size: 1.9rem;
+    font-weight: 500;
+    letter-spacing: -0.045em;
+  }
+
+  .nav-brand:hover .nav-icon {
+    transform: translateY(-1px) scale(1.025);
+  }
+
+  .nav-brand:focus-visible,
+  .nav-link:focus-visible,
+  .nav-github:focus-visible,
+  .footer-links a:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 5px;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: clamp(1.15rem, 2.1vw, 2.15rem);
+  }
+
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid transparent;
+    color: var(--ink);
+    font-size: 1rem;
+    transition: border-color 220ms var(--ease-out), color 220ms var(--ease-out);
+  }
+
+  .nav-link:hover,
+  .nav-link[aria-current="page"] {
+    color: var(--burgundy);
+    border-bottom-color: currentColor;
+  }
+
+  .nav-github-arrow {
+    display: inline-block;
+    font-size: 0.88em;
+    transition: transform 220ms var(--ease-out);
+  }
+
+  .nav-github:hover .nav-github-arrow {
+    transform: translate(2px, -2px);
+  }
+
+  .main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .footer {
+    min-height: 5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.5rem var(--page-gutter);
+    border-top: 1px solid var(--line);
+    color: var(--ink-dim);
+    font-size: 0.82rem;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 1.25rem;
+  }
+
+  .footer-links a {
+    transition: color 220ms var(--ease-out);
+  }
+
+  .footer-links a:hover {
+    color: var(--ink);
+  }
+
+  @media (max-width: 640px) {
+    .nav {
+      min-height: 5.5rem;
+      padding-block: 1.15rem;
+      padding-inline: var(--page-gutter);
+    }
+
+    .nav-brand {
+      gap: 0.7rem;
+    }
+
+    .nav-icon {
+      width: 2.05rem;
+      height: 2.2rem;
+    }
+
+    .nav-wordmark {
+      font-size: 1.2rem;
+    }
+
+    .nav-github {
+      display: none;
+    }
+
+    .nav-links {
+      gap: 1.1rem;
+    }
+
+    .nav-link {
+      font-size: 0.9rem;
+    }
+
+    .footer {
+      align-items: flex-start;
+      flex-direction: column;
+      padding-block: 1.5rem;
+    }
+
+    .footer-links {
+      flex-wrap: wrap;
+      gap: 0.75rem 1.1rem;
+    }
+  }
+</style>

@@ -1,0 +1,375 @@
+---
+// FILE: Prose.astro
+// Purpose: Shared editorial shell for ScientFactory's small public information pages.
+// Layer: Marketing component
+// Depends on: global visual tokens from Layout.astro and the bundled Scient symbol.
+
+interface Props {
+  eyebrow: string;
+  title: string;
+  intro: string;
+}
+
+const { eyebrow, title, intro } = Astro.props;
+---
+
+<article class="prose-page">
+  <img
+    class="prose-page__geometry"
+    src="/scient-symbol.svg"
+    alt=""
+    width="376"
+    height="400"
+    aria-hidden="true"
+    decoding="async"
+  />
+
+  <header class="prose-hero">
+    <p class="prose-eyebrow">{eyebrow}</p>
+    <h1>{title}</h1>
+    <p class="prose-intro">{intro}</p>
+  </header>
+
+  <div class="prose-content">
+    <slot />
+  </div>
+</article>
+
+<style>
+  .prose-page {
+    position: relative;
+    isolation: isolate;
+    overflow: clip;
+    min-height: calc(100svh - 12rem);
+    padding: clamp(3.5rem, 8vw, 7.5rem) var(--page-gutter) clamp(5rem, 10vw, 8rem);
+  }
+
+  .prose-page__geometry {
+    position: absolute;
+    z-index: -1;
+    top: 3.5rem;
+    right: clamp(-14rem, -8vw, -7rem);
+    width: clamp(22rem, 34vw, 36rem);
+    height: auto;
+    opacity: 0.045;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .prose-hero,
+  .prose-content {
+    width: min(100%, 66rem);
+    margin-inline: auto;
+  }
+
+  .prose-hero {
+    padding-bottom: clamp(3.5rem, 7vw, 6.25rem);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .prose-eyebrow {
+    margin: 0 0 1.1rem;
+    color: var(--burgundy);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+
+  .prose-hero h1 {
+    max-width: 54rem;
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(3.25rem, 7vw, 6.5rem);
+    font-weight: 500;
+    letter-spacing: -0.06em;
+    line-height: 0.98;
+    text-wrap: balance;
+  }
+
+  .prose-intro {
+    max-width: 45rem;
+    margin: clamp(2rem, 4vw, 3.25rem) 0 0;
+    color: var(--ink-muted);
+    font-size: clamp(1.12rem, 1.7vw, 1.38rem);
+    letter-spacing: -0.02em;
+    line-height: 1.58;
+  }
+
+  .prose-content {
+    display: grid;
+    gap: 0;
+  }
+
+  :global(.content-section) {
+    display: grid;
+    grid-template-columns: minmax(8.5rem, 0.28fr) minmax(0, 0.72fr);
+    gap: clamp(2rem, 7vw, 6rem);
+    padding: clamp(3.5rem, 7vw, 5.75rem) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  :global(.content-section:last-child) {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  :global(.content-section__label) {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 0.79rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  :global(.content-section__body) {
+    min-width: 0;
+  }
+
+  :global(.content-section__body > :first-child) {
+    margin-top: 0;
+  }
+
+  :global(.content-section__body > :last-child) {
+    margin-bottom: 0;
+  }
+
+  :global(.content-section h2) {
+    max-width: 38rem;
+    margin: 0 0 1.5rem;
+    color: var(--ink);
+    font-size: clamp(1.75rem, 3vw, 2.55rem);
+    font-weight: 500;
+    letter-spacing: -0.045em;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+
+  :global(.content-section p) {
+    max-width: 44rem;
+    margin: 0 0 1.15rem;
+    color: var(--ink-muted);
+    font-size: 1rem;
+    letter-spacing: -0.012em;
+    line-height: 1.7;
+  }
+
+  :global(.content-section strong) {
+    color: var(--ink);
+    font-weight: 550;
+  }
+
+  :global(.content-grid) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 2.25rem;
+  }
+
+  :global(.content-card) {
+    min-height: 9.25rem;
+    padding: 1.35rem 1.4rem;
+    border: 1px solid var(--line);
+    border-radius: 0.8rem;
+    background: color-mix(in srgb, var(--surface-muted) 58%, var(--surface));
+    transition: border-color 220ms var(--ease-out), background-color 220ms var(--ease-out), transform 220ms var(--ease-out);
+  }
+
+  :global(.content-card h3) {
+    margin: 0 0 0.6rem;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 550;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+
+  :global(.content-card p) {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  :global(.content-steps) {
+    display: grid;
+    gap: 0;
+    margin: 2rem 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: content-step;
+  }
+
+  :global(.content-steps li) {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1.25rem 0;
+    border-top: 1px solid var(--line);
+    counter-increment: content-step;
+  }
+
+  :global(.content-steps li::before) {
+    content: counter(content-step, decimal-leading-zero);
+    color: var(--burgundy);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1.7;
+  }
+
+  :global(.content-steps h3) {
+    margin: 0 0 0.35rem;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 550;
+    letter-spacing: -0.018em;
+  }
+
+  :global(.content-steps p) {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.58;
+  }
+
+  :global(.content-callout) {
+    margin-top: 2rem;
+    padding: 1.25rem 1.35rem;
+    border-left: 2px solid var(--burgundy);
+    background: var(--burgundy-soft);
+  }
+
+  :global(.content-callout p) {
+    margin: 0;
+    color: color-mix(in srgb, var(--burgundy) 84%, var(--ink));
+    font-size: 0.91rem;
+    line-height: 1.58;
+  }
+
+  :global(.content-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  :global(.content-action) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.85rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    color: var(--ink);
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: border-color 220ms var(--ease-out), color 220ms var(--ease-out), background-color 220ms var(--ease-out), transform 220ms var(--ease-out);
+  }
+
+  :global(.content-action--primary) {
+    border-color: var(--burgundy);
+    background: var(--burgundy);
+    color: white;
+  }
+
+  :global(.inline-link) {
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--burgundy) 35%, transparent);
+    text-underline-offset: 0.2em;
+    transition: text-decoration-color 180ms var(--ease-out);
+  }
+
+  :global(.inline-link:hover) {
+    text-decoration-color: currentColor;
+  }
+
+  :global(.content-action:focus-visible),
+  :global(.inline-link:focus-visible) {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 4px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    :global(.content-card:hover) {
+      border-color: color-mix(in srgb, var(--slate) 42%, var(--line));
+      background: var(--slate-soft);
+      transform: translateY(-2px);
+    }
+
+    :global(.content-action:hover) {
+      border-color: var(--burgundy);
+      color: var(--burgundy);
+      transform: translateY(-1px);
+    }
+
+    :global(.content-action--primary:hover) {
+      background: color-mix(in srgb, var(--burgundy) 88%, black);
+      color: white;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .prose-page {
+      padding-top: 2.25rem;
+    }
+
+    .prose-page__geometry {
+      top: 2rem;
+      right: -10rem;
+      width: 22rem;
+    }
+
+    .prose-hero {
+      padding-bottom: 3.25rem;
+    }
+
+    .prose-hero h1 {
+      font-size: clamp(2.65rem, 13vw, 4.2rem);
+      line-height: 1;
+    }
+
+    .prose-intro {
+      margin-top: 1.75rem;
+      font-size: 1.04rem;
+    }
+
+    :global(.content-section) {
+      grid-template-columns: 1fr;
+      gap: 1.15rem;
+      padding: 3.25rem 0;
+    }
+
+    :global(.content-grid) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .prose-page {
+      padding-inline: 1.25rem;
+    }
+
+    .prose-hero h1 {
+      font-size: clamp(2.45rem, 12.5vw, 3.25rem);
+      letter-spacing: -0.055em;
+    }
+
+    :global(.content-actions) {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.content-card),
+    :global(.content-action) {
+      transition-duration: 0.01ms;
+    }
+  }
+</style>

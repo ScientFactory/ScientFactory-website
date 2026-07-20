@@ -1,0 +1,373 @@
+---
+import CapabilityCard from "../components/CapabilityCard.astro";
+import MacDownloadMenu from "../components/MacDownloadMenu.astro";
+import PlatformButton from "../components/PlatformButton.astro";
+import Layout from "../layouts/Layout.astro";
+
+const capabilities = [
+  {
+    kind: "literature",
+    label: "Literature review",
+    description: "Find, compare, and synthesize relevant research.",
+  },
+  {
+    kind: "planning",
+    label: "Experiment planning",
+    description: "Shape methods and protocols before the work begins.",
+  },
+  {
+    kind: "analysis",
+    label: "Data analysis",
+    description: "Explore data and turn results into clear evidence.",
+  },
+  {
+    kind: "figures",
+    label: "Figure creation",
+    description: "Create publication-ready scientific visuals.",
+  },
+  {
+    kind: "writing",
+    label: "Scientific writing",
+    description: "Draft and refine manuscripts with focused assistance.",
+  },
+  {
+    kind: "citations",
+    label: "Citation management",
+    description: "Organize references and keep every claim connected.",
+  },
+] as const;
+---
+
+<Layout
+  theme="light"
+  title="ScientFactory — One intelligent workspace for research"
+  description="Scient is an agentic workspace that brings your research tools and AI agents together—from the first question to final publication."
+>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-surface" aria-hidden="true"></div>
+
+    <img
+      class="hero-geometry"
+      src="/scient-symbol.svg"
+      alt=""
+      width="376"
+      height="400"
+      aria-hidden="true"
+      decoding="async"
+    />
+
+    <div class="hero-content">
+      <h1 id="hero-title" class="headline reveal" style="--reveal-delay: 90ms">
+        <span>One intelligent</span>
+        <span>workspace for every</span>
+        <span>stage of your research.</span>
+      </h1>
+
+      <p class="description reveal" style="--reveal-delay: 160ms">
+        Scient is an agentic workspace that brings your research tools and AI agents together—from the first question to final publication.
+      </p>
+
+      <ul class="capabilities reveal" style="--reveal-delay: 230ms" aria-label="Scient capabilities">
+        {capabilities.map((capability) => (
+          <CapabilityCard {...capability} />
+        ))}
+      </ul>
+    </div>
+
+    <aside class="downloads" aria-labelledby="download-title">
+      <div class="downloads-inner reveal" style="--reveal-delay: 310ms">
+        <h2 id="download-title" class="download-title">Download Scient</h2>
+        <div class="download-actions">
+          <MacDownloadMenu />
+          <PlatformButton
+            platform="Windows"
+            tone="slate"
+            href="/download#windows"
+            assetKey="windowsX64"
+          />
+          <PlatformButton
+            platform="Linux"
+            tone="burgundy"
+            href="/download#linux"
+            assetKey="linuxX64"
+          />
+        </div>
+      </div>
+    </aside>
+  </section>
+</Layout>
+
+<style>
+  .hero {
+    position: relative;
+    isolation: isolate;
+    min-height: calc(100svh - 7rem);
+    display: grid;
+    grid-template-columns: minmax(0, 59.1fr) minmax(0, 40.9fr);
+    align-items: start;
+  }
+
+  .hero-surface {
+    position: absolute;
+    z-index: 0;
+    top: -7rem;
+    right: 0;
+    bottom: 0;
+    width: 40.9%;
+    background: #faf9f6;
+    pointer-events: none;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    grid-column: 1;
+    justify-self: center;
+    width: min(100%, 50rem);
+    padding: 1rem clamp(1.5rem, 2.25vw, 3rem) clamp(6rem, 11vh, 8rem)
+      clamp(3.75rem, calc(5.75vw - 0.75rem), 5rem);
+  }
+
+  .hero-geometry {
+    --geometry-opacity: 0.075;
+    position: absolute;
+    z-index: 1;
+    top: 15rem;
+    right: -15.5rem;
+    width: min(46rem, 58vw);
+    height: auto;
+    opacity: var(--geometry-opacity);
+    pointer-events: none;
+    user-select: none;
+    animation: geometry-in 1100ms var(--ease-out) 120ms both;
+  }
+
+  .reveal {
+    opacity: 0;
+    animation: reveal-up 720ms var(--ease-out) var(--reveal-delay, 0ms) forwards;
+  }
+
+  .headline {
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(3.55rem, 5vw, 4.55rem);
+    font-weight: 500;
+    letter-spacing: -0.058em;
+    line-height: 1.13;
+    text-wrap: balance;
+  }
+
+  .headline span {
+    display: block;
+  }
+
+  .description {
+    max-width: 34.75rem;
+    margin: 2.9rem 0 0;
+    color: var(--ink-muted);
+    font-size: clamp(1rem, 1.28vw, 1.15rem);
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    line-height: 1.55;
+  }
+
+  .capabilities {
+    width: min(100%, 40.75rem);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem 0.45rem;
+    margin: 2.4rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .downloads {
+    position: relative;
+    z-index: 3;
+    grid-column: 2;
+    min-width: 0;
+    padding: 2.75rem clamp(3.5rem, 4.4vw, 4.5rem) 6rem clamp(4.5rem, 6vw, 5.75rem);
+  }
+
+  .downloads-inner {
+    position: relative;
+    z-index: 2;
+    width: min(100%, 21.25rem);
+  }
+
+  .download-title {
+    margin: 0 0 2.1rem;
+    color: var(--ink);
+    font-size: clamp(1.85rem, 2.35vw, 2.2rem);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+  }
+
+  .download-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.55rem;
+  }
+
+  @media (max-width: 1120px) {
+    .hero {
+      grid-template-columns: minmax(0, 60fr) minmax(0, 40fr);
+    }
+
+    .hero-surface {
+      width: 40%;
+    }
+
+    .hero-content {
+      width: 100%;
+      padding-inline: clamp(2rem, 4vw, 3.25rem) clamp(1.75rem, 3vw, 2.5rem);
+    }
+
+    .hero-geometry {
+      right: -18rem;
+      width: 43rem;
+      top: 14rem;
+    }
+
+    .headline {
+      font-size: clamp(2.85rem, 5.25vw, 3.6rem);
+    }
+
+    .downloads {
+      padding-inline: clamp(2.75rem, 5vw, 4rem) clamp(2rem, 4vw, 3.5rem);
+    }
+  }
+
+  @media (max-width: 860px) {
+    .hero {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+
+    .hero-surface {
+      display: none;
+    }
+
+    .hero-content {
+      grid-column: 1;
+      width: 100%;
+      padding: clamp(2.25rem, 8vw, 3rem) var(--page-gutter) clamp(3.5rem, 8vw, 4.5rem);
+    }
+
+    .hero-geometry {
+      --geometry-opacity: 0.055;
+      top: auto;
+      right: -13rem;
+      bottom: 2rem;
+      width: 34rem;
+    }
+
+    .headline {
+      max-width: 39rem;
+      font-size: clamp(2.8rem, 11.4vw, 4rem);
+      line-height: 1.04;
+    }
+
+    .headline span {
+      display: inline;
+    }
+
+    .description {
+      max-width: 36rem;
+      font-size: 1.02rem;
+    }
+
+    .downloads {
+      grid-column: 1;
+      padding: clamp(4rem, 9vw, 5.5rem) var(--page-gutter) clamp(5rem, 12vw, 7rem);
+      background: #faf9f6;
+    }
+
+    .downloads-inner {
+      width: min(100%, 31rem);
+      margin-inline: auto;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .hero-content {
+      --mobile-title-gap: 1.65rem;
+      padding-top: 0;
+    }
+
+    .hero-geometry {
+      display: none;
+    }
+
+    .description {
+      margin-top: var(--mobile-title-gap);
+    }
+
+    .capabilities {
+      width: 100%;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.2rem;
+      margin-top: 1.35rem;
+    }
+
+    .downloads {
+      padding-top: 3.75rem;
+    }
+
+    .download-title {
+      margin-bottom: 1.55rem;
+      font-size: 1.8rem;
+    }
+
+    .download-actions {
+      gap: 0.85rem;
+    }
+  }
+
+  @media (min-width: 431px) and (max-width: 600px) {
+    .headline {
+      font-size: clamp(2.8rem, 10vw, 3.65rem);
+    }
+  }
+
+  @media (max-width: 430px) {
+    .headline,
+    .description {
+      width: min(100%, 21rem);
+      margin-inline: auto;
+      text-align: left;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .hero-content {
+      --mobile-copy-width: 17rem;
+    }
+
+    .headline,
+    .description {
+      width: min(100%, var(--mobile-copy-width));
+      margin-inline: auto;
+      text-align: left;
+    }
+
+    .description {
+      margin-top: var(--mobile-title-gap);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal,
+    .hero-geometry {
+      opacity: 1;
+      animation: none;
+      transform: none;
+    }
+
+    .hero-geometry {
+      opacity: var(--geometry-opacity);
+    }
+
+  }
+</style>

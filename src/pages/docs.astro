@@ -1,0 +1,108 @@
+---
+import Prose from "../components/Prose.astro";
+import Layout from "../layouts/Layout.astro";
+import { REPO_URL } from "../lib/releases";
+---
+
+<Layout
+  theme="light"
+  title="Scient Docs — Get started"
+  description="The essential first steps for installing Scient, opening a project, choosing an AI provider, and starting your first session."
+>
+  <Prose
+    eyebrow="Scient docs"
+    title="Get started with Scient."
+    intro="Scient is an early-access desktop workspace for working with AI agents and the research projects on your computer. This page covers the essential first steps."
+  >
+    <section class="content-section" aria-labelledby="docs-install">
+      <p class="content-section__label">Install</p>
+      <div class="content-section__body">
+        <h2 id="docs-install">Download the right build for your computer.</h2>
+        <p>
+          The <a class="inline-link" href="/download">download page</a> provides the current installers for macOS, Windows, and Linux directly from ScientFactory's official GitHub release.
+        </p>
+        <p>
+          It also explains how to choose between Apple Silicon and Intel on macOS and how to handle the first-launch security message on each platform.
+        </p>
+        <div class="content-actions">
+          <a class="content-action content-action--primary" href="/download">Open the download page</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="docs-first-project">
+      <p class="content-section__label">First project</p>
+      <div class="content-section__body">
+        <h2 id="docs-first-project">Begin with a project you already understand.</h2>
+        <ol class="content-steps">
+          <li>
+            <div>
+              <h3>Open a project folder</h3>
+              <p>Add a local folder containing the files or work you want Scient and its agents to help with.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Choose an available provider</h3>
+              <p>Scient works with supported AI tools installed and authorized on your computer. Choose the provider you want for the new thread.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Start a focused thread</h3>
+              <p>Describe one concrete task, provide the necessary context, and review the agent's proposed work as it progresses.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Keep the work visible</h3>
+              <p>Use Scient's chat, terminal, browser, and review surfaces to understand what changed before accepting the result.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="docs-basics">
+      <p class="content-section__label">The basics</p>
+      <div class="content-section__body">
+        <h2 id="docs-basics">A few concepts are enough to find your way around.</h2>
+        <div class="content-grid">
+          <article class="content-card">
+            <h3>Projects</h3>
+            <p>A project connects Scient to a local folder and keeps related work together.</p>
+          </article>
+          <article class="content-card">
+            <h3>Threads</h3>
+            <p>Each thread is a focused conversation with an agent about a particular task.</p>
+          </article>
+          <article class="content-card">
+            <h3>Providers</h3>
+            <p>You choose which supported AI provider and model powers a session.</p>
+          </article>
+          <article class="content-card">
+            <h3>Workspace tools</h3>
+            <p>Chats, terminals, browser previews, and reviews remain accessible in one workspace.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="docs-help">
+      <p class="content-section__label">Help</p>
+      <div class="content-section__body">
+        <h2 id="docs-help">Expect change, and tell us when something breaks.</h2>
+        <p>
+          Scient is under active development. Features may change between releases, and you may encounter unfinished behavior or platform-specific issues.
+        </p>
+        <div class="content-callout">
+          <p>When reporting a problem, include your operating system, Scient version, the provider you were using, and the shortest sequence that reproduces the issue.</p>
+        </div>
+        <div class="content-actions">
+          <a class="content-action content-action--primary" href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">Open a GitHub issue</a>
+          <a class="content-action" href={`${REPO_URL}/releases`} target="_blank" rel="noopener noreferrer">View releases</a>
+        </div>
+      </div>
+    </section>
+  </Prose>
+</Layout>

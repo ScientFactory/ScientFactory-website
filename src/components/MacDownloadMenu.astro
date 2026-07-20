@@ -1,0 +1,342 @@
+---
+import { faApple } from "@fortawesome/free-brands-svg-icons";
+import { faChevronDown, faDownload } from "@fortawesome/free-solid-svg-icons";
+
+const [appleWidth, appleHeight, , , applePathData] = faApple.icon;
+const applePath = Array.isArray(applePathData) ? applePathData[0] : applePathData;
+const [downloadWidth, downloadHeight, , , downloadPathData] = faDownload.icon;
+const downloadPath = Array.isArray(downloadPathData) ? downloadPathData[0] : downloadPathData;
+const [chevronWidth, chevronHeight, , , chevronPathData] = faChevronDown.icon;
+const chevronPath = Array.isArray(chevronPathData) ? chevronPathData[0] : chevronPathData;
+---
+
+<div class="mac-download" data-mac-download-menu>
+  <button
+    type="button"
+    class="mac-download__trigger"
+    aria-label="Choose a macOS download"
+    aria-controls="mac-download-options"
+    aria-expanded="false"
+  >
+    <svg class="mac-download__apple" viewBox={`0 0 ${appleWidth} ${appleHeight}`} aria-hidden="true">
+      <path d={applePath}></path>
+    </svg>
+    <span>macOS</span>
+    <svg class="mac-download__chevron" viewBox={`0 0 ${chevronWidth} ${chevronHeight}`} aria-hidden="true">
+      <path d={chevronPath}></path>
+    </svg>
+  </button>
+
+  <div
+    class="mac-download__options"
+    id="mac-download-options"
+    role="group"
+    aria-label="macOS architecture"
+    hidden
+  >
+    <a data-mac-asset="macArm64" href="/download#macos">
+      <span>Apple silicon</span>
+      <svg viewBox={`0 0 ${downloadWidth} ${downloadHeight}`} aria-hidden="true">
+        <path d={downloadPath}></path>
+      </svg>
+    </a>
+    <a data-mac-asset="macX64" href="/download#macos">
+      <span>Intel</span>
+      <svg viewBox={`0 0 ${downloadWidth} ${downloadHeight}`} aria-hidden="true">
+        <path d={downloadPath}></path>
+      </svg>
+    </a>
+    <p class="mac-download__status" data-mac-status aria-live="polite">Checking downloads&hellip;</p>
+  </div>
+  <noscript>
+    <style>
+      [data-mac-download-menu] .mac-download__trigger { display: none; }
+      [data-mac-download-menu] .mac-download__options[hidden] { display: grid !important; }
+    </style>
+  </noscript>
+</div>
+
+<script>
+  import { fetchLatestRelease, findDownloadAsset, type DownloadAssetKey } from "../lib/releases";
+
+  const menus = [...document.querySelectorAll<HTMLElement>("[data-mac-download-menu]")];
+
+  menus.forEach((menu) => {
+    const items = [...menu.querySelectorAll<HTMLAnchorElement>("[data-mac-asset]")];
+    const status = menu.querySelector<HTMLElement>("[data-mac-status]");
+    const trigger = menu.querySelector<HTMLButtonElement>(".mac-download__trigger");
+    const options = menu.querySelector<HTMLElement>(".mac-download__options");
+
+    const isOpen = () => menu.hasAttribute("data-open");
+    const setOpen = (open: boolean) => {
+      menu.toggleAttribute("data-open", open);
+      trigger?.setAttribute("aria-expanded", String(open));
+      if (options) options.hidden = !open;
+    };
+
+    trigger?.addEventListener("click", () => setOpen(!isOpen()));
+
+    document.addEventListener("click", (event) => {
+      if (isOpen() && event.target instanceof Node && !menu.contains(event.target)) {
+        setOpen(false);
+      }
+    });
+
+    menu.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && isOpen()) {
+        setOpen(false);
+        trigger?.focus();
+      }
+    });
+
+    void fetchLatestRelease()
+      .then((release) => {
+        let available = 0;
+        items.forEach((item) => {
+          const key = item.dataset.macAsset as DownloadAssetKey | undefined;
+          if (!key) return;
+          const asset = findDownloadAsset(release, key);
+          if (!asset) return;
+          item.href = asset.browser_download_url;
+          available += 1;
+        });
+
+        if (status) {
+          status.textContent =
+            available === items.length
+              ? release.tag_name
+              : available > 0
+                ? `${release.tag_name} · One option unavailable`
+                : "Downloads temporarily unavailable";
+        }
+      })
+      .catch(() => {
+        if (status) status.textContent = "Downloads temporarily unavailable";
+      });
+  });
+</script>
+
+<style>
+  .mac-download {
+    --button-accent: var(--burgundy);
+    --button-hover: var(--burgundy-soft);
+    position: relative;
+    z-index: 8;
+    width: 100%;
+    border-radius: var(--radius-sm);
+    transition: box-shadow 240ms var(--ease-out);
+  }
+
+  .mac-download__trigger {
+    min-height: 5.45rem;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 1.35rem;
+    padding: 1.15rem 2rem;
+    border: 1px solid var(--button-accent);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 1.2rem;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    cursor: pointer;
+    text-align: left;
+    transition:
+      transform 260ms var(--ease-out),
+      border-color 240ms var(--ease-out),
+      background-color 240ms var(--ease-out),
+      box-shadow 260ms var(--ease-out);
+  }
+
+  .mac-download__apple {
+    width: 1.9rem;
+    height: 1.9rem;
+    flex: 0 0 auto;
+    fill: currentColor;
+  }
+
+  .mac-download__chevron {
+    width: 0.78rem;
+    height: 0.78rem;
+    margin-left: auto;
+    fill: var(--button-accent);
+    opacity: 0.68;
+    transition: transform 220ms var(--ease-out);
+  }
+
+  .mac-download[data-open] .mac-download__trigger {
+    border-color: var(--button-accent);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    background: var(--surface);
+    box-shadow: none;
+  }
+
+  .mac-download[data-open] {
+    box-shadow: 0 14px 34px rgba(17, 17, 17, 0.07);
+  }
+
+  .mac-download[data-open] .mac-download__chevron {
+    transform: rotate(180deg);
+  }
+
+  .mac-download__options {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid var(--button-accent);
+    border-top: 0;
+    border-bottom-right-radius: var(--radius-sm);
+    border-bottom-left-radius: var(--radius-sm);
+    background: var(--surface);
+    animation: mac-options-in 200ms var(--ease-out) both;
+  }
+
+  .mac-download__options[hidden] {
+    display: none;
+  }
+
+  .mac-download__options a {
+    min-width: 0;
+    min-height: 4.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    color: var(--ink);
+    transition:
+      background-color 180ms ease,
+      color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .mac-download__options a + a {
+    border-left: 1px solid var(--button-accent);
+  }
+
+  .mac-download__options a span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.92rem;
+    font-weight: 500;
+    letter-spacing: -0.012em;
+  }
+
+  .mac-download__options a svg {
+    width: 0.78rem;
+    height: 0.78rem;
+    flex: 0 0 auto;
+    fill: var(--burgundy);
+    opacity: 0.72;
+    transition:
+      transform 200ms var(--ease-out),
+      opacity 180ms ease;
+  }
+
+  .mac-download__status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .mac-download:not([data-open]) .mac-download__trigger:hover {
+      border-color: color-mix(in srgb, var(--button-accent) 82%, var(--ink));
+      background: var(--button-hover);
+      box-shadow: -10px 18px 42px rgba(17, 17, 17, 0.09);
+    }
+
+    .mac-download__options a:hover {
+      background: var(--burgundy-soft);
+      color: color-mix(in srgb, var(--ink) 72%, var(--burgundy));
+    }
+
+    .mac-download__options a:hover svg {
+      opacity: 1;
+      transform: translateY(3px) scale(1.04);
+    }
+  }
+
+  .mac-download__trigger:focus-visible,
+  .mac-download[data-open] .mac-download__trigger:focus-visible {
+    outline: 0;
+    box-shadow: inset 0 0 0 3px var(--focus-ring);
+  }
+
+  .mac-download__options a:focus-visible {
+    outline: 0;
+    box-shadow: inset 0 0 0 3px var(--focus-ring);
+  }
+
+  @keyframes mac-options-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.3rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 600px) {
+    .mac-download__trigger {
+      min-height: 4.65rem;
+      gap: 1.1rem;
+      padding-inline: 1.5rem;
+      font-size: 1.05rem;
+    }
+
+    .mac-download__apple {
+      width: 1.65rem;
+      height: 1.65rem;
+    }
+
+    .mac-download__options a {
+      min-height: 3.95rem;
+      gap: 0.5rem;
+      padding-inline: 0.8rem;
+    }
+
+    .mac-download__options a span {
+      font-size: 0.8rem;
+    }
+
+    .mac-download__options a svg {
+      width: 0.7rem;
+      height: 0.7rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mac-download__trigger,
+    .mac-download,
+    .mac-download__apple,
+    .mac-download__chevron,
+    .mac-download__options,
+    .mac-download__options a,
+    .mac-download__options a svg {
+      animation: none;
+      transition-duration: 0.01ms;
+    }
+
+    .mac-download__trigger:hover,
+    .mac-download__trigger:hover .mac-download__apple,
+    .mac-download__options a:hover svg {
+      transform: none;
+    }
+  }
+</style>

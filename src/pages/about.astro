@@ -1,0 +1,68 @@
+---
+import Prose from "../components/Prose.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  theme="light"
+  title="About ScientFactory"
+  description="ScientFactory is building Scient, an AI-native workspace where research tools, context, and agents work together."
+>
+  <Prose
+    eyebrow="About ScientFactory"
+    title="Building a better home for scientific work."
+    intro="ScientFactory is the team building Scient—an AI-native workspace where research tools, context, and agents work together in one focused environment."
+  >
+    <section class="content-section" aria-labelledby="about-why">
+      <p class="content-section__label">Why Scient</p>
+      <div class="content-section__body">
+        <h2 id="about-why">Research should feel connected from beginning to end.</h2>
+        <p>
+          Scientific work moves between papers, notes, data, figures, and writing tools. General-purpose AI assistants often sit outside that workflow, disconnected from the tools, sources, and context the research depends on.
+        </p>
+        <p>
+          We are building Scient to bring those stages into one connected workspace, with agents engineered specifically for scientific work—from the first question to final publication—while keeping the researcher in control of every important decision.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="about-approach">
+      <p class="content-section__label">Our approach</p>
+      <div class="content-section__body">
+        <h2 id="about-approach">AI assistance should strengthen scientific judgment, not obscure it.</h2>
+        <div class="content-grid">
+          <article class="content-card">
+            <h3>Researcher in control</h3>
+            <p>The researcher decides what to ask, what to accept, and what belongs in the final work.</p>
+          </article>
+          <article class="content-card">
+            <h3>Connected context</h3>
+            <p>Sources, analysis, writing, and decisions should remain part of the same continuing research context.</p>
+          </article>
+          <article class="content-card">
+            <h3>Inspectable work</h3>
+            <p>Agent actions and generated work should be visible, reviewable, and open to correction.</p>
+          </article>
+          <article class="content-card">
+            <h3>One continuous workflow</h3>
+            <p>Tools should work together across the research process instead of creating another set of disconnected steps.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="about-development">
+      <p class="content-section__label">In development</p>
+      <div class="content-section__body">
+        <h2 id="about-development">Scient is early, active, and evolving.</h2>
+        <p>
+          Scient is under active development, shaped by real use, and improving one reliable workflow at a time. Download the latest release or start with the basic documentation.
+        </p>
+        <div class="content-actions">
+          <a class="content-action content-action--primary" href="/download">Download Scient</a>
+          <a class="content-action" href="/docs">Read the docs</a>
+        </div>
+      </div>
+    </section>
+  </Prose>
+</Layout>

@@ -1,0 +1,77 @@
+---
+// FILE: 404.astro
+// Purpose: Provide a real not-found response so Cloudflare Pages does not use SPA fallback routing.
+// Layer: Marketing page
+// Depends on: shared marketing layout
+
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  theme="light"
+  title="Page not found — ScientFactory"
+  description="The requested ScientFactory page could not be found."
+  robots="noindex,follow"
+>
+  <section class="not-found" aria-labelledby="not-found-title">
+    <p class="eyebrow">404</p>
+    <h1 id="not-found-title">Page not found.</h1>
+    <p>The page may have moved, or the address may be incorrect.</p>
+    <a href="/">Return to ScientFactory</a>
+  </section>
+</Layout>
+
+<style>
+  .not-found {
+    width: min(42rem, 100%);
+    margin: auto;
+    padding: 5rem var(--page-gutter) 7rem;
+  }
+
+  .eyebrow {
+    margin: 0 0 1rem;
+    color: var(--burgundy);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(2.5rem, 8vw, 4.5rem);
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+  }
+
+  p:not(.eyebrow) {
+    max-width: 34rem;
+    margin: 1.5rem 0 2rem;
+    color: var(--fg-muted);
+    font-size: 1.1rem;
+    line-height: 1.65;
+  }
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-weight: 700;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+
+  a:hover {
+    border-color: var(--ink);
+    background: var(--surface-muted);
+  }
+
+  a:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+</style>

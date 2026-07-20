@@ -1,0 +1,157 @@
+---
+import { faArrowDown } from "@fortawesome/free-solid-svg-icons";
+
+import type { DownloadAssetKey } from "../lib/releases";
+
+interface Props {
+  assetKey: DownloadAssetKey;
+  title: string;
+  detail: string;
+  format: string;
+  tone: "burgundy" | "slate";
+}
+
+const { assetKey, title, detail, format, tone } = Astro.props;
+const [iconWidth, iconHeight, , , iconPathData] = faArrowDown.icon;
+const iconPath = Array.isArray(iconPathData) ? iconPathData[0] : iconPathData;
+---
+
+<a
+  class={`download-card download-card--${tone}`}
+  data-download-asset={assetKey}
+  data-state="loading"
+  aria-disabled="true"
+>
+  <span class="download-card__copy">
+    <strong class="download-card__title">{title}</strong>
+    <span class="download-card__detail" data-download-detail data-default-detail={detail}>{detail}</span>
+  </span>
+  <span class="download-card__meta">
+    <span class="download-card__format">{format}</span>
+    <svg class="download-card__icon" viewBox={`0 0 ${iconWidth} ${iconHeight}`} aria-hidden="true">
+      <path d={iconPath}></path>
+    </svg>
+  </span>
+</a>
+
+<style>
+  .download-card {
+    --download-accent: var(--burgundy);
+    --download-soft: var(--burgundy-soft);
+    min-height: 4.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--surface-muted) 72%, white);
+    transition:
+      transform 280ms var(--ease-out),
+      border-color 240ms var(--ease-out),
+      background-color 240ms var(--ease-out),
+      box-shadow 280ms var(--ease-out),
+      opacity 180ms ease;
+  }
+
+  .download-card--slate {
+    --download-accent: var(--slate);
+    --download-soft: var(--slate-soft);
+  }
+
+  .download-card[data-state="loading"],
+  .download-card[data-state="unavailable"] {
+    cursor: wait;
+    opacity: 0.62;
+  }
+
+  .download-card[data-state="unavailable"] {
+    cursor: not-allowed;
+  }
+
+  .download-card__copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+  }
+
+  .download-card__title {
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.014em;
+  }
+
+  .download-card__detail {
+    color: var(--ink-dim);
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .download-card__meta {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: var(--download-accent);
+  }
+
+  .download-card__format {
+    padding: 0.3rem 0.48rem;
+    border-radius: 0.35rem;
+    background: var(--download-soft);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.025em;
+  }
+
+  .download-card__icon {
+    width: 0.82rem;
+    height: 0.82rem;
+    fill: currentColor;
+    transition: transform 260ms var(--ease-out);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .download-card[data-state="available"]:hover {
+      transform: translateX(4px);
+      border-color: color-mix(in srgb, var(--download-accent) 32%, var(--line));
+      background: color-mix(in srgb, var(--download-soft) 60%, white);
+      box-shadow: 0 10px 24px rgba(17, 17, 17, 0.055);
+    }
+
+    .download-card[data-state="available"]:hover .download-card__icon {
+      transform: translateY(3px);
+    }
+  }
+
+  .download-card:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 4px;
+  }
+
+  @media (max-width: 600px) {
+    .download-card {
+      min-height: 4.6rem;
+      padding: 0.85rem 0.9rem;
+    }
+
+    .download-card__meta {
+      gap: 0.55rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .download-card,
+    .download-card__icon {
+      transition-duration: 0.01ms;
+    }
+
+    .download-card[data-state="available"]:hover,
+    .download-card[data-state="available"]:hover .download-card__icon {
+      transform: none;
+    }
+  }
+</style>
