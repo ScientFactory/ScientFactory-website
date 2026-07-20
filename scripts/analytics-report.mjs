@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 
 const query = `
   SELECT
-    'all_time_event' AS report_section,
+    'legacy_all_time_event' AS report_section,
     event_name AS item,
     COUNT(*) AS event_count,
     MAX(occurred_at) AS latest_event
@@ -12,7 +12,29 @@ const query = `
   UNION ALL
 
   SELECT
+    'all_time_event' AS report_section,
+    source || ':' || event_name AS item,
+    COUNT(*) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_events
+  GROUP BY source, event_name
+
+  UNION ALL
+
+  SELECT
     '30_day_download' AS report_section,
+    COALESCE(json_extract(properties_json, '$.asset_key'), 'unknown') AS item,
+    COUNT(*) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_events
+  WHERE event_name = 'download_clicked'
+    AND occurred_at >= datetime('now', '-30 days')
+  GROUP BY json_extract(properties_json, '$.asset_key')
+
+  UNION ALL
+
+  SELECT
+    'legacy_30_day_download' AS report_section,
     COALESCE(asset_key, 'unknown') AS item,
     COUNT(*) AS event_count,
     MAX(occurred_at) AS latest_event
@@ -25,6 +47,21 @@ const query = `
 
   SELECT
     '30_day_outbound' AS report_section,
+    COALESCE(json_extract(properties_json, '$.destination_host'), 'unknown') ||
+      COALESCE(json_extract(properties_json, '$.destination_path'), '/') AS item,
+    COUNT(*) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_events
+  WHERE event_name = 'outbound_link_clicked'
+    AND occurred_at >= datetime('now', '-30 days')
+  GROUP BY
+    json_extract(properties_json, '$.destination_host'),
+    json_extract(properties_json, '$.destination_path')
+
+  UNION ALL
+
+  SELECT
+    'legacy_30_day_outbound' AS report_section,
     COALESCE(destination_host, 'unknown') || COALESCE(destination_path, '/') AS item,
     COUNT(*) AS event_count,
     MAX(occurred_at) AS latest_event
@@ -37,6 +74,21 @@ const query = `
 
   SELECT
     '30_day_download_failure' AS report_section,
+    COALESCE(json_extract(properties_json, '$.failure_stage'), 'unknown') || ':' ||
+      COALESCE(json_extract(properties_json, '$.failure_reason'), 'unknown') AS item,
+    COUNT(*) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_events
+  WHERE event_name = 'download_failed'
+    AND occurred_at >= datetime('now', '-30 days')
+  GROUP BY
+    json_extract(properties_json, '$.failure_stage'),
+    json_extract(properties_json, '$.failure_reason')
+
+  UNION ALL
+
+  SELECT
+    'legacy_30_day_download_failure' AS report_section,
     COALESCE(failure_stage, 'unknown') || ':' || COALESCE(failure_reason, 'unknown') AS item,
     COUNT(*) AS event_count,
     MAX(occurred_at) AS latest_event
@@ -44,6 +96,16 @@ const query = `
   WHERE event_name = 'download_failed'
     AND occurred_at >= datetime('now', '-30 days')
   GROUP BY failure_stage, failure_reason
+
+  UNION ALL
+
+  SELECT
+    'posthog_delivery' AS report_section,
+    posthog_state AS item,
+    COUNT(*) AS event_count,
+    MAX(received_at) AS latest_event
+  FROM analytics_events
+  GROUP BY posthog_state
 
   ORDER BY report_section, event_count DESC, item
 `;

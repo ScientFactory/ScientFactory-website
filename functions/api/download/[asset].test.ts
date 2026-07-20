@@ -59,15 +59,20 @@ describe("tracked download redirect", () => {
     expect(context.waitUntil).toHaveBeenCalledTimes(1);
     await context.waitUntil.mock.calls[0]?.[0];
     expect(db.bind).toHaveBeenCalledWith(
+      expect.any(String),
       "download_clicked",
-      "/download",
-      "macArm64",
-      "v0.5.7",
-      "Scient-0.5.7-arm64.dmg",
-      "github.com",
-      "/ScientFactory/scient-desktop/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg",
-      null,
-      null,
+      "product",
+      expect.any(String),
+      expect.stringMatching(/^web-event:/),
+      JSON.stringify({
+        page_path: "/download",
+        asset_key: "macArm64",
+        release_tag: "v0.5.7",
+        asset_name: "Scient-0.5.7-arm64.dmg",
+        destination_host: "github.com",
+        destination_path:
+          "/ScientFactory/scient-desktop/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg",
+      }),
     );
   });
 
@@ -97,15 +102,17 @@ describe("tracked download redirect", () => {
     expect(response.status).toBe(503);
     await context.waitUntil.mock.calls[0]?.[0];
     expect(db.bind).toHaveBeenCalledWith(
+      expect.any(String),
       "download_failed",
-      "/download",
-      "macArm64",
-      null,
-      null,
-      null,
-      null,
-      "release_fetch",
-      "upstream_unavailable",
+      "diagnostic",
+      expect.any(String),
+      expect.stringMatching(/^web-event:/),
+      JSON.stringify({
+        page_path: "/download",
+        asset_key: "macArm64",
+        failure_stage: "release_fetch",
+        failure_reason: "upstream_unavailable",
+      }),
     );
   });
 

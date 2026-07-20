@@ -34,7 +34,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow. The cross-
 
 ## First-party event measurement
 
-Cloudflare D1 stores four anonymous event types:
+Cloudflare D1 stores four anonymous website event types:
 
 - `page_viewed`
 - `download_clicked`
@@ -43,7 +43,7 @@ Cloudflare D1 stores four anonymous event types:
 
 The implementation intentionally stores no IP address, cookie, fingerprint, referrer, or persistent visitor identifier. Counts therefore represent events rather than unique visitors. `download_failed` is limited to a failure in ScientFactory's redirect service; the website cannot observe a transfer failure after GitHub begins serving an installer.
 
-The production binding is `DOWNLOAD_DB`, backed by the `scientfactory-downloads` D1 database. Apply new migrations before deploying code that depends on them:
+The production binding is `DOWNLOAD_DB`, backed by the `scientfactory-downloads` D1 database. New events use the shared `analytics_events` table; the earlier `site_events` table remains as read-only historical data. Apply new migrations before deploying code that depends on them:
 
 ```sh
 bun run db:migrate
@@ -56,3 +56,22 @@ bun run analytics:report
 ```
 
 Local and Cloudflare preview hosts do not write events, which keeps production counts free of development traffic.
+
+## Analytics gateway
+
+The Worker under `workers/events` is ScientFactory's first-party telemetry gateway. Desktop clients submit bounded event batches to `https://events.scientfactory.com/v1/events`; the Worker stores them in D1 first and can then forward anonymous copies to the ScientFactory EU PostHog project. PostHog is an optional analysis layer rather than the primary event store.
+
+Generate binding types and validate the Worker with:
+
+```sh
+bun run events:types
+bun run events:typecheck
+```
+
+Deploy the Worker only from an approved production change:
+
+```sh
+bun run events:deploy
+```
+
+`POSTHOG_PROJECT_TOKEN` is a Cloudflare Worker secret and must never be committed. If it is absent, ingestion continues and events remain queued in D1 for later delivery.

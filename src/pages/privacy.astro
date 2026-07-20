@@ -25,6 +25,9 @@ import { REPO_URL } from "../lib/releases";
           The event database stores the time, page path, and only the details needed for the event—for example, the installer type or the destination website and path. Query strings are discarded. We do not add an IP address, cookie, browser fingerprint, advertising identifier, referrer, or persistent visitor ID to these event records. This means the counts describe events, not unique people or a person's journey through the site.
         </p>
         <p>
+          ScientFactory stores these events first in its Cloudflare database. Anonymous copies may also be processed in ScientFactory's EU-hosted PostHog project so we can analyze product usage. PostHog receives the same limited event details and a new event-specific identifier—not a persistent website visitor profile.
+        </p>
+        <p>
           ScientFactory does not use advertising trackers, behavioral session recording, or cross-site tracking on this website.
         </p>
       </div>
