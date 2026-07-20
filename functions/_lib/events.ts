@@ -1,6 +1,8 @@
 // FILE: events.ts
-// Purpose: Stores a deliberately small, anonymous set of first-party website events.
+// Purpose: Stores a deliberately small set of consent-aware first-party website events.
 // Layer: Cloudflare Pages Function utility
+
+import { cleanSessionId, websiteIdentity, websiteSessionId } from "./identity";
 
 export const SITE_EVENT_NAMES = [
   "page_viewed",
@@ -21,6 +23,7 @@ export interface SiteEvent {
   readonly destinationPath?: string | null;
   readonly failureStage?: string | null;
   readonly failureReason?: string | null;
+  readonly sessionId?: string | null;
 }
 
 export interface SiteEventContext {
@@ -37,8 +40,12 @@ const INSERT_EVENT = `
     privacy_level,
     occurred_at,
     distinct_id,
-    properties_json
-  ) VALUES (?, ?, 'website', ?, ?, ?, ?)
+    properties_json,
+    identity_type,
+    canonical_id,
+    session_id,
+    consent_level
+  ) VALUES (?, ?, 'website', ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const PRODUCTION_HOSTS = new Set(["scientfactory.com", "www.scientfactory.com"]);
@@ -79,8 +86,18 @@ export function shouldPersistSiteEvents(request: Request): boolean {
   return PRODUCTION_HOSTS.has(new URL(request.url).hostname);
 }
 
-export async function insertSiteEvent(db: D1Database, event: SiteEvent): Promise<void> {
+export async function insertSiteEvent(
+  db: D1Database,
+  event: SiteEvent,
+  request?: Request,
+): Promise<void> {
   const eventId = crypto.randomUUID();
+  const identity = request ? websiteIdentity(request) : null;
+  const distinctId = identity?.identityId ?? `web-event:${eventId}`;
+  const occurredAt = new Date().toISOString();
+  const sessionId = identity
+    ? (websiteSessionId(request!) ?? cleanSessionId(event.sessionId))
+    : null;
   const properties = Object.fromEntries(
     Object.entries({
       page_path: cleanPath(event.pagePath),
@@ -94,17 +111,38 @@ export async function insertSiteEvent(db: D1Database, event: SiteEvent): Promise
     }).filter((entry): entry is [string, string] => entry[1] !== null),
   );
 
-  await db
-    .prepare(INSERT_EVENT)
-    .bind(
-      eventId,
-      event.eventName,
-      event.eventName === "download_failed" ? "diagnostic" : "product",
-      new Date().toISOString(),
-      `web-event:${eventId}`,
-      JSON.stringify(properties),
-    )
-    .run();
+  const statements: D1PreparedStatement[] = [];
+  if (identity) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO analytics_identities (
+             identity_id, identity_type, canonical_id, consent_level, first_seen_at, last_seen_at
+           ) VALUES (?, 'web_visitor', ?, 'product', ?, ?)
+           ON CONFLICT(identity_id) DO UPDATE SET
+             last_seen_at = excluded.last_seen_at,
+             consent_level = 'product'`,
+        )
+        .bind(identity.identityId, identity.canonicalId, occurredAt, occurredAt),
+    );
+  }
+  statements.push(
+    db
+      .prepare(INSERT_EVENT)
+      .bind(
+        eventId,
+        event.eventName,
+        event.eventName === "download_failed" ? "diagnostic" : "product",
+        occurredAt,
+        distinctId,
+        JSON.stringify(properties),
+        identity?.identityType ?? "event",
+        identity?.canonicalId ?? distinctId,
+        sessionId,
+        identity?.consentLevel ?? "essential",
+      ),
+  );
+  await db.batch(statements);
 }
 
 export function queueSiteEvent(context: SiteEventContext, event: SiteEvent): void {
@@ -116,7 +154,7 @@ export function queueSiteEvent(context: SiteEventContext, event: SiteEvent): voi
     return;
   }
 
-  const write = insertSiteEvent(db, event).catch((error: unknown) => {
+  const write = insertSiteEvent(db, event, context.request).catch((error: unknown) => {
     console.error(
       JSON.stringify({
         message: "Site event write failed",

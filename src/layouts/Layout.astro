@@ -87,6 +87,9 @@ const primaryLinks = [
       <footer class="footer">
         <span class="footer-copy">&copy; {new Date().getFullYear()} ScientFactory</span>
         <div class="footer-links">
+          <button type="button" class="footer-link-button" data-analytics-settings>
+            Analytics settings
+          </button>
           <a href="/privacy">Privacy</a>
           <a href={REPO_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
           <a href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">Issues</a>
@@ -94,15 +97,64 @@ const primaryLinks = [
       </footer>
     </div>
 
+    <aside class="analytics-consent" data-analytics-consent hidden aria-labelledby="analytics-consent-title">
+      <div class="analytics-consent-copy">
+        <strong id="analytics-consent-title">Help us improve Scient</strong>
+        <p>
+          Allow first-party product analytics to connect visits, downloads, and returning sessions.
+          We do not collect research content. <a href="/privacy">Learn more</a>
+        </p>
+      </div>
+      <div class="analytics-consent-actions">
+        <button type="button" class="analytics-consent-secondary" data-consent-level="essential">
+          Essential only
+        </button>
+        <button type="button" class="analytics-consent-primary" data-consent-level="product">
+          Allow analytics
+        </button>
+      </div>
+    </aside>
+
     <script>
       interface SiteEventPayload {
         readonly event_name: "page_viewed" | "outbound_link_clicked";
         readonly page_path: string;
         readonly destination_url?: string;
+        readonly session_id?: string;
       }
 
       const eventEndpoint = "/api/events";
+      const consentEndpoint = "/api/consent";
+      const consentCookieName = "sf_analytics";
+      const sessionCookieName = "sf_session";
+      const sessionStorageKey = "scientfactory:analytics-session:v1";
       const pagePath = window.location.pathname;
+
+      function consentLevel(): "essential" | "product" | null {
+        const encoded = document.cookie
+          .split(";")
+          .map((part) => part.trim())
+          .find((part) => part.startsWith(`${consentCookieName}=`))
+          ?.slice(consentCookieName.length + 1);
+        return encoded === "essential" || encoded === "product" ? encoded : null;
+      }
+
+      function analyticsSessionId(): string | undefined {
+        if (consentLevel() !== "product") return undefined;
+        try {
+          const existing = sessionStorage.getItem(sessionStorageKey);
+          if (existing?.startsWith("session:")) {
+            document.cookie = `${sessionCookieName}=${existing}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
+            return existing;
+          }
+          const created = `session:${crypto.randomUUID()}`;
+          sessionStorage.setItem(sessionStorageKey, created);
+          document.cookie = `${sessionCookieName}=${created}; Path=/; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
+          return created;
+        } catch {
+          return `session:${crypto.randomUUID()}`;
+        }
+      }
 
       function sendSiteEvent(payload: SiteEventPayload): void {
         const body = JSON.stringify(payload);
@@ -124,7 +176,59 @@ const primaryLinks = [
         });
       }
 
-      sendSiteEvent({ event_name: "page_viewed", page_path: pagePath });
+      const initialSessionId = analyticsSessionId();
+      sendSiteEvent({
+        event_name: "page_viewed",
+        page_path: pagePath,
+        ...(initialSessionId ? { session_id: initialSessionId } : {}),
+      });
+
+      const consentPanel = document.querySelector<HTMLElement>("[data-analytics-consent]");
+      const settingsButtons = document.querySelectorAll<HTMLButtonElement>("[data-analytics-settings]");
+      const consentButtons = document.querySelectorAll<HTMLButtonElement>("[data-consent-level]");
+
+      function showConsentPanel(): void {
+        if (!consentPanel) return;
+        consentPanel.hidden = false;
+        consentPanel.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+      }
+
+      function hideConsentPanel(): void {
+        if (consentPanel) consentPanel.hidden = true;
+      }
+
+      if (consentLevel() === null && consentPanel) consentPanel.hidden = false;
+      settingsButtons.forEach((button) => button.addEventListener("click", showConsentPanel));
+      consentButtons.forEach((button) => {
+        button.addEventListener("click", async () => {
+          const level = button.dataset.consentLevel;
+          if (level !== "essential" && level !== "product") return;
+          consentButtons.forEach((candidate) => (candidate.disabled = true));
+          try {
+            const result = await fetch(consentEndpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: JSON.stringify({ level }),
+            });
+            if (!result.ok) throw new Error("Consent update failed");
+            if (level === "essential") {
+              try {
+                sessionStorage.removeItem(sessionStorageKey);
+                document.cookie = `${sessionCookieName}=; Path=/; Max-Age=0; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
+              } catch {
+                // Storage can be unavailable in hardened browsers.
+              }
+            } else {
+              analyticsSessionId();
+            }
+            consentButtons.forEach((candidate) => (candidate.disabled = false));
+            hideConsentPanel();
+          } catch {
+            consentButtons.forEach((candidate) => (candidate.disabled = false));
+          }
+        });
+      });
 
       document.addEventListener("click", (event) => {
         const target = event.target;
@@ -146,10 +250,12 @@ const primaryLinks = [
           return;
         }
 
+        const sessionId = analyticsSessionId();
         sendSiteEvent({
           event_name: "outbound_link_clicked",
           page_path: pagePath,
           destination_url: destination.href,
+          ...(sessionId ? { session_id: sessionId } : {}),
         });
       });
     </script>
@@ -399,12 +505,105 @@ const primaryLinks = [
     gap: 1.25rem;
   }
 
-  .footer-links a {
+  .footer-link-button {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .footer-links a,
+  .footer-link-button {
     transition: color 220ms var(--ease-out);
   }
 
-  .footer-links a:hover {
+  .footer-links a:hover,
+  .footer-link-button:hover {
     color: var(--ink);
+  }
+
+  .footer-link-button:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 0.25rem;
+  }
+
+  .analytics-consent {
+    position: fixed;
+    z-index: 50;
+    right: clamp(1rem, 3vw, 2rem);
+    bottom: clamp(1rem, 3vw, 2rem);
+    width: min(35rem, calc(100vw - 2rem));
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(18px);
+  }
+
+  .analytics-consent[hidden] {
+    display: none;
+  }
+
+  .analytics-consent-copy strong {
+    display: block;
+    margin-bottom: 0.2rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+
+  .analytics-consent-copy p {
+    margin: 0;
+    color: var(--ink-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .analytics-consent-copy a {
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
+  .analytics-consent-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .analytics-consent-actions button {
+    min-height: 2.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.45rem;
+    cursor: pointer;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    transition: transform 180ms var(--ease-out), background-color 180ms var(--ease-out);
+  }
+
+  .analytics-consent-actions button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .analytics-consent-secondary {
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  .analytics-consent-primary {
+    border-color: var(--burgundy) !important;
+    background: var(--burgundy);
+    color: #fff;
+  }
+
+  .analytics-consent-actions button:disabled {
+    cursor: wait;
+    opacity: 0.6;
   }
 
   @media (max-width: 640px) {
@@ -448,6 +647,19 @@ const primaryLinks = [
     .footer-links {
       flex-wrap: wrap;
       gap: 0.75rem 1.1rem;
+    }
+
+    .analytics-consent {
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+    }
+
+    .analytics-consent-actions {
+      width: 100%;
+    }
+
+    .analytics-consent-actions button {
+      flex: 1;
     }
   }
 </style>

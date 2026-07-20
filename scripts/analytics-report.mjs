@@ -2,6 +2,40 @@ import { spawnSync } from "node:child_process";
 
 const query = `
   SELECT
+    '30_day_identity' AS report_section,
+    identity_type AS item,
+    COUNT(*) AS event_count,
+    MAX(last_seen_at) AS latest_event
+  FROM analytics_identities
+  WHERE last_seen_at >= datetime('now', '-30 days')
+  GROUP BY identity_type
+
+  UNION ALL
+
+  SELECT
+    '30_day_session' AS report_section,
+    source AS item,
+    COUNT(DISTINCT session_id) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_events
+  WHERE session_id IS NOT NULL
+    AND occurred_at >= datetime('now', '-30 days')
+  GROUP BY source
+
+  UNION ALL
+
+  SELECT
+    '30_day_consent' AS report_section,
+    source || ':' || consent_level AS item,
+    COUNT(*) AS event_count,
+    MAX(recorded_at) AS latest_event
+  FROM analytics_consents
+  WHERE recorded_at >= datetime('now', '-30 days')
+  GROUP BY source, consent_level
+
+  UNION ALL
+
+  SELECT
     'legacy_all_time_event' AS report_section,
     event_name AS item,
     COUNT(*) AS event_count,

@@ -6,12 +6,13 @@ function createDatabase() {
   const run = vi.fn().mockResolvedValue({ success: true });
   const bind = vi.fn(() => ({ run }));
   const prepare = vi.fn(() => ({ bind }));
-  return { database: { prepare } as unknown as D1Database, bind, prepare, run };
+  const batch = vi.fn().mockResolvedValue([]);
+  return { database: { prepare, batch } as unknown as D1Database, bind, prepare, run, batch };
 }
 
 function createContext(
   body: unknown,
-  options?: { readonly origin?: string; readonly url?: string },
+  options?: { readonly origin?: string; readonly url?: string; readonly cookie?: string },
 ) {
   const database = createDatabase();
   const url = options?.url ?? "https://scientfactory.com/api/events";
@@ -20,6 +21,7 @@ function createContext(
     headers: {
       "Content-Type": "application/json",
       Origin: options?.origin ?? new URL(url).origin,
+      ...(options?.cookie ? { Cookie: options.cookie } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -55,6 +57,10 @@ describe("browser event endpoint", () => {
       expect.any(String),
       expect.stringMatching(/^web-event:/),
       JSON.stringify({ page_path: "/docs" }),
+      "event",
+      expect.stringMatching(/^web-event:/),
+      null,
+      "essential",
     );
   });
 
@@ -80,6 +86,42 @@ describe("browser event endpoint", () => {
         destination_host: "github.com",
         destination_path: "/ScientFactory/scient-desktop",
       }),
+      "event",
+      expect.stringMatching(/^web-event:/),
+      null,
+      "essential",
+    );
+  });
+
+  it("connects consented events to a stable visitor and session", async () => {
+    const visitorId = "visitor:16ace444-e7c3-4b26-893f-98713188ae52";
+    const sessionId = "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665";
+    const { context, database } = createContext(
+      { event_name: "page_viewed", page_path: "/", session_id: sessionId },
+      { cookie: `sf_analytics=product; sf_visitor=${visitorId}` },
+    );
+
+    const response = await onRequestPost(context);
+
+    expect(response.status).toBe(204);
+    await context.waitUntil.mock.calls[0]?.[0];
+    expect(database.bind).toHaveBeenCalledWith(
+      visitorId,
+      visitorId,
+      expect.any(String),
+      expect.any(String),
+    );
+    expect(database.bind).toHaveBeenCalledWith(
+      expect.any(String),
+      "page_viewed",
+      "product",
+      expect.any(String),
+      visitorId,
+      JSON.stringify({ page_path: "/" }),
+      "web_visitor",
+      visitorId,
+      sessionId,
+      "product",
     );
   });
 

@@ -17,18 +17,21 @@ import { REPO_URL } from "../lib/releases";
     <section class="content-section" aria-labelledby="privacy-analytics">
       <p class="content-section__label">Analytics</p>
       <div class="content-section__body">
-        <h2 id="privacy-analytics">Limited, first-party measurement without visitor profiles.</h2>
+        <h2 id="privacy-analytics">First-party measurement with a clear choice.</h2>
         <p>
           The website records four anonymous events: a page was viewed, a download was clicked, a ScientFactory download redirect failed, or an external link was clicked. These events help us understand which pages and installers are useful and whether the download service is working.
         </p>
         <p>
-          The event database stores the time, page path, and only the details needed for the event—for example, the installer type or the destination website and path. Query strings are discarded. We do not add an IP address, cookie, browser fingerprint, advertising identifier, referrer, or persistent visitor ID to these event records. This means the counts describe events, not unique people or a person's journey through the site.
+          With “Essential only,” each event receives a new event-specific identifier. The database stores the time, page path, and only the details needed for that event—for example, the installer type or destination website and path. Query strings are discarded. These counts describe events, not unique people or a person's journey through the site.
         </p>
         <p>
-          ScientFactory stores these events first in its Cloudflare database. Anonymous copies may also be processed in ScientFactory's EU-hosted PostHog project so we can analyze product usage. PostHog receives the same limited event details and a new event-specific identifier—not a persistent website visitor profile.
+          If you choose “Allow analytics,” we set a random first-party visitor identifier for up to 180 days and create a temporary identifier for the current browser session. This lets us measure returning visits, sessions, and the path from page view to installer download. The identifiers are random: they are not derived from your name, email address, device fingerprint, IP address, or account with another service.
         </p>
         <p>
-          ScientFactory does not use advertising trackers, behavioral session recording, or cross-site tracking on this website.
+          ScientFactory stores events and consent records first in its Cloudflare database. Pseudonymous copies may also be processed in ScientFactory's EU-hosted PostHog project so we can analyze usage and retention. You can change your choice at any time through “Analytics settings” in the footer; choosing “Essential only” removes the persistent visitor cookie.
+        </p>
+        <p>
+          ScientFactory does not use advertising trackers, browser fingerprinting, behavioral session recording, or cross-site tracking on this website. Research content is never included in website analytics events.
         </p>
       </div>
     </section>
@@ -62,12 +65,12 @@ import { REPO_URL } from "../lib/releases";
     <section class="content-section" aria-labelledby="privacy-app">
       <p class="content-section__label">Scient desktop</p>
       <div class="content-section__body">
-        <h2 id="privacy-app">The desktop application and connected AI providers are separate from this website.</h2>
+        <h2 id="privacy-app">Desktop measurement is controlled separately inside Scient.</h2>
         <p>
-          Scient runs as a workspace layer on your computer. When you use a connected AI provider, that provider receives the prompts and supporting context needed for the session under its own terms and privacy policy.
+          Scient runs as a workspace layer on your computer. Its Data &amp; Privacy setting controls whether the app sends no telemetry, essential reliability events, product-usage events, diagnostic events, or voluntary contribution data. Desktop events use a random installation identifier and never derive identity from a connected AI-provider account.
         </p>
         <p>
-          This website notice does not replace the privacy terms of any AI provider you choose to use.
+          Normal product analytics exclude prompts, research documents, filenames, file paths, source text, and generated scientific content. When you use a connected AI provider, that provider receives the prompts and supporting context needed for the session under its own terms and privacy policy. This website notice does not replace those terms.
         </p>
       </div>
     </section>
@@ -77,7 +80,7 @@ import { REPO_URL } from "../lib/releases";
       <div class="content-section__body">
         <h2 id="privacy-changes">We will update this page when the website changes.</h2>
         <p>
-          If we add accounts, forms, more detailed measurement, or other ways of collecting visitor information, this notice will be updated to describe them.
+          If we add Scient accounts, forms, or additional identity links, this notice will be updated before those features are enabled for visitors.
         </p>
         <p>
           For non-sensitive questions, use GitHub Issues. Security concerns should be reported privately through GitHub's security reporting flow rather than in a public issue.
