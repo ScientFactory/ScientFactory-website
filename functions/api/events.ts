@@ -30,7 +30,11 @@ function parseClientEvent(body: unknown, request: Request): SiteEvent | null {
   if (!pagePath) return null;
 
   if (body.event_name === "page_viewed") {
-    return { eventName: "page_viewed", pagePath };
+    return {
+      eventName: "page_viewed",
+      pagePath,
+      sessionId: typeof body.session_id === "string" ? body.session_id : null,
+    };
   }
 
   if (body.event_name === "outbound_link_clicked") {
@@ -40,6 +44,7 @@ function parseClientEvent(body: unknown, request: Request): SiteEvent | null {
     return {
       eventName: "outbound_link_clicked",
       pagePath,
+      sessionId: typeof body.session_id === "string" ? body.session_id : null,
       ...destination,
     };
   }

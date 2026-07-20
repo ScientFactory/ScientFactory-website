@@ -13,6 +13,7 @@
     "test": "vitest run",
     "db:migrate": "wrangler d1 migrations apply scientfactory-downloads --remote",
     "analytics:report": "node scripts/analytics-report.mjs",
+    "identity:link": "node scripts/link-analytics-identity.mjs",
     "events:types": "wrangler types workers/events/worker-configuration.d.ts --config workers/events/wrangler.jsonc --env-interface AnalyticsWorkerBindings --include-runtime false",
     "events:types:check": "wrangler types workers/events/worker-configuration.d.ts --config workers/events/wrangler.jsonc --env-interface AnalyticsWorkerBindings --include-runtime false --check",
     "events:typecheck": "tsc --noEmit --project workers/events/tsconfig.json",

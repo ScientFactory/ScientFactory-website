@@ -22,7 +22,11 @@ const releaseFixture = {
 function createDatabase(run = vi.fn().mockResolvedValue({ success: true })) {
   const bind = vi.fn(() => ({ run }));
   const prepare = vi.fn(() => ({ bind }));
-  return { database: { prepare } as unknown as D1Database, prepare, bind, run };
+  const batch = vi.fn(async (statements: ReadonlyArray<{ run?: () => Promise<unknown> }>) => {
+    await Promise.all(statements.map((statement) => statement.run?.()));
+    return [];
+  });
+  return { database: { prepare, batch } as unknown as D1Database, prepare, bind, run, batch };
 }
 
 function createContext(
@@ -73,6 +77,10 @@ describe("tracked download redirect", () => {
         destination_path:
           "/ScientFactory/scient-desktop/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg",
       }),
+      "event",
+      expect.stringMatching(/^web-event:/),
+      null,
+      "essential",
     );
   });
 
@@ -113,6 +121,10 @@ describe("tracked download redirect", () => {
         failure_stage: "release_fetch",
         failure_reason: "upstream_unavailable",
       }),
+      "event",
+      expect.stringMatching(/^web-event:/),
+      null,
+      "essential",
     );
   });
 
