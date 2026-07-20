@@ -26,7 +26,7 @@ bun run check
 
 ## Deployment
 
-Cloudflare Pages owns production and preview deployment. The project is `scientfactory`, the production branch is `main`, and the build output is `dist/`.
+Cloudflare Pages owns production and preview deployment. The project is `scientfactory-website`, the production branch is `main`, and the build output is `dist/`.
 
 Do not deploy production from a feature branch or store Cloudflare credentials in this repository.
 
