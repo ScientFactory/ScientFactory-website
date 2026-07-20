@@ -93,6 +93,66 @@ const primaryLinks = [
         </div>
       </footer>
     </div>
+
+    <script>
+      interface SiteEventPayload {
+        readonly event_name: "page_viewed" | "outbound_link_clicked";
+        readonly page_path: string;
+        readonly destination_url?: string;
+      }
+
+      const eventEndpoint = "/api/events";
+      const pagePath = window.location.pathname;
+
+      function sendSiteEvent(payload: SiteEventPayload): void {
+        const body = JSON.stringify(payload);
+        if (
+          typeof navigator.sendBeacon === "function" &&
+          navigator.sendBeacon(eventEndpoint, new Blob([body], { type: "application/json" }))
+        ) {
+          return;
+        }
+
+        void fetch(eventEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true,
+          credentials: "same-origin",
+        }).catch(() => {
+          // Measurement must never interrupt navigation or the page experience.
+        });
+      }
+
+      sendSiteEvent({ event_name: "page_viewed", page_path: pagePath });
+
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const link = target.closest<HTMLAnchorElement>("a[href]");
+        if (!link) return;
+
+        let destination: URL;
+        try {
+          destination = new URL(link.href, window.location.href);
+        } catch {
+          return;
+        }
+
+        if (
+          destination.origin === window.location.origin ||
+          (destination.protocol !== "https:" && destination.protocol !== "http:")
+        ) {
+          return;
+        }
+
+        sendSiteEvent({
+          event_name: "outbound_link_clicked",
+          page_path: pagePath,
+          destination_url: destination.href,
+        });
+      });
+    </script>
   </body>
 </html>
 

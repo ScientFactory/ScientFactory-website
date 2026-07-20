@@ -22,7 +22,7 @@ const publicURLs = [
 describe("search discovery files", () => {
   it("allows crawling and advertises the canonical sitemap", () => {
     expect(robots).toBe(
-      "User-agent: *\nAllow: /\n\nSitemap: https://scientfactory.com/sitemap.xml\n",
+      "User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://scientfactory.com/sitemap.xml\n",
     );
   });
 

@@ -10,16 +10,22 @@ import { REPO_URL } from "../lib/releases";
   description="A plain-language explanation of how the ScientFactory website handles visitor information."
 >
   <Prose
-    eyebrow="Last updated 19 July 2026"
+    eyebrow="Last updated 20 July 2026"
     title="Privacy, plainly stated."
     intro="This notice covers the ScientFactory website at scientfactory.com. It describes the website as it operates today."
   >
     <section class="content-section" aria-labelledby="privacy-analytics">
       <p class="content-section__label">Analytics</p>
       <div class="content-section__body">
-        <h2 id="privacy-analytics">No analytics or advertising trackers.</h2>
+        <h2 id="privacy-analytics">Limited, first-party measurement without visitor profiles.</h2>
         <p>
-          The ScientFactory website currently uses no analytics service, tracking pixels, advertising cookies, or behavioral recording tools.
+          The website records four anonymous events: a page was viewed, a download was clicked, a ScientFactory download redirect failed, or an external link was clicked. These events help us understand which pages and installers are useful and whether the download service is working.
+        </p>
+        <p>
+          The event database stores the time, page path, and only the details needed for the event—for example, the installer type or the destination website and path. Query strings are discarded. We do not add an IP address, cookie, browser fingerprint, advertising identifier, referrer, or persistent visitor ID to these event records. This means the counts describe events, not unique people or a person's journey through the site.
+        </p>
+        <p>
+          ScientFactory does not use advertising trackers, behavioral session recording, or cross-site tracking on this website.
         </p>
       </div>
     </section>
@@ -37,9 +43,12 @@ import { REPO_URL } from "../lib/releases";
     <section class="content-section" aria-labelledby="privacy-downloads">
       <p class="content-section__label">Downloads</p>
       <div class="content-section__body">
-        <h2 id="privacy-downloads">Release information comes from GitHub.</h2>
+        <h2 id="privacy-downloads">Installer delivery is completed by GitHub.</h2>
         <p>
           The download page checks ScientFactory's public GitHub release information to locate the latest installer. If the website's release endpoint is unavailable, your browser may request that public information directly from GitHub.
+        </p>
+        <p>
+          When you choose an installer, your browser first requests a ScientFactory download address. The website records the download click and redirects the browser to the official GitHub release file. A <code>download_failed</code> event means our website could not resolve or start that redirect; it cannot detect a later transfer failure after GitHub begins serving the file. GitHub processes the resulting file request under its own privacy terms.
         </p>
         <p>
           Release details may be cached temporarily in your browser's session storage for up to 15 minutes. This avoids repeating the same release lookup and is cleared with the browser session.
@@ -65,7 +74,7 @@ import { REPO_URL } from "../lib/releases";
       <div class="content-section__body">
         <h2 id="privacy-changes">We will update this page when the website changes.</h2>
         <p>
-          If we introduce analytics, accounts, forms, or other ways of collecting visitor information, this notice will be updated to describe them.
+          If we add accounts, forms, more detailed measurement, or other ways of collecting visitor information, this notice will be updated to describe them.
         </p>
         <p>
           For non-sensitive questions, use GitHub Issues. Security concerns should be reported privately through GitHub's security reporting flow rather than in a public issue.

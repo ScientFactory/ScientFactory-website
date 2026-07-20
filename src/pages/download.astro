@@ -250,7 +250,7 @@ const linuxIcon = iconData("Linux");
         }
 
         availableCount += 1;
-        card.href = asset.browser_download_url;
+        card.href = `/api/download/${encodeURIComponent(key)}`;
         card.dataset.state = "available";
         card.removeAttribute("aria-disabled");
         if (detail) {
