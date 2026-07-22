@@ -1,7 +1,6 @@
 ---
 import Prose from "../components/Prose.astro";
 import Layout from "../layouts/Layout.astro";
-import { REPO_URL } from "../lib/releases";
 ---
 
 <Layout
@@ -97,10 +96,6 @@ import { REPO_URL } from "../lib/releases";
         </p>
         <div class="content-callout">
           <p>When reporting a problem, include your operating system, Scient version, the provider you were using, and the shortest sequence that reproduces the issue.</p>
-        </div>
-        <div class="content-actions">
-          <a class="content-action content-action--primary" href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">Open a GitHub issue</a>
-          <a class="content-action" href={`${REPO_URL}/releases`} target="_blank" rel="noopener noreferrer">View releases</a>
         </div>
       </div>
     </section>
