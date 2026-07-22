@@ -24,7 +24,8 @@ const brandIcon = theme === "light" ? "/scient-symbol.svg" : "/icon.png";
 const currentPath = Astro.url.pathname;
 
 const primaryLinks = [
-  { href: "/about", label: "About", active: currentPath === "/about" },
+  { href: "/", label: "Home", active: currentPath === "/" },
+  { href: "/about", label: "About", active: currentPath.startsWith("/about") },
   { href: "/docs", label: "Docs", active: currentPath.startsWith("/docs") },
 ] as const;
 ---
