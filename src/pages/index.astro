@@ -3,6 +3,10 @@ import CapabilityCard from "../components/CapabilityCard.astro";
 import MacDownloadMenu from "../components/MacDownloadMenu.astro";
 import PlatformButton from "../components/PlatformButton.astro";
 import Layout from "../layouts/Layout.astro";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+
+const [closeWidth, closeHeight, , , closePathData] = faXmark.icon;
+const closePath = Array.isArray(closePathData) ? closePathData[0] : closePathData;
 
 const capabilities = [
   {
@@ -77,6 +81,9 @@ const capabilities = [
     <aside class="downloads" aria-labelledby="download-title">
       <div class="downloads-inner reveal" style="--reveal-delay: 310ms">
         <h2 id="download-title" class="download-title">Download Scient</h2>
+        <p class="download-promise">
+          Use Scient for free with the AI subscriptions you already have.
+        </p>
         <div class="download-actions">
           <MacDownloadMenu />
           <PlatformButton
@@ -95,7 +102,119 @@ const capabilities = [
       </div>
     </aside>
   </section>
+
+  <section class="provider-proof" aria-labelledby="provider-title">
+    <div class="provider-proof-inner">
+      <div class="provider-copy">
+        <p class="provider-eyebrow">Multi-provider</p>
+        <h2 id="provider-title">All the leading AI providers, in one place.</h2>
+        <p class="provider-description">
+          Connect the tools and accounts you already use, choose the right model for each task,
+          and switch providers without leaving Scient.
+        </p>
+      </div>
+
+      <figure class="provider-figure">
+        <button
+          type="button"
+          class="provider-visual"
+          aria-label="Enlarge the Scient provider picker screenshot"
+          aria-haspopup="dialog"
+          aria-controls="provider-lightbox"
+          data-provider-lightbox-open
+        >
+          <span class="provider-shot">
+            <img
+              src="/screenshots/provider-picker.png"
+              alt="Scient provider menu showing Codex, Claude, Cursor, Antigravity, Grok, Droid, Kilo, OpenCode, and Pi"
+              width="1838"
+              height="1094"
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
+        </button>
+        <figcaption>Choose and switch providers directly in Scient.</figcaption>
+      </figure>
+    </div>
+
+    <dialog
+      class="provider-lightbox"
+      id="provider-lightbox"
+      aria-label="Enlarged Scient provider picker screenshot"
+      tabindex="-1"
+      data-provider-lightbox
+    >
+      <div class="provider-lightbox__frame" data-provider-lightbox-frame>
+        <button
+          type="button"
+          class="provider-lightbox__close"
+          aria-label="Close enlarged screenshot"
+          data-provider-lightbox-close
+        >
+          <svg viewBox={`0 0 ${closeWidth} ${closeHeight}`} aria-hidden="true">
+            <path d={closePath}></path>
+          </svg>
+        </button>
+        <img
+          class="provider-lightbox__image"
+          src="/screenshots/provider-picker.png"
+          alt="Scient provider menu showing Codex, Claude, Cursor, Antigravity, Grok, Droid, Kilo, OpenCode, and Pi"
+          width="1838"
+          height="1094"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+    </dialog>
+  </section>
 </Layout>
+
+<script>
+  const lightboxTrigger = document.querySelector<HTMLButtonElement>("[data-provider-lightbox-open]");
+  const lightbox = document.querySelector<HTMLDialogElement>("[data-provider-lightbox]");
+  const lightboxFrame = lightbox?.querySelector<HTMLElement>("[data-provider-lightbox-frame]");
+  const lightboxClose = lightbox?.querySelector<HTMLButtonElement>("[data-provider-lightbox-close]");
+  let lightboxReturnFocus: HTMLElement | null = null;
+
+  function closeProviderLightbox(): void {
+    if (lightbox?.open) lightbox.close();
+  }
+
+  lightboxTrigger?.addEventListener("click", () => {
+    if (!lightbox || lightbox.open) return;
+    lightboxReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : lightboxTrigger;
+    lightbox.showModal();
+    document.documentElement.setAttribute("data-provider-lightbox-open", "");
+    lightbox.focus({ preventScroll: true });
+  });
+
+  lightboxClose?.addEventListener("click", closeProviderLightbox);
+
+  lightbox?.addEventListener("click", (event) => {
+    if (event.target === lightbox && lightboxFrame && !lightboxFrame.contains(event.target as Node)) {
+      closeProviderLightbox();
+    }
+  });
+
+  lightbox?.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeProviderLightbox();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && lightbox?.open) {
+      event.preventDefault();
+      closeProviderLightbox();
+    }
+  });
+
+  lightbox?.addEventListener("close", () => {
+    document.documentElement.removeAttribute("data-provider-lightbox-open");
+    if (lightboxReturnFocus?.isConnected) lightboxReturnFocus.focus({ preventScroll: true });
+    lightboxReturnFocus = null;
+  });
+</script>
 
 <style>
   .hero {
@@ -196,7 +315,7 @@ const capabilities = [
   }
 
   .download-title {
-    margin: 0 0 2.1rem;
+    margin: 0;
     color: var(--ink);
     font-size: clamp(1.85rem, 2.35vw, 2.2rem);
     font-weight: 500;
@@ -204,10 +323,231 @@ const capabilities = [
     line-height: 1.1;
   }
 
+  .download-promise {
+    max-width: 20rem;
+    margin: 0.95rem 0 2.1rem;
+    color: var(--ink-muted);
+    font-size: clamp(1rem, 1.15vw, 1.08rem);
+    letter-spacing: -0.018em;
+    line-height: 1.48;
+  }
+
   .download-actions {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1.55rem;
+  }
+
+  .provider-proof {
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .provider-proof-inner {
+    width: min(100%, 86rem);
+    display: grid;
+    grid-template-columns: minmax(19rem, 0.78fr) minmax(33rem, 1.22fr);
+    align-items: center;
+    gap: clamp(4rem, 7vw, 7.5rem);
+    margin-inline: auto;
+    padding: clamp(6rem, 10vw, 9rem) var(--page-gutter);
+  }
+
+  .provider-copy {
+    max-width: 31rem;
+  }
+
+  .provider-eyebrow {
+    margin: 0 0 1.4rem;
+    color: var(--burgundy);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .provider-copy h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(2.7rem, 4vw, 4.15rem);
+    font-weight: 500;
+    letter-spacing: -0.055em;
+    line-height: 1.04;
+    text-wrap: balance;
+  }
+
+  .provider-description {
+    margin: 2rem 0 0;
+    color: var(--ink-muted);
+    font-size: clamp(1rem, 1.3vw, 1.16rem);
+    letter-spacing: -0.018em;
+    line-height: 1.62;
+  }
+
+  .provider-figure {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .provider-visual {
+    width: 100%;
+    display: block;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--slate) 28%, var(--line));
+    border-radius: 0.85rem;
+    background: #ffffff;
+    box-shadow: 0 1.8rem 4.5rem rgba(28, 37, 54, 0.09);
+    color: inherit;
+    cursor: zoom-in;
+    font: inherit;
+    text-align: inherit;
+    transition:
+      border-color 240ms var(--ease-out),
+      box-shadow 240ms var(--ease-out),
+      transform 240ms var(--ease-out);
+  }
+
+  .provider-visual:hover {
+    border-color: color-mix(in srgb, var(--slate) 52%, var(--line));
+    box-shadow: 0 2.1rem 5rem rgba(28, 37, 54, 0.13);
+    transform: translateY(-3px);
+  }
+
+  .provider-visual:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 5px;
+  }
+
+  .provider-shot {
+    position: relative;
+    display: block;
+    aspect-ratio: 6 / 5;
+    overflow: hidden;
+    background: #ffffff;
+  }
+
+  .provider-shot img {
+    position: absolute;
+    top: -44%;
+    left: -99%;
+    width: 215%;
+    max-width: none;
+    height: auto;
+  }
+
+  .provider-figure figcaption {
+    margin-top: 0.85rem;
+    color: var(--ink-dim);
+    font-size: 0.82rem;
+    letter-spacing: -0.01em;
+  }
+
+  .provider-lightbox {
+    width: fit-content;
+    max-width: none;
+    margin: auto;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+  }
+
+  .provider-lightbox:focus {
+    outline: none;
+  }
+
+  .provider-lightbox::backdrop {
+    background: rgba(10, 12, 16, 0.76);
+    backdrop-filter: blur(3px);
+    animation: provider-backdrop-in 180ms ease-out both;
+  }
+
+  .provider-lightbox__frame {
+    position: relative;
+    width: min(84vw, calc(78vh * 1.68), 68rem);
+    aspect-ratio: 1838 / 1094;
+    max-height: 78vh;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.9rem;
+    background: #ffffff;
+    box-shadow: 0 2rem 7rem rgba(0, 0, 0, 0.34);
+    animation: provider-lightbox-in 220ms var(--ease-out) both;
+  }
+
+  .provider-lightbox__image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+  }
+
+  .provider-lightbox__close {
+    position: absolute;
+    z-index: 2;
+    top: 0.7rem;
+    right: 0.7rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    box-shadow: none;
+    color: var(--ink);
+    cursor: pointer;
+    opacity: 0.68;
+    transition:
+      background-color 160ms ease,
+      opacity 160ms ease;
+  }
+
+  .provider-lightbox__close:hover {
+    background: rgba(17, 17, 17, 0.055);
+    opacity: 1;
+  }
+
+  .provider-lightbox__close:focus-visible {
+    background: rgba(255, 255, 255, 0.72);
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+    opacity: 1;
+  }
+
+  .provider-lightbox__close svg {
+    width: 0.78rem;
+    height: 0.78rem;
+    fill: currentColor;
+  }
+
+  :global(html[data-provider-lightbox-open]),
+  :global(html[data-provider-lightbox-open] body) {
+    overflow: hidden;
+  }
+
+  @keyframes provider-lightbox-in {
+    from {
+      opacity: 0;
+      transform: scale(0.975) translateY(0.4rem);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes provider-backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   @media (max-width: 1120px) {
@@ -236,6 +576,11 @@ const capabilities = [
 
     .downloads {
       padding-inline: clamp(2.75rem, 5vw, 4rem) clamp(2rem, 4vw, 3.5rem);
+    }
+
+    .provider-proof-inner {
+      grid-template-columns: minmax(17rem, 0.72fr) minmax(29rem, 1.28fr);
+      gap: clamp(2.5rem, 5vw, 4.5rem);
     }
   }
 
@@ -288,6 +633,22 @@ const capabilities = [
       width: min(100%, 31rem);
       margin-inline: auto;
     }
+
+    .provider-proof-inner {
+      grid-template-columns: 1fr;
+      gap: clamp(2.75rem, 7vw, 4rem);
+      padding-block: clamp(5rem, 11vw, 7rem);
+    }
+
+    .provider-copy,
+    .provider-figure {
+      width: min(100%, 42rem);
+      margin-inline: auto;
+    }
+
+    .provider-copy h2 {
+      max-width: 37rem;
+    }
   }
 
   @media (max-width: 600px) {
@@ -316,12 +677,49 @@ const capabilities = [
     }
 
     .download-title {
-      margin-bottom: 1.55rem;
       font-size: 1.8rem;
+    }
+
+    .download-promise {
+      margin-top: 0.8rem;
+      margin-bottom: 1.55rem;
+      font-size: 1rem;
     }
 
     .download-actions {
       gap: 0.85rem;
+    }
+
+    .provider-proof-inner {
+      padding-block: 4.5rem 5rem;
+    }
+
+    .provider-eyebrow {
+      margin-bottom: 1.1rem;
+    }
+
+    .provider-copy h2 {
+      font-size: clamp(2.35rem, 11vw, 3rem);
+    }
+
+    .provider-description {
+      margin-top: 1.45rem;
+      font-size: 1rem;
+    }
+
+    .provider-figure figcaption {
+      margin-top: 0.7rem;
+    }
+
+    .provider-lightbox__frame {
+      width: min(92vw, calc(80vh * 1.68));
+      max-height: 80vh;
+      border-radius: 0.7rem;
+    }
+
+    .provider-lightbox__close {
+      top: 0.6rem;
+      right: 0.6rem;
     }
   }
 
@@ -359,7 +757,9 @@ const capabilities = [
 
   @media (prefers-reduced-motion: reduce) {
     .reveal,
-    .hero-geometry {
+    .hero-geometry,
+    .provider-lightbox::backdrop,
+    .provider-lightbox__frame {
       opacity: 1;
       animation: none;
       transform: none;
@@ -368,6 +768,5 @@ const capabilities = [
     .hero-geometry {
       opacity: var(--geometry-opacity);
     }
-
   }
 </style>
