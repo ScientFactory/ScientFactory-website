@@ -5,8 +5,6 @@
 // Depends on: release repo metadata from ../lib/releases and bundled Scient brand assets.
 
 import "@fontsource-variable/dm-sans";
-import { REPO_URL } from "../lib/releases";
-
 interface Props {
   title?: string;
   description?: string;
@@ -68,15 +66,6 @@ const primaryLinks = [
               {link.label}
             </a>
           ))}
-          <a
-            href={REPO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="nav-link nav-github"
-          >
-            <span>GitHub</span>
-            <span class="nav-github-arrow" aria-hidden="true">&#8599;</span>
-          </a>
         </div>
       </nav>
 
@@ -91,8 +80,6 @@ const primaryLinks = [
             Analytics settings
           </button>
           <a href="/privacy">Privacy</a>
-          <a href={REPO_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">Issues</a>
         </div>
       </footer>
     </div>
@@ -444,7 +431,6 @@ const primaryLinks = [
 
   .nav-brand:focus-visible,
   .nav-link:focus-visible,
-  .nav-github:focus-visible,
   .footer-links a:focus-visible {
     outline: 3px solid var(--focus-ring);
     outline-offset: 5px;
@@ -471,16 +457,6 @@ const primaryLinks = [
   .nav-link[aria-current="page"] {
     color: var(--burgundy);
     border-bottom-color: currentColor;
-  }
-
-  .nav-github-arrow {
-    display: inline-block;
-    font-size: 0.88em;
-    transition: transform 220ms var(--ease-out);
-  }
-
-  .nav-github:hover .nav-github-arrow {
-    transform: translate(2px, -2px);
   }
 
   .main {
@@ -624,10 +600,6 @@ const primaryLinks = [
 
     .nav-wordmark {
       font-size: 1.2rem;
-    }
-
-    .nav-github {
-      display: none;
     }
 
     .nav-links {

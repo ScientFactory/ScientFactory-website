@@ -1,7 +1,6 @@
 ---
 import Prose from "../components/Prose.astro";
 import Layout from "../layouts/Layout.astro";
-import { REPO_URL } from "../lib/releases";
 ---
 
 <Layout
@@ -82,13 +81,6 @@ import { REPO_URL } from "../lib/releases";
         <p>
           If we add Scient accounts, forms, or additional identity links, this notice will be updated before those features are enabled for visitors.
         </p>
-        <p>
-          For non-sensitive questions, use GitHub Issues. Security concerns should be reported privately through GitHub's security reporting flow rather than in a public issue.
-        </p>
-        <div class="content-actions">
-          <a class="content-action content-action--primary" href={`${REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">Open GitHub Issues</a>
-          <a class="content-action" href={`${REPO_URL}/security/advisories/new`} target="_blank" rel="noopener noreferrer">Report a security concern</a>
-        </div>
       </div>
     </section>
   </Prose>
