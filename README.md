@@ -9,6 +9,22 @@ The source of truth for [scientfactory.com](https://scientfactory.com), includin
 - A successful merge to `main` triggers the production Cloudflare Pages deployment.
 - Desktop binaries are not built here. Download metadata comes from the latest published release in [`ScientFactory/scient-desktop`](https://github.com/ScientFactory/scient-desktop/releases).
 
+## Repository family
+
+- [`ScientFactory/Scient`](https://github.com/ScientFactory/Scient) owns product
+  policy, architecture, cross-repository planning, and operating procedures.
+- [`ScientFactory/scient-desktop`](https://github.com/ScientFactory/scient-desktop)
+  owns the desktop application and its releases.
+- [`ScientFactory/scient-agent`](https://github.com/ScientFactory/scient-agent)
+  owns the native-agent source foundation.
+- [`ScientFactory/ScientFactory-website`](https://github.com/ScientFactory/ScientFactory-website)
+  owns this website and download experience.
+
+Internal contributors may keep these independent repositories as sibling
+checkouts in one plain local workspace for shared read context. Cross-repository
+changes still require separate branches, worktrees, commits, and pull requests,
+with dependencies stated explicitly.
+
 ## Local development
 
 Requires Bun 1.3.12 and Node.js 24.13.1.
