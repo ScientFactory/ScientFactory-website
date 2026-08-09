@@ -4,7 +4,7 @@ import { EVENT_DEFINITIONS, eventContractViolation } from "./eventContract";
 
 describe("desktop event contract", () => {
   it("keeps the initial registry deliberately bounded", () => {
-    expect(Object.keys(EVENT_DEFINITIONS)).toHaveLength(32);
+    expect(Object.keys(EVENT_DEFINITIONS)).toHaveLength(33);
   });
 
   it("allows higher consent for a lower-level event", () => {
@@ -13,7 +13,11 @@ describe("desktop event contract", () => {
         name: "project.initialization.failed",
         privacyLevel: "essential",
         consentLevel: "diagnostic",
-        properties: { failureClass: "filesystem" },
+        properties: {
+          appVersion: "0.0.32",
+          buildChannel: "development",
+          failureClass: "filesystem",
+        },
       }),
     ).toBeNull();
   });
@@ -25,6 +29,8 @@ describe("desktop event contract", () => {
         privacyLevel: "product",
         consentLevel: "product",
         properties: {
+          appVersion: "0.0.32",
+          buildChannel: "development",
           provider: "codex",
           modelFamily: "gpt-user-custom-name",
           modelKey: "other",

@@ -84,6 +84,26 @@ properties, raw text, and mismatched consent or privacy classifications are
 rejected before storage. The versioned registry and its focused tests live in
 `workers/events/src/eventContract.ts`.
 
+The public desktop endpoint is disabled unless the Cloudflare runtime variable
+`DESKTOP_INGESTION_ENABLED` is exactly `true`. It also requires a random
+installation-owned deletion token and applies the configured Cloudflare rate
+limit per opaque installation ID. It does not use or store an IP address as a
+rate-limit key. Keep the variable absent or false during preparation and use it
+as the immediate ingestion kill switch during a selected-user rollout.
+
+`POST /v1/installations/delete` authenticates an installation, deletes its D1
+events, consent, identity links, and identity record, and queues the matching
+PostHog person and historical-event deletion by opaque distinct ID. A request from an installation that has never uploaded is
+acknowledged idempotently so the desktop can still clear local data and rotate
+its anonymous identity. The scheduled Worker retries a failed PostHog submission
+up to ten times and records a blocked queue item for operator review instead of
+silently claiming success. Do not describe remote deletion as complete while
+the queued PostHog state remains pending or blocked.
+
+The scheduled Worker prunes canonical raw events older than 180 days in
+bounded batches. D1 remains the source of truth for retention and delivery;
+dashboard filters are not retention controls.
+
 Website visitors, desktop installations, sessions, and future Scient accounts use separate opaque identifiers. The service-authenticated `POST /v1/identity/link` endpoint can connect a visitor or installation to an account after Scient's account service has authenticated that user. Browser and desktop clients cannot call this endpoint directly or claim an account identifier. Linking updates first-party historical events without changing the user's analytics choice; the corresponding anonymous-to-account PostHog identity event is forwarded only for product-or-higher consent.
 
 Generate binding types and validate the Worker with:
@@ -99,7 +119,21 @@ Deploy the Worker only from an approved production change:
 bun run events:deploy
 ```
 
-`POSTHOG_PROJECT_TOKEN` and `IDENTITY_LINK_TOKEN` are Cloudflare Worker secrets and must never be committed. If the PostHog token is absent, ingestion continues and events remain queued in D1 for later delivery. If the identity-link token is absent, account linking returns `503` while ordinary ingestion continues.
+`POSTHOG_PROJECT_TOKEN`, `POSTHOG_PERSONAL_API_KEY`, and `IDENTITY_LINK_TOKEN`
+are Cloudflare Worker secrets and must never be committed. The personal key is
+used only for queued deletion and needs the narrow `person:write` scope;
+`POSTHOG_PROJECT_ID` selects the project. If the project token is absent,
+ingestion continues and events remain queued in D1 for later delivery. If the
+deletion key or project ID is absent, accepted erasures remain queued in D1. If
+the identity-link token is absent, account linking returns `503` while ordinary
+ingestion continues.
+
+Before any production activation, apply the migration, deploy the reviewed
+Worker, verify that `/health` reports forwarding, deletion, rate limiting, and
+storage ready, run the D1/PostHog reconciliation command, and only
+then set `DESKTOP_INGESTION_ENABLED=true` for the approved cohort. Reversing
+that variable to false stops new desktop ingestion without changing website
+measurement.
 
 The identity-link token is service-to-service authority. Rotate it if it is exposed, and never embed it in website or desktop bundles:
 
@@ -121,13 +155,21 @@ This command is an operational bridge, not a substitute for account authenticati
 ## PostHog dashboards
 
 The managed dashboard manifest is `scripts/posthog-dashboard-manifest.mjs`.
-It records all planned product dashboards and the exact events each one needs.
+It records all planned product dashboards, their source-backed queries, and the
+exact events each one needs.
 The manager is read-only by default and retrieves the personal API key from the
 `scient-posthog-personal-api-key` macOS Keychain item (or the
 `POSTHOG_PERSONAL_API_KEY` environment variable):
 
 ```sh
 bun run analytics:dashboards
+```
+
+Validate every prepared query against PostHog without creating or changing a
+dashboard:
+
+```sh
+bun run analytics:dashboards --validate-queries
 ```
 
 Only dashboards marked current and backed by observed events are eligible for

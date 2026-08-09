@@ -87,6 +87,15 @@ export const EVENT_DEFINITIONS = {
     privacyLevel: "product",
     properties: { method: { kind: "enum", values: ["picker", "drag-drop", "recent", "unknown"] } },
   },
+  "project.add.failed": {
+    privacyLevel: "essential",
+    properties: {
+      stage: {
+        kind: "enum",
+        values: ["validation", "inspection", "registration", "navigation", "unknown"],
+      },
+    },
+  },
   "project.opened": {
     privacyLevel: "product",
     properties: {
@@ -395,7 +404,11 @@ export function eventContractViolation(input: {
     return `Consent level '${input.consentLevel}' does not allow event '${input.name}'`;
   }
 
-  const rules: Readonly<Record<string, PropertyRule>> = definition.properties;
+  const rules: Readonly<Record<string, PropertyRule>> = {
+    appVersion,
+    buildChannel,
+    ...definition.properties,
+  };
   for (const key of Object.keys(input.properties)) {
     if (!Object.hasOwn(rules, key)) {
       return `Unregistered property '${key}' for event '${input.name}'`;

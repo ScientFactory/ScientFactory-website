@@ -11,6 +11,9 @@ const MAX_BATCH_SIZE = 50;
 const MAX_PROPERTIES_BYTES = 16 * 1024;
 const POSTHOG_BATCH_SIZE = 100;
 const POSTHOG_HOST = "https://eu.i.posthog.com";
+const POSTHOG_API_HOST = "https://eu.posthog.com";
+const POSTHOG_DELETION_BATCH_SIZE = 10;
+const POSTHOG_DELETION_MAX_ATTEMPTS = 10;
 const INSTALLATION_TOKEN_HEADER = "X-Scient-Installation-Token";
 const INSTALLATION_TOKEN_PATTERN = /^[0-9a-f]{64}$/i;
 const RAW_EVENT_RETENTION_DAYS = 180;
@@ -18,6 +21,8 @@ const RETENTION_BATCH_SIZE = 5_000;
 
 type AnalyticsEnv = Omit<AnalyticsWorkerBindings, "ANALYTICS_INGESTION_RATE_LIMITER"> & {
   readonly POSTHOG_PROJECT_TOKEN?: string;
+  readonly POSTHOG_PERSONAL_API_KEY?: string;
+  readonly POSTHOG_PROJECT_ID?: string;
   readonly IDENTITY_LINK_TOKEN?: string;
   readonly DESKTOP_INGESTION_ENABLED?: string;
   readonly ANALYTICS_INGESTION_RATE_LIMITER?: RateLimit;
@@ -54,6 +59,12 @@ interface PendingIdentityLinkRow {
   readonly source_identity_id: string;
   readonly canonical_id: string;
   readonly linked_at: string;
+}
+
+interface PendingDeletionRow {
+  readonly request_id: string;
+  readonly posthog_distinct_id: string;
+  readonly posthog_attempts: number;
 }
 
 class RequestValidationError extends Error {}
@@ -310,7 +321,9 @@ function posthogEvent(row: PendingEventRow): Record<string, unknown> {
       consent_level: row.consent_level,
       identity_type: row.identity_type,
       ...(row.session_id ? { $session_id: row.session_id } : {}),
-      $process_person_profile: row.canonical_id.startsWith("account:"),
+      // A minimal pseudonymous person record is necessary for PostHog's
+      // supported distinct-id event deletion API. No person properties are set.
+      $process_person_profile: true,
     },
   };
 }
@@ -483,6 +496,99 @@ export async function flushPendingIdentityLinks(env: AnalyticsEnv): Promise<numb
     ),
   );
   return rows.length;
+}
+
+async function markPosthogDeletionFailure(
+  database: D1Database,
+  row: PendingDeletionRow,
+  errorClass: string,
+): Promise<void> {
+  await database
+    .prepare(
+      `UPDATE analytics_deletion_requests
+          SET posthog_attempts = posthog_attempts + 1,
+              posthog_last_error_class = ?,
+              posthog_state = CASE
+                WHEN posthog_attempts + 1 >= ? THEN 'blocked'
+                ELSE 'pending'
+              END
+        WHERE request_id = ? AND posthog_state = 'pending'`,
+    )
+    .bind(errorClass.slice(0, 120), POSTHOG_DELETION_MAX_ATTEMPTS, row.request_id)
+    .run();
+}
+
+/** Submit accepted installation erasures through PostHog's supported deletion API. */
+export async function flushPendingDeletions(env: AnalyticsEnv): Promise<number> {
+  if (!env.POSTHOG_PERSONAL_API_KEY || !env.POSTHOG_PROJECT_ID) return 0;
+
+  const result = await env.ANALYTICS_DB.prepare(
+    `SELECT request_id, posthog_distinct_id, posthog_attempts
+       FROM analytics_deletion_requests
+      WHERE posthog_state = 'pending'
+      ORDER BY requested_at, request_id
+      LIMIT ?`,
+  )
+    .bind(POSTHOG_DELETION_BATCH_SIZE)
+    .all<PendingDeletionRow>();
+
+  let submitted = 0;
+  for (const row of result.results) {
+    try {
+      const response = await fetch(
+        `${POSTHOG_API_HOST}/api/projects/${encodeURIComponent(env.POSTHOG_PROJECT_ID)}/persons/bulk_delete/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.POSTHOG_PERSONAL_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            distinct_ids: [row.posthog_distinct_id],
+            delete_events: true,
+            delete_recordings: false,
+            keep_person: false,
+          }),
+        },
+      );
+      if (!response.ok) {
+        await markPosthogDeletionFailure(env.ANALYTICS_DB, row, `http-${response.status}`);
+        continue;
+      }
+      const body = (await response.json().catch(() => null)) as {
+        readonly persons_found?: unknown;
+        readonly events_queued_for_deletion?: unknown;
+        readonly deletion_errors?: unknown;
+      } | null;
+      if (
+        body?.persons_found !== 1 ||
+        body.events_queued_for_deletion !== true ||
+        !Array.isArray(body.deletion_errors) ||
+        body.deletion_errors.length !== 0
+      ) {
+        await markPosthogDeletionFailure(env.ANALYTICS_DB, row, "invalid-acknowledgement");
+        continue;
+      }
+      await env.ANALYTICS_DB.prepare(
+        `UPDATE analytics_deletion_requests
+            SET posthog_state = 'completed',
+                posthog_attempts = posthog_attempts + 1,
+                posthog_last_error_class = NULL,
+                completed_at = CURRENT_TIMESTAMP
+          WHERE request_id = ? AND posthog_state = 'pending'`,
+      )
+        .bind(row.request_id)
+        .run();
+      submitted += 1;
+    } catch (error) {
+      await markPosthogDeletionFailure(
+        env.ANALYTICS_DB,
+        row,
+        error instanceof Error ? error.name || "network" : "network",
+      );
+    }
+  }
+  return submitted;
 }
 
 function identityType(identityId: string): "web_visitor" | "desktop_installation" {
@@ -664,11 +770,27 @@ async function handleInstallationDeletion(request: Request, env: AnalyticsEnv): 
     const tokenHash = await sha256(requireInstallationToken(request));
     const installationId = validateDeletionPayload(await readJsonBody(request));
     const identity = await env.ANALYTICS_DB.prepare(
-      "SELECT deletion_token_hash FROM analytics_identities WHERE identity_id = ?",
+      "SELECT deletion_token_hash, canonical_id FROM analytics_identities WHERE identity_id = ?",
     )
       .bind(installationId)
-      .first<{ readonly deletion_token_hash: string | null }>();
-    if (!identity?.deletion_token_hash || identity.deletion_token_hash !== tokenHash) {
+      .first<{
+        readonly deletion_token_hash: string | null;
+        readonly canonical_id: string;
+      }>();
+    // A local installation can ask to delete before its first accepted upload.
+    // There is no remote data to authenticate or erase in that case, so an
+    // idempotent acknowledgement lets the client safely rotate its local id.
+    if (!identity) {
+      return jsonResponse(
+        {
+          accepted: true,
+          local_state: "not_found",
+          posthog_state: "not_required",
+        },
+        202,
+      );
+    }
+    if (!identity.deletion_token_hash || identity.deletion_token_hash !== tokenHash) {
       throw new InstallationAuthenticationError("Installation authentication failed");
     }
 
@@ -677,9 +799,9 @@ async function handleInstallationDeletion(request: Request, env: AnalyticsEnv): 
     await env.ANALYTICS_DB.batch([
       env.ANALYTICS_DB.prepare(
         `INSERT INTO analytics_deletion_requests (
-           request_id, installation_id, requested_at, posthog_state
-         ) VALUES (?, ?, ?, 'pending')`,
-      ).bind(requestId, installationId, requestedAt),
+           request_id, installation_id, posthog_distinct_id, requested_at, posthog_state
+         ) VALUES (?, ?, ?, ?, 'pending')`,
+      ).bind(requestId, installationId, identity.canonical_id, requestedAt),
       env.ANALYTICS_DB.prepare(
         "DELETE FROM analytics_identity_links WHERE source_identity_id = ?",
       ).bind(installationId),
@@ -785,6 +907,10 @@ const worker: ExportedHandler<AnalyticsEnv> = {
           ? "configured"
           : "pending_configuration",
         posthog_forwarding: env.POSTHOG_PROJECT_TOKEN ? "configured" : "pending_configuration",
+        posthog_deletion:
+          env.POSTHOG_PERSONAL_API_KEY && env.POSTHOG_PROJECT_ID
+            ? "configured"
+            : "pending_configuration",
         identity_linking: env.IDENTITY_LINK_TOKEN ? "configured" : "pending_configuration",
       });
     }
@@ -819,6 +945,7 @@ const worker: ExportedHandler<AnalyticsEnv> = {
   async scheduled(_controller, env, context) {
     context.waitUntil(
       pruneExpiredAnalyticsEvents(env.ANALYTICS_DB)
+        .then(() => flushPendingDeletions(env))
         .then(() => flushPendingIdentityLinks(env))
         .then(() => flushPendingEvents(env))
         .catch((error: unknown) => {

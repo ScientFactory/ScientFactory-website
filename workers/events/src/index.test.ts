@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import worker, {
+  flushPendingDeletions,
   flushPendingEvents,
   flushPendingIdentityLinks,
   validateIdentityLinkPayload,
@@ -23,6 +24,8 @@ function validPayload() {
         privacy_level: "product",
         consent_level: "product",
         properties: {
+          appVersion: "0.0.32",
+          buildChannel: "development",
           provider: "codex",
           modelFamily: "openai",
           modelKey: "gpt-5.6-sol",
@@ -212,6 +215,35 @@ describe("event gateway routes", () => {
     expect(database.batch).not.toHaveBeenCalled();
   });
 
+  it("acknowledges deletion when the installation has never uploaded data", async () => {
+    const database = createDatabase();
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/installations/delete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Scient-Installation-Token": INSTALLATION_TOKEN,
+          },
+          body: JSON.stringify({
+            schema_version: 1,
+            installation_id: "installation:16ace444-e7c3-4b26-893f-98713188ae52",
+          }),
+        }),
+      ),
+      gatewayEnv(database.database),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({
+      accepted: true,
+      local_state: "not_found",
+      posthog_state: "not_required",
+    });
+    expect(database.batch).not.toHaveBeenCalled();
+  });
+
   it("rate limits one validated installation without storing its IP address", async () => {
     const database = createDatabase();
     const response = await worker.fetch!(
@@ -271,6 +303,8 @@ describe("event gateway routes", () => {
       expect.any(String),
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       JSON.stringify({
+        appVersion: "0.0.32",
+        buildChannel: "development",
         provider: "codex",
         modelFamily: "openai",
         modelKey: "gpt-5.6-sol",
@@ -436,7 +470,7 @@ describe("identity link validation", () => {
 });
 
 describe("PostHog forwarding", () => {
-  it("forwards stored events without creating PostHog person profiles", async () => {
+  it("forwards stored events with only the deletable pseudonymous person profile", async () => {
     const row = {
       event_id: "8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       event_name: "provider.turn.sent",
@@ -448,7 +482,11 @@ describe("PostHog forwarding", () => {
       identity_type: "desktop_installation",
       session_id: "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       consent_level: "product",
-      properties_json: JSON.stringify({ provider: "codex" }),
+      properties_json: JSON.stringify({
+        appVersion: "0.0.32",
+        buildChannel: "development",
+        provider: "codex",
+      }),
     };
     const run = vi.fn().mockResolvedValue({ success: true });
     const all = vi.fn().mockResolvedValue({ results: [row] });
@@ -475,6 +513,8 @@ describe("PostHog forwarding", () => {
     expect(payload.api_key).toBe("phc_scientfactory_test");
     expect(payload.batch[0]?.properties).toMatchObject({
       provider: "codex",
+      appVersion: "0.0.32",
+      buildChannel: "development",
       event_id: row.event_id,
       $insert_id: row.event_id,
       source: "desktop",
@@ -482,9 +522,53 @@ describe("PostHog forwarding", () => {
       consent_level: "product",
       identity_type: "desktop_installation",
       $session_id: row.session_id,
-      $process_person_profile: false,
+      $process_person_profile: true,
     });
     expect(batch).toHaveBeenCalledOnce();
+  });
+
+  it("submits queued installation erasure through PostHog's distinct-id API", async () => {
+    const row = {
+      request_id: "delete-1",
+      posthog_distinct_id: "installation:16ace444-e7c3-4b26-893f-98713188ae52",
+      posthog_attempts: 0,
+    };
+    const run = vi.fn().mockResolvedValue({ success: true });
+    const all = vi.fn().mockResolvedValue({ results: [row] });
+    const bind = vi.fn(() => ({ run, all }));
+    const prepare = vi.fn((_query: string) => ({ bind }));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          persons_found: 1,
+          persons_deleted: 1,
+          events_queued_for_deletion: true,
+          recordings_queued_for_deletion: false,
+          deletion_errors: [],
+        }),
+        { status: 202, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const submitted = await flushPendingDeletions({
+      ANALYTICS_DB: { prepare, batch: vi.fn() } as unknown as D1Database,
+      POSTHOG_PERSONAL_API_KEY: "phx_person_write_test",
+      POSTHOG_PROJECT_ID: "228610",
+    });
+
+    expect(submitted).toBe(1);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, request] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("https://eu.posthog.com/api/projects/228610/persons/bulk_delete/");
+    expect(new Headers(request?.headers).get("Authorization")).toBe("Bearer phx_person_write_test");
+    expect(JSON.parse(String(request?.body))).toEqual({
+      distinct_ids: [row.posthog_distinct_id],
+      delete_events: true,
+      delete_recordings: false,
+      keep_person: false,
+    });
+    expect(run).toHaveBeenCalledOnce();
   });
 
   it("forwards anonymous-to-account identity events from the first-party link queue", async () => {
