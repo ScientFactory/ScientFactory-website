@@ -4,10 +4,9 @@
 
 import { findDownloadAsset, type DownloadAssetKey } from "../../../src/lib/download-assets";
 import { parseRelease, type Release, type ReleaseAsset } from "../../../src/lib/release-schema";
+import { isOfficialReleaseDownloadUrl } from "../../../src/lib/release-sources";
 import { queueSiteEvent } from "../../_lib/events";
-
-const GITHUB_RELEASE_URL =
-  "https://api.github.com/repos/ScientFactory/scient-desktop/releases/latest";
+import { fetchAuthoritativeRelease } from "../../_lib/releases";
 const DOWNLOAD_ASSET_KEYS = new Set<DownloadAssetKey>([
   "macArm64",
   "macX64",
@@ -33,16 +32,7 @@ function assetKeyFromContext(context: EventContext<Cloudflare.Env, "asset", unkn
 }
 
 function isOfficialDownload(asset: ReleaseAsset): boolean {
-  try {
-    const destination = new URL(asset.browser_download_url);
-    return (
-      destination.protocol === "https:" &&
-      destination.hostname === "github.com" &&
-      destination.pathname.startsWith("/ScientFactory/scient-desktop/releases/download/")
-    );
-  } catch {
-    return false;
-  }
+  return isOfficialReleaseDownloadUrl(asset.browser_download_url);
 }
 
 async function resolveDownload(key: DownloadAssetKey): Promise<{
@@ -51,13 +41,7 @@ async function resolveDownload(key: DownloadAssetKey): Promise<{
 }> {
   let upstream: Response;
   try {
-    upstream = await fetch(GITHUB_RELEASE_URL, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "ScientFactory-download-service",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
+    upstream = await fetchAuthoritativeRelease();
   } catch {
     throw new DownloadResolutionError("release_fetch", "upstream_request_failed");
   }

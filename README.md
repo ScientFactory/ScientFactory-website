@@ -7,14 +7,23 @@ The source of truth for [scientfactory.com](https://scientfactory.com), includin
 - `main` is the production website branch.
 - Pull requests receive CI validation and Cloudflare preview deployments.
 - A successful merge to `main` triggers the production Cloudflare Pages deployment.
-- Desktop binaries are not built here. Download metadata comes from the latest published release in [`ScientFactory/scient-desktop`](https://github.com/ScientFactory/scient-desktop/releases).
+- Desktop binaries are not built here. Download metadata comes from the latest
+  published release in
+  [`ScientFactory/scient-desktop-next`](https://github.com/ScientFactory/scient-desktop-next/releases).
+  Until that repository has its first public release, the resolver falls back
+  to the legacy `ScientFactory/scient-desktop` release. A non-404 failure from
+  the new repository never silently downgrades visitors to an old build.
 
 ## Repository family
 
 - [`ScientFactory/Scient`](https://github.com/ScientFactory/Scient) owns product
   policy, architecture, cross-repository planning, and operating procedures.
+- [`ScientFactory/scient-desktop-next`](https://github.com/ScientFactory/scient-desktop-next)
+  owns the T3-derived successor application and its release source. It becomes
+  the primary desktop application only after the cutover gates pass.
 - [`ScientFactory/scient-desktop`](https://github.com/ScientFactory/scient-desktop)
-  owns the desktop application and its releases.
+  owns the legacy continuity application and the one-time compatibility feed
+  for installed users.
 - [`ScientFactory/scient-agent`](https://github.com/ScientFactory/scient-agent)
   owns the native-agent source foundation.
 - [`ScientFactory/ScientFactory-website`](https://github.com/ScientFactory/ScientFactory-website)

@@ -65,6 +65,20 @@ describe("release metadata", () => {
     expect(findChecksumAsset(release)?.name).toBe("SHA256SUMS.txt");
   });
 
+  it("recognizes the successor Linux x64 artifact name", () => {
+    const release = parseRelease({
+      ...releaseFixture,
+      tag_name: "v0.6.0",
+      assets: [
+        {
+          ...releaseFixture.assets[3],
+          name: "Scient-0.6.0-x64.AppImage",
+        },
+      ],
+    });
+    expect(findDownloadAsset(release, "linuxX64")?.name).toBe("Scient-0.6.0-x64.AppImage");
+  });
+
   it("rejects malformed or incomplete GitHub responses", () => {
     expect(() => parseRelease({ ...releaseFixture, assets: [{ name: "broken" }] })).toThrow(
       "invalid release response",
@@ -91,9 +105,51 @@ describe("release metadata", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/releases/latest", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
+      "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest",
+      expect.any(Object),
+    );
+  });
+
+  it("uses the legacy feed only while the successor has no release", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(Response.json(releaseFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchLatestRelease({ force: true })).resolves.toMatchObject({
+      tag_name: "v0.5.5",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
       "https://api.github.com/repos/ScientFactory/scient-desktop/releases/latest",
       expect.any(Object),
     );
+  });
+
+  it("does not silently downgrade after a successor-feed failure", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchLatestRelease({ force: true })).rejects.toThrow("Release request failed");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not silently downgrade after a successor network failure", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockRejectedValueOnce(new Error("network unavailable"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchLatestRelease({ force: true })).rejects.toThrow(
+      "Successor release request failed",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("coalesces concurrent release requests", async () => {
@@ -124,7 +180,7 @@ describe("release metadata", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(fetchLatestRelease()).resolves.toMatchObject({ tag_name: "v0.5.5" });
-    expect(getItem).toHaveBeenCalledWith("scient-latest-release-v2");
+    expect(getItem).toHaveBeenCalledWith("scient-latest-release-v3");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

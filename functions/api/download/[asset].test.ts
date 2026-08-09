@@ -84,6 +84,44 @@ describe("tracked download redirect", () => {
     );
   });
 
+  it("uses the legacy installer only before the new repository has a release", async () => {
+    const context = createContext("macArm64");
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(Response.json(releaseFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await onRequestHead(context);
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(releaseFixture.assets[0]?.browser_download_url);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts an official successor download URL", async () => {
+    const context = createContext("macArm64");
+    const successor = {
+      ...releaseFixture,
+      tag_name: "v0.6.0",
+      html_url: "https://github.com/ScientFactory/scient-desktop-next/releases/tag/v0.6.0",
+      assets: [
+        {
+          ...releaseFixture.assets[0],
+          name: "Scient-0.6.0-arm64.dmg",
+          browser_download_url:
+            "https://github.com/ScientFactory/scient-desktop-next/releases/download/v0.6.0/Scient-0.6.0-arm64.dmg",
+        },
+      ],
+    };
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(Response.json(successor)));
+
+    const response = await onRequestHead(context);
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(successor.assets[0]?.browser_download_url);
+  });
+
   it("does not let a database failure block a valid redirect", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const db = createDatabase(vi.fn().mockRejectedValue(new Error("database unavailable")));

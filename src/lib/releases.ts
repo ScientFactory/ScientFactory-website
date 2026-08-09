@@ -3,20 +3,23 @@
 // Layer: Marketing utility
 
 import { parseRelease, type Release, type ReleaseAsset } from "./release-schema";
+import {
+  githubLatestReleaseApiUrl,
+  LEGACY_RELEASE_REPOSITORY,
+  PRIMARY_RELEASE_REPOSITORY,
+} from "./release-sources";
 
 export { DOWNLOAD_ASSETS, findDownloadAsset } from "./download-assets";
 export type { DownloadAssetKey } from "./download-assets";
 export { parseRelease } from "./release-schema";
 export type { Release, ReleaseAsset } from "./release-schema";
 
-const REPO = "ScientFactory/scient-desktop";
-const GITHUB_API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const SITE_API_URL = "/api/releases/latest";
-const CACHE_KEY = "scient-latest-release-v2";
+const CACHE_KEY = "scient-latest-release-v3";
 const CACHE_TTL_MS = 15 * 60 * 1000;
 let inFlightRelease: Promise<Release> | null = null;
 
-export const REPO_URL = `https://github.com/${REPO}`;
+export const REPO_URL = `https://github.com/${PRIMARY_RELEASE_REPOSITORY}`;
 export const RELEASES_URL = `${REPO_URL}/releases`;
 export const LATEST_RELEASE_URL = `${RELEASES_URL}/latest`;
 
@@ -81,7 +84,17 @@ async function fetchReleaseFromNetwork(
   const isLocalPreview =
     typeof location !== "undefined" &&
     (location.hostname === "127.0.0.1" || location.hostname === "localhost");
-  const endpoints = isLocalPreview ? [GITHUB_API_URL] : [SITE_API_URL, GITHUB_API_URL];
+  const endpoints = [
+    ...(isLocalPreview ? [] : [{ url: SITE_API_URL, kind: "site" as const }]),
+    {
+      url: githubLatestReleaseApiUrl(PRIMARY_RELEASE_REPOSITORY),
+      kind: "primary" as const,
+    },
+    {
+      url: githubLatestReleaseApiUrl(LEGACY_RELEASE_REPOSITORY),
+      kind: "legacy" as const,
+    },
+  ];
 
   let lastStatus: number | null = null;
   for (const endpoint of endpoints) {
@@ -90,15 +103,21 @@ async function fetchReleaseFromNetwork(
         headers: { Accept: "application/vnd.github+json" },
         ...(signal ? { signal } : {}),
       };
-      const response = await fetch(endpoint, requestInit);
+      const response = await fetch(endpoint.url, requestInit);
       lastStatus = response.status;
-      if (!response.ok) continue;
+      if (!response.ok) {
+        if (endpoint.kind === "primary" && response.status !== 404) break;
+        continue;
+      }
 
       const release = parseRelease(await response.json());
       cacheRelease(release, now);
       return release;
     } catch (error) {
       if (signal?.aborted) throw error;
+      if (endpoint.kind === "primary") {
+        throw new Error("Successor release request failed.", { cause: error });
+      }
     }
   }
 

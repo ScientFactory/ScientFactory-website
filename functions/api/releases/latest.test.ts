@@ -61,6 +61,45 @@ describe("latest release Pages Function", () => {
     expect(put).toHaveBeenCalledTimes(1);
   });
 
+  it("falls back to the legacy release only when the new repository has none", async () => {
+    const put = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("caches", {
+      default: { match: vi.fn().mockResolvedValue(undefined), put },
+    });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(Response.json(releaseFixture));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await onRequestGet(createContext());
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest",
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/repos/ScientFactory/scient-desktop/releases/latest",
+      expect.any(Object),
+    );
+  });
+
+  it("does not hide a new-repository outage behind the legacy release", async () => {
+    vi.stubGlobal("caches", {
+      default: { match: vi.fn().mockResolvedValue(undefined), put: vi.fn() },
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await onRequestGet(createContext());
+
+    expect(response.status).toBe(503);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("returns a non-cacheable 503 when GitHub has no public release", async () => {
     vi.stubGlobal("caches", {
       default: { match: vi.fn().mockResolvedValue(undefined), put: vi.fn() },
