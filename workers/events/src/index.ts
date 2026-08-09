@@ -1,11 +1,11 @@
+import { eventContractViolation, PRIVACY_LEVELS, type PrivacyLevel } from "./eventContract";
+
 const ALLOWED_WEB_ORIGINS = new Set(["https://scientfactory.com", "https://www.scientfactory.com"]);
-const EVENT_NAME_PATTERN = /^[a-z][a-z0-9_.-]{0,79}$/;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const INSTALLATION_ID_PATTERN = /^installation:[0-9a-f-]{36}$/i;
 const VISITOR_ID_PATTERN = /^visitor:[0-9a-f-]{36}$/i;
 const ACCOUNT_ID_PATTERN = /^account:[0-9a-f-]{36}$/i;
 const SESSION_ID_PATTERN = /^session:[0-9a-f-]{36}$/i;
-const PRIVACY_LEVELS = new Set(["essential", "product", "diagnostic", "contribution"]);
 const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_BATCH_SIZE = 50;
 const MAX_PROPERTIES_BYTES = 16 * 1024;
@@ -24,8 +24,8 @@ interface AcceptedEvent {
   readonly identityType: "desktop_installation";
   readonly sessionId: string | null;
   readonly occurredAt: string;
-  readonly privacyLevel: string;
-  readonly consentLevel: string;
+  readonly privacyLevel: PrivacyLevel;
+  readonly consentLevel: PrivacyLevel;
   readonly properties: Record<string, unknown>;
 }
 
@@ -88,7 +88,7 @@ function parseEvent(value: unknown): AcceptedEvent {
   }
 
   const privacyLevel = requireString(value.privacy_level, "privacy_level", /^[a-z]+$/);
-  if (!PRIVACY_LEVELS.has(privacyLevel)) {
+  if (!PRIVACY_LEVELS.includes(privacyLevel as PrivacyLevel)) {
     throw new RequestValidationError("Invalid privacy_level");
   }
 
@@ -109,37 +109,36 @@ function parseEvent(value: unknown): AcceptedEvent {
   if (!INSTALLATION_ID_PATTERN.test(distinctId)) {
     throw new RequestValidationError("Desktop events require an installation identity");
   }
-  const sessionId =
-    value.session_id === undefined || value.session_id === null
-      ? null
-      : requireString(value.session_id, "session_id", SESSION_ID_PATTERN);
-  const consentLevel =
-    value.consent_level === undefined
-      ? privacyLevel
-      : requireString(value.consent_level, "consent_level", /^[a-z]+$/);
-  if (!PRIVACY_LEVELS.has(consentLevel)) {
+  const sessionId = requireString(value.session_id, "session_id", SESSION_ID_PATTERN);
+  const consentLevel = requireString(value.consent_level, "consent_level", /^[a-z]+$/);
+  if (!PRIVACY_LEVELS.includes(consentLevel as PrivacyLevel)) {
     throw new RequestValidationError("Invalid consent_level");
   }
 
+  const name = requireString(value.name, "event name", /^[a-z][a-z0-9_.-]{0,79}$/);
+  const contractViolation = eventContractViolation({
+    name,
+    privacyLevel: privacyLevel as PrivacyLevel,
+    consentLevel: consentLevel as PrivacyLevel,
+    properties,
+  });
+  if (contractViolation) throw new RequestValidationError(contractViolation);
+
   return {
     id: requireString(value.id, "event id", IDENTIFIER_PATTERN),
-    name: requireString(value.name, "event name", EVENT_NAME_PATTERN),
+    name,
     distinctId,
     identityType: "desktop_installation",
     sessionId,
     occurredAt: occurredAtDate.toISOString(),
-    privacyLevel,
-    consentLevel,
+    privacyLevel: privacyLevel as PrivacyLevel,
+    consentLevel: consentLevel as PrivacyLevel,
     properties,
   };
 }
 
 export function validateIngestionPayload(value: unknown): ReadonlyArray<AcceptedEvent> {
-  if (
-    !isRecord(value) ||
-    (value.schema_version !== 1 && value.schema_version !== 2) ||
-    value.source !== "desktop"
-  ) {
+  if (!isRecord(value) || value.schema_version !== 1 || value.source !== "desktop") {
     throw new RequestValidationError("Unsupported event payload");
   }
   if (!Array.isArray(value.events) || value.events.length < 1) {
@@ -247,6 +246,7 @@ function posthogEvent(row: PendingEventRow): Record<string, unknown> {
     properties: {
       ...properties,
       event_id: row.event_id,
+      $insert_id: row.event_id,
       source: row.source,
       privacy_level: row.privacy_level,
       consent_level: row.consent_level,
@@ -347,6 +347,7 @@ function identityIdentifyEvent(row: PendingIdentityLinkRow): Record<string, unkn
     timestamp: row.linked_at,
     properties: {
       $anon_distinct_id: row.source_identity_id,
+      $insert_id: row.link_id,
       link_id: row.link_id,
       source: "identity_gateway",
       $process_person_profile: true,

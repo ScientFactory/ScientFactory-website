@@ -77,6 +77,13 @@ Local and Cloudflare preview hosts do not write events, which keeps production c
 
 The Worker under `workers/events` is ScientFactory's first-party telemetry and identity gateway. Desktop clients submit bounded event batches to `https://events.scientfactory.com/v1/events`; the Worker stores them in D1 first and can then forward pseudonymous copies to the ScientFactory EU PostHog project. PostHog is an optional analysis layer rather than the primary event store.
 
+Desktop ingestion is contract-first. The Worker accepts schema version 1, a
+registered event name, its exact allowlisted property set, the event's declared
+privacy level, and sufficient explicit consent. Unknown events, extra
+properties, raw text, and mismatched consent or privacy classifications are
+rejected before storage. The versioned registry and its focused tests live in
+`workers/events/src/eventContract.ts`.
+
 Website visitors, desktop installations, sessions, and future Scient accounts use separate opaque identifiers. The service-authenticated `POST /v1/identity/link` endpoint can connect a visitor or installation to an account after Scient's account service has authenticated that user. Browser and desktop clients cannot call this endpoint directly or claim an account identifier. Linking updates first-party historical events without changing the user's analytics choice; the corresponding anonymous-to-account PostHog identity event is forwarded only for product-or-higher consent.
 
 Generate binding types and validate the Worker with:
@@ -110,3 +117,36 @@ SCIENT_IDENTITY_LINK_TOKEN=... bun run identity:link \
 ```
 
 This command is an operational bridge, not a substitute for account authentication. The eventual account service should call the endpoint server-to-server after sign-in; no link token belongs in a client bundle.
+
+## PostHog dashboards
+
+The managed dashboard manifest is `scripts/posthog-dashboard-manifest.mjs`.
+It records all planned product dashboards and the exact events each one needs.
+The manager is read-only by default and retrieves the personal API key from the
+`scient-posthog-personal-api-key` macOS Keychain item (or the
+`POSTHOG_PERSONAL_API_KEY` environment variable):
+
+```sh
+bun run analytics:dashboards
+```
+
+Only dashboards marked current and backed by observed events are eligible for
+creation. Planned dashboards are not created as empty or misleading shells.
+After reviewing the readiness output, an authorized operator can idempotently
+create or update ready dashboards:
+
+```sh
+bun run analytics:dashboards --apply-ready
+```
+
+The script never deletes dashboards or insights. D1 delivery state remains the
+operational source of truth and should be reconciled with PostHog using
+`bun run analytics:report` before relying on a dashboard. The exact per-event
+D1-sent and PostHog counts can be checked without exposing the personal API key:
+
+```sh
+bun run analytics:reconcile
+```
+
+That command exits non-zero when the two systems disagree; pending D1 events
+are reported separately rather than counted as delivered.
