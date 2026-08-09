@@ -27,6 +27,7 @@ describe("desktop event contract", () => {
         properties: {
           provider: "codex",
           modelFamily: "gpt-user-custom-name",
+          modelKey: "other",
           interactionMode: "default",
           runtimeMode: "full-access",
           attachmentCountBucket: "0",
@@ -45,7 +46,7 @@ describe("desktop event contract", () => {
         properties: {
           appVersion: "1.0.0",
           buildChannel: "stable",
-          platform: "darwin",
+          platform: "macos",
         },
       }),
     ).toBe("Missing event property 'architecture'");

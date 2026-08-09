@@ -7,6 +7,8 @@ import worker, {
   validateIngestionPayload,
 } from "./index";
 
+const INSTALLATION_TOKEN = "a".repeat(64);
+
 function validPayload() {
   return {
     schema_version: 1,
@@ -23,6 +25,7 @@ function validPayload() {
         properties: {
           provider: "codex",
           modelFamily: "openai",
+          modelKey: "gpt-5.6-sol",
           interactionMode: "default",
           runtimeMode: "full-access",
           attachmentCountBucket: "0",
@@ -36,9 +39,9 @@ function validPayload() {
 function createDatabase(existingCanonicalId?: string) {
   const run = vi.fn().mockResolvedValue({ success: true });
   const all = vi.fn().mockResolvedValue({ results: [] });
-  const first = vi
-    .fn()
-    .mockResolvedValue(existingCanonicalId ? { canonical_id: existingCanonicalId } : null);
+  const first = existingCanonicalId
+    ? vi.fn().mockResolvedValue({ canonical_id: existingCanonicalId })
+    : vi.fn().mockResolvedValueOnce(null).mockResolvedValue({ authenticated: 1 });
   const bind = vi.fn(() => ({ run, all, first }));
   const prepare = vi.fn(() => ({ bind }));
   const batch = vi.fn().mockResolvedValue([]);
@@ -49,6 +52,19 @@ function createDatabase(existingCanonicalId?: string) {
     batch,
     first,
   };
+}
+
+function gatewayEnv(
+  database: D1Database,
+  options: { readonly enabled?: boolean; readonly rateLimitSuccess?: boolean } = {},
+): Cloudflare.Env {
+  return {
+    ANALYTICS_DB: database,
+    ANALYTICS_INGESTION_RATE_LIMITER: {
+      limit: vi.fn().mockResolvedValue({ success: options.rateLimitSuccess ?? true }),
+    },
+    DESKTOP_INGESTION_ENABLED: options.enabled === false ? "false" : "true",
+  } as unknown as Cloudflare.Env;
 }
 
 function incoming(request: Request): Request<unknown, IncomingRequestCfProperties> {
@@ -160,9 +176,8 @@ describe("event gateway validation", () => {
 });
 
 describe("event gateway routes", () => {
-  it("stores a valid desktop event before accepting it", async () => {
+  it("keeps desktop ingestion off until explicitly enabled", async () => {
     const database = createDatabase();
-    const waitUntil = vi.fn();
     const response = await worker.fetch!(
       incoming(
         new Request("https://events.scientfactory.com/v1/events", {
@@ -171,17 +186,81 @@ describe("event gateway routes", () => {
           body: JSON.stringify(validPayload()),
         }),
       ),
-      { ANALYTICS_DB: database.database } as Cloudflare.Env,
+      gatewayEnv(database.database, { enabled: false }),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(503);
+    expect(database.batch).not.toHaveBeenCalled();
+  });
+
+  it("requires an installation-owned token", async () => {
+    const database = createDatabase();
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(validPayload()),
+        }),
+      ),
+      gatewayEnv(database.database),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(400);
+    expect(database.batch).not.toHaveBeenCalled();
+  });
+
+  it("rate limits one validated installation without storing its IP address", async () => {
+    const database = createDatabase();
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Scient-Installation-Token": INSTALLATION_TOKEN,
+          },
+          body: JSON.stringify(validPayload()),
+        }),
+      ),
+      gatewayEnv(database.database, { rateLimitSuccess: false }),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(database.batch).not.toHaveBeenCalled();
+  });
+
+  it("stores a valid desktop event before accepting it", async () => {
+    const database = createDatabase();
+    const waitUntil = vi.fn();
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Scient-Installation-Token": INSTALLATION_TOKEN,
+          },
+          body: JSON.stringify(validPayload()),
+        }),
+      ),
+      gatewayEnv(database.database),
       { waitUntil } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(202);
     expect(await response.json()).toEqual({ accepted: 1 });
     expect(database.batch).toHaveBeenCalledOnce();
+    expect(database.batch.mock.calls[0]?.[0]).toHaveLength(2);
     expect(database.bind).toHaveBeenCalledWith(
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "product",
+      expect.any(String),
       expect.any(String),
       expect.any(String),
     );
@@ -194,6 +273,7 @@ describe("event gateway routes", () => {
       JSON.stringify({
         provider: "codex",
         modelFamily: "openai",
+        modelKey: "gpt-5.6-sol",
         interactionMode: "default",
         runtimeMode: "full-access",
         attachmentCountBucket: "0",
@@ -203,6 +283,8 @@ describe("event gateway routes", () => {
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       "product",
+      "installation:16ace444-e7c3-4b26-893f-98713188ae52",
+      expect.any(String),
     );
     expect(waitUntil).toHaveBeenCalledOnce();
   });
@@ -220,7 +302,7 @@ describe("event gateway routes", () => {
           body: JSON.stringify(validPayload()),
         }),
       ),
-      { ANALYTICS_DB: database.database } as Cloudflare.Env,
+      gatewayEnv(database.database),
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -232,7 +314,7 @@ describe("event gateway routes", () => {
     const database = createDatabase();
     const response = await worker.fetch!(
       incoming(new Request("https://events.scientfactory.com/health")),
-      { ANALYTICS_DB: database.database } as Cloudflare.Env,
+      gatewayEnv(database.database),
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -261,7 +343,7 @@ describe("event gateway routes", () => {
       {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
-      } as Cloudflare.Env,
+      } as unknown as Cloudflare.Env,
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -292,7 +374,7 @@ describe("event gateway routes", () => {
       {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
-      } as Cloudflare.Env,
+      } as unknown as Cloudflare.Env,
       { waitUntil } as unknown as ExecutionContext,
     );
 
@@ -326,7 +408,7 @@ describe("event gateway routes", () => {
       {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
-      } as Cloudflare.Env,
+      } as unknown as Cloudflare.Env,
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
