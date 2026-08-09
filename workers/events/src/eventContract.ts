@@ -3,20 +3,9 @@ export const PRIVACY_LEVELS = ["essential", "product", "diagnostic", "contributi
 export type PrivacyLevel = (typeof PRIVACY_LEVELS)[number];
 
 type PropertyRule =
-  | {
-      readonly kind: "boolean";
-      readonly optional?: boolean;
-    }
-  | {
-      readonly kind: "enum";
-      readonly values: ReadonlyArray<string>;
-      readonly optional?: boolean;
-    }
-  | {
-      readonly kind: "pattern";
-      readonly pattern: RegExp;
-      readonly optional?: boolean;
-    };
+  | { readonly kind: "boolean"; readonly optional?: boolean }
+  | { readonly kind: "enum"; readonly values: ReadonlyArray<string>; readonly optional?: boolean }
+  | { readonly kind: "pattern"; readonly pattern: RegExp; readonly optional?: boolean };
 
 interface EventDefinition {
   readonly privacyLevel: Exclude<PrivacyLevel, "contribution">;
@@ -33,27 +22,11 @@ const runtimeMode = {
 } as const satisfies PropertyRule;
 const durationBucket = {
   kind: "enum",
-  values: ["under-1s", "1-5s", "5-15s", "15-60s", "1-5m", "over-5m", "unknown"],
+  values: ["under-1s", "1-5s", "5-15s", "15-60s", "1-3m", "3-10m", "over-10m", "unknown"],
 } as const satisfies PropertyRule;
 const countBucket = {
   kind: "enum",
   values: ["0", "1", "2-3", "4-10", "11-50", "over-50", "unknown"],
-} as const satisfies PropertyRule;
-const failureClass = {
-  kind: "enum",
-  values: [
-    "configuration",
-    "connection",
-    "permission",
-    "provider",
-    "timeout",
-    "filesystem",
-    "checkpoint",
-    "validation",
-    "unavailable",
-    "internal",
-    "unknown",
-  ],
 } as const satisfies PropertyRule;
 const buildChannel = {
   kind: "enum",
@@ -63,6 +36,31 @@ const appVersion = {
   kind: "pattern",
   pattern: /^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$/,
 } as const satisfies PropertyRule;
+const modelKey = {
+  kind: "enum",
+  values: [
+    "auto",
+    "claude-haiku-4-5",
+    "claude-opus-4-6",
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-opus-5",
+    "claude-sonnet-4-6",
+    "claude-sonnet-5",
+    "composer-1.5",
+    "composer-2",
+    "gpt-5.3-codex",
+    "gpt-5.3-codex-spark",
+    "gpt-5.4",
+    "gpt-5.6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "grok-build",
+    "openai/gpt-5",
+    "other",
+    "unknown",
+  ],
+} as const satisfies PropertyRule;
 
 export const EVENT_DEFINITIONS = {
   "app.session.started": {
@@ -70,7 +68,7 @@ export const EVENT_DEFINITIONS = {
     properties: {
       appVersion,
       buildChannel,
-      platform: { kind: "enum", values: ["darwin", "win32", "linux", "other"] },
+      platform: { kind: "enum", values: ["macos", "windows", "linux", "other"] },
       architecture: { kind: "enum", values: ["arm64", "x64", "other"] },
     },
   },
@@ -78,10 +76,7 @@ export const EVENT_DEFINITIONS = {
     privacyLevel: "essential",
     properties: {
       durationBucket,
-      shutdownClass: {
-        kind: "enum",
-        values: ["normal", "signal", "crash-recovery", "unknown"],
-      },
+      shutdownClass: { kind: "enum", values: ["graceful", "forced", "crash", "unknown"] },
     },
   },
   "server.boot.heartbeat": {
@@ -90,10 +85,14 @@ export const EVENT_DEFINITIONS = {
   },
   "project.added": {
     privacyLevel: "product",
+    properties: { method: { kind: "enum", values: ["picker", "drag-drop", "recent", "unknown"] } },
+  },
+  "project.add.failed": {
+    privacyLevel: "essential",
     properties: {
-      method: {
+      stage: {
         kind: "enum",
-        values: ["picker", "drag-drop", "recent", "other"],
+        values: ["validation", "inspection", "registration", "navigation", "unknown"],
       },
     },
   },
@@ -103,23 +102,25 @@ export const EVENT_DEFINITIONS = {
       projectState: { kind: "enum", values: ["existing", "new", "unknown"] },
       initializationState: {
         kind: "enum",
-        values: ["not-applicable", "not-started", "completed", "partial", "failed", "unknown"],
+        values: ["initialized", "missing", "partial", "unavailable", "unknown"],
       },
     },
   },
   "project.initialization.completed": {
     privacyLevel: "product",
     properties: {
-      outcome: {
-        kind: "enum",
-        values: ["created", "already-initialized", "partial"],
-      },
+      outcome: { kind: "enum", values: ["created", "already-ready", "repaired", "unknown"] },
       filesCreatedBucket: countBucket,
     },
   },
   "project.initialization.failed": {
     privacyLevel: "essential",
-    properties: { failureClass },
+    properties: {
+      failureClass: {
+        kind: "enum",
+        values: ["filesystem", "permission", "validation", "unavailable", "unknown"],
+      },
+    },
   },
   "provider.session.started": {
     privacyLevel: "product",
@@ -154,10 +155,7 @@ export const EVENT_DEFINITIONS = {
     privacyLevel: "essential",
     properties: {
       sessionCountBucket: countBucket,
-      shutdownClass: {
-        kind: "enum",
-        values: ["normal", "signal", "crash-recovery", "unknown"],
-      },
+      shutdownClass: { kind: "enum", values: ["graceful", "forced", "crash", "unknown"] },
     },
   },
   "provider.runtime_mode.changed": {
@@ -172,10 +170,8 @@ export const EVENT_DEFINITIONS = {
         kind: "enum",
         values: ["openai", "anthropic", "google", "xai", "open-source", "other", "unknown"],
       },
-      interactionMode: {
-        kind: "enum",
-        values: ["default", "plan", "other", "unknown"],
-      },
+      modelKey,
+      interactionMode: { kind: "enum", values: ["default", "plan", "other", "unknown"] },
       runtimeMode,
       attachmentCountBucket: countBucket,
       hasInput: { kind: "boolean" },
@@ -185,30 +181,41 @@ export const EVENT_DEFINITIONS = {
     privacyLevel: "product",
     properties: {
       provider,
+      modelKey,
       durationBucket,
       usedTools: { kind: "boolean" },
-      hadAttachments: { kind: "boolean" },
+      hasAttachment: { kind: "boolean" },
     },
   },
   "provider.turn.failed": {
     privacyLevel: "essential",
-    properties: { provider, failureClass, durationBucket },
+    properties: {
+      provider,
+      modelKey,
+      failureClass: {
+        kind: "enum",
+        values: [
+          "provider_error",
+          "transport_error",
+          "permission_error",
+          "validation_error",
+          "interrupted",
+          "cancelled",
+          "unknown",
+        ],
+      },
+      durationBucket,
+    },
   },
   "provider.turn.interrupted": {
     privacyLevel: "product",
-    properties: {
-      provider,
-      initiator: { kind: "enum", values: ["user", "system", "unknown"] },
-    },
+    properties: { provider, initiator: { kind: "enum", values: ["user", "system", "unknown"] } },
   },
   "provider.request.responded": {
     privacyLevel: "product",
     properties: {
       provider,
-      requestKind: {
-        kind: "enum",
-        values: ["approval", "user-input", "other", "unknown"],
-      },
+      requestKind: { kind: "enum", values: ["approval", "user-input", "other", "unknown"] },
       decision: {
         kind: "enum",
         values: ["approved", "approved-session", "denied", "answered", "cancelled", "unknown"],
@@ -221,64 +228,56 @@ export const EVENT_DEFINITIONS = {
   },
   "thread.created": {
     privacyLevel: "product",
-    properties: {
-      source: {
-        kind: "enum",
-        values: ["composer", "fork", "command", "other"],
-      },
-    },
+    properties: { creationSource: { kind: "enum", values: ["new", "fork", "import", "unknown"] } },
   },
   "thread.fork.completed": {
     privacyLevel: "product",
     properties: {
-      workspaceMode: {
-        kind: "enum",
-        values: ["same-workspace", "independent-worktree"],
-      },
-      boundaryClass: {
-        kind: "enum",
-        values: ["first-response", "latest-response", "earlier-response"],
-      },
+      workspaceMode: { kind: "enum", values: ["local", "new-worktree"] },
+      boundaryClass: { kind: "enum", values: ["conversation", "checkpoint"] },
       refork: { kind: "boolean" },
     },
   },
   "thread.fork.failed": {
     privacyLevel: "essential",
     properties: {
-      workspaceMode: {
+      workspaceMode: { kind: "enum", values: ["local", "new-worktree"] },
+      failureClass: {
         kind: "enum",
-        values: ["same-workspace", "independent-worktree"],
+        values: [
+          "checkpoint-unavailable",
+          "git-unavailable",
+          "provisioning",
+          "validation",
+          "unknown",
+        ],
       },
-      failureClass,
     },
   },
   "thread.revert.completed": {
     privacyLevel: "product",
-    properties: {
-      boundaryClass: {
-        kind: "enum",
-        values: ["latest-response", "earlier-response"],
-      },
-    },
+    properties: { boundaryClass: { kind: "enum", values: ["checkpoint"] } },
   },
   "thread.revert.failed": {
     privacyLevel: "essential",
-    properties: { failureClass },
+    properties: {
+      failureClass: {
+        kind: "enum",
+        values: ["checkpoint-unavailable", "provider", "validation", "unknown"],
+      },
+    },
   },
   "voice.transcription.started": {
     privacyLevel: "product",
     properties: {
-      engineClass: { kind: "enum", values: ["local", "remote", "unknown"] },
-      languageMode: {
-        kind: "enum",
-        values: ["automatic", "selected", "unknown"],
-      },
+      engineClass: { kind: "enum", values: ["local-whisper", "system", "other"] },
+      languageMode: { kind: "enum", values: ["automatic", "explicit", "unknown"] },
     },
   },
   "voice.transcription.completed": {
     privacyLevel: "product",
     properties: {
-      engineClass: { kind: "enum", values: ["local", "remote", "unknown"] },
+      engineClass: { kind: "enum", values: ["local-whisper", "system", "other"] },
       durationBucket,
       audioDurationBucket: durationBucket,
     },
@@ -286,15 +285,16 @@ export const EVENT_DEFINITIONS = {
   "voice.transcription.failed": {
     privacyLevel: "essential",
     properties: {
-      engineClass: { kind: "enum", values: ["local", "remote", "unknown"] },
-      failureClass,
+      engineClass: { kind: "enum", values: ["local-whisper", "system", "other"] },
+      failureClass: {
+        kind: "enum",
+        values: ["permission", "model-unavailable", "audio", "engine", "cancelled", "unknown"],
+      },
     },
   },
   "voice.transcription.cancelled": {
     privacyLevel: "product",
-    properties: {
-      stage: { kind: "enum", values: ["recording", "transcribing", "unknown"] },
-    },
+    properties: { stage: { kind: "enum", values: ["recording", "transcribing", "unknown"] } },
   },
   "surface.opened": {
     privacyLevel: "product",
@@ -308,13 +308,20 @@ export const EVENT_DEFINITIONS = {
   "setting.changed": {
     privacyLevel: "product",
     properties: {
-      setting: {
-        kind: "enum",
-        values: ["direction", "theme", "notifications"],
-      },
+      setting: { kind: "enum", values: ["direction", "theme", "notifications"] },
       value: {
         kind: "enum",
-        values: ["automatic", "ltr", "rtl", "light", "dark", "system", "enabled", "disabled"],
+        values: [
+          "automatic",
+          "ltr",
+          "rtl",
+          "system",
+          "light",
+          "dark",
+          "enabled",
+          "disabled",
+          "unknown",
+        ],
       },
     },
   },
@@ -322,10 +329,7 @@ export const EVENT_DEFINITIONS = {
     privacyLevel: "product",
     properties: {
       operationKind: { kind: "enum", values: ["other"] },
-      trigger: {
-        kind: "enum",
-        values: ["user", "agent", "automation", "other"],
-      },
+      trigger: { kind: "enum", values: ["user", "agent", "automation", "other"] },
     },
   },
   "scient.operation.completed": {
@@ -340,7 +344,22 @@ export const EVENT_DEFINITIONS = {
     privacyLevel: "essential",
     properties: {
       operationKind: { kind: "enum", values: ["other"] },
-      failureClass,
+      failureClass: {
+        kind: "enum",
+        values: [
+          "configuration",
+          "connection",
+          "permission",
+          "provider",
+          "timeout",
+          "filesystem",
+          "checkpoint",
+          "validation",
+          "unavailable",
+          "internal",
+          "unknown",
+        ],
+      },
     },
   },
 } as const satisfies Readonly<Record<string, EventDefinition>>;
@@ -385,7 +404,11 @@ export function eventContractViolation(input: {
     return `Consent level '${input.consentLevel}' does not allow event '${input.name}'`;
   }
 
-  const rules: Readonly<Record<string, PropertyRule>> = definition.properties;
+  const rules: Readonly<Record<string, PropertyRule>> = {
+    appVersion,
+    buildChannel,
+    ...definition.properties,
+  };
   for (const key of Object.keys(input.properties)) {
     if (!Object.hasOwn(rules, key)) {
       return `Unregistered property '${key}' for event '${input.name}'`;

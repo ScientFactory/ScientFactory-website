@@ -8,6 +8,7 @@ const PROJECT_ID = "228610";
 const API_ORIGIN = "https://eu.posthog.com";
 const KEYCHAIN_SERVICE = "scient-posthog-personal-api-key";
 const apply = process.argv.includes("--apply-ready");
+const validateQueries = process.argv.includes("--validate-queries");
 
 function personalApiKey() {
   if (process.env.POSTHOG_PERSONAL_API_KEY) return process.env.POSTHOG_PERSONAL_API_KEY;
@@ -34,21 +35,27 @@ async function api(path, init = {}) {
   const url = path.startsWith("https://")
     ? path
     : `${API_ORIGIN}/api/projects/${PROJECT_ID}/${path}`;
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers,
-    },
-  });
-  if (!response.ok) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...init.headers,
+      },
+    });
+    if (response.ok) return response.json();
     const message = await response.text();
+    const retryable = response.status === 429 || response.status >= 500;
+    if (retryable && attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
+      continue;
+    }
     throw new Error(
       `PostHog ${init.method ?? "GET"} ${path} failed (${response.status}): ${message}`,
     );
   }
-  return response.json();
+  throw new Error(`PostHog ${init.method ?? "GET"} ${path} exhausted retries`);
 }
 
 async function observedEvents() {
@@ -147,9 +154,21 @@ for (const { dashboard, missing, ready } of readiness) {
   if (missing.length > 0) console.log(`        missing events: ${missing.join(", ")}`);
 }
 
+if (validateQueries) {
+  for (const { dashboard } of readiness) {
+    for (const insight of dashboard.insights ?? []) {
+      await api("query/", {
+        method: "POST",
+        body: JSON.stringify({ query: insight.query }),
+      });
+      console.log(`valid    ${dashboard.key}: ${insight.name}`);
+    }
+  }
+}
+
 if (!apply) {
   console.log(
-    "\nRead-only check complete. Use --apply-ready to create or update only READY dashboards.",
+    "\nRead-only check complete. Use --validate-queries to execute definitions read-only or --apply-ready to update only READY dashboards.",
   );
   process.exit(0);
 }

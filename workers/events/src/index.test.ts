@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import worker, {
+  flushPendingDeletions,
   flushPendingEvents,
   flushPendingIdentityLinks,
   validateIdentityLinkPayload,
   validateIngestionPayload,
 } from "./index";
+
+const INSTALLATION_TOKEN = "a".repeat(64);
 
 function validPayload() {
   return {
@@ -21,8 +24,11 @@ function validPayload() {
         privacy_level: "product",
         consent_level: "product",
         properties: {
+          appVersion: "0.0.32",
+          buildChannel: "development",
           provider: "codex",
           modelFamily: "openai",
+          modelKey: "gpt-5.6-sol",
           interactionMode: "default",
           runtimeMode: "full-access",
           attachmentCountBucket: "0",
@@ -36,9 +42,9 @@ function validPayload() {
 function createDatabase(existingCanonicalId?: string) {
   const run = vi.fn().mockResolvedValue({ success: true });
   const all = vi.fn().mockResolvedValue({ results: [] });
-  const first = vi
-    .fn()
-    .mockResolvedValue(existingCanonicalId ? { canonical_id: existingCanonicalId } : null);
+  const first = existingCanonicalId
+    ? vi.fn().mockResolvedValue({ canonical_id: existingCanonicalId })
+    : vi.fn().mockResolvedValueOnce(null).mockResolvedValue({ authenticated: 1 });
   const bind = vi.fn(() => ({ run, all, first }));
   const prepare = vi.fn(() => ({ bind }));
   const batch = vi.fn().mockResolvedValue([]);
@@ -49,6 +55,19 @@ function createDatabase(existingCanonicalId?: string) {
     batch,
     first,
   };
+}
+
+function gatewayEnv(
+  database: D1Database,
+  options: { readonly enabled?: boolean; readonly rateLimitSuccess?: boolean } = {},
+): Cloudflare.Env {
+  return {
+    ANALYTICS_DB: database,
+    ANALYTICS_INGESTION_RATE_LIMITER: {
+      limit: vi.fn().mockResolvedValue({ success: options.rateLimitSuccess ?? true }),
+    },
+    DESKTOP_INGESTION_ENABLED: options.enabled === false ? "false" : "true",
+  } as unknown as Cloudflare.Env;
 }
 
 function incoming(request: Request): Request<unknown, IncomingRequestCfProperties> {
@@ -160,9 +179,8 @@ describe("event gateway validation", () => {
 });
 
 describe("event gateway routes", () => {
-  it("stores a valid desktop event before accepting it", async () => {
+  it("keeps desktop ingestion off until explicitly enabled", async () => {
     const database = createDatabase();
-    const waitUntil = vi.fn();
     const response = await worker.fetch!(
       incoming(
         new Request("https://events.scientfactory.com/v1/events", {
@@ -171,17 +189,110 @@ describe("event gateway routes", () => {
           body: JSON.stringify(validPayload()),
         }),
       ),
-      { ANALYTICS_DB: database.database } as Cloudflare.Env,
+      gatewayEnv(database.database, { enabled: false }),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(503);
+    expect(database.batch).not.toHaveBeenCalled();
+  });
+
+  it("requires an installation-owned token", async () => {
+    const database = createDatabase();
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(validPayload()),
+        }),
+      ),
+      gatewayEnv(database.database),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(400);
+    expect(database.batch).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges deletion when the installation has never uploaded data", async () => {
+    const database = createDatabase();
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/installations/delete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Scient-Installation-Token": INSTALLATION_TOKEN,
+          },
+          body: JSON.stringify({
+            schema_version: 1,
+            installation_id: "installation:16ace444-e7c3-4b26-893f-98713188ae52",
+          }),
+        }),
+      ),
+      gatewayEnv(database.database),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({
+      accepted: true,
+      local_state: "not_found",
+      posthog_state: "not_required",
+    });
+    expect(database.batch).not.toHaveBeenCalled();
+  });
+
+  it("rate limits one validated installation without storing its IP address", async () => {
+    const database = createDatabase();
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Scient-Installation-Token": INSTALLATION_TOKEN,
+          },
+          body: JSON.stringify(validPayload()),
+        }),
+      ),
+      gatewayEnv(database.database, { rateLimitSuccess: false }),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(database.batch).not.toHaveBeenCalled();
+  });
+
+  it("stores a valid desktop event before accepting it", async () => {
+    const database = createDatabase();
+    const waitUntil = vi.fn();
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Scient-Installation-Token": INSTALLATION_TOKEN,
+          },
+          body: JSON.stringify(validPayload()),
+        }),
+      ),
+      gatewayEnv(database.database),
       { waitUntil } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(202);
     expect(await response.json()).toEqual({ accepted: 1 });
     expect(database.batch).toHaveBeenCalledOnce();
+    expect(database.batch.mock.calls[0]?.[0]).toHaveLength(2);
     expect(database.bind).toHaveBeenCalledWith(
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "product",
+      expect.any(String),
       expect.any(String),
       expect.any(String),
     );
@@ -192,8 +303,11 @@ describe("event gateway routes", () => {
       expect.any(String),
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       JSON.stringify({
+        appVersion: "0.0.32",
+        buildChannel: "development",
         provider: "codex",
         modelFamily: "openai",
+        modelKey: "gpt-5.6-sol",
         interactionMode: "default",
         runtimeMode: "full-access",
         attachmentCountBucket: "0",
@@ -203,6 +317,8 @@ describe("event gateway routes", () => {
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       "product",
+      "installation:16ace444-e7c3-4b26-893f-98713188ae52",
+      expect.any(String),
     );
     expect(waitUntil).toHaveBeenCalledOnce();
   });
@@ -220,7 +336,7 @@ describe("event gateway routes", () => {
           body: JSON.stringify(validPayload()),
         }),
       ),
-      { ANALYTICS_DB: database.database } as Cloudflare.Env,
+      gatewayEnv(database.database),
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -232,7 +348,7 @@ describe("event gateway routes", () => {
     const database = createDatabase();
     const response = await worker.fetch!(
       incoming(new Request("https://events.scientfactory.com/health")),
-      { ANALYTICS_DB: database.database } as Cloudflare.Env,
+      gatewayEnv(database.database),
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -261,7 +377,7 @@ describe("event gateway routes", () => {
       {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
-      } as Cloudflare.Env,
+      } as unknown as Cloudflare.Env,
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -292,7 +408,7 @@ describe("event gateway routes", () => {
       {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
-      } as Cloudflare.Env,
+      } as unknown as Cloudflare.Env,
       { waitUntil } as unknown as ExecutionContext,
     );
 
@@ -326,7 +442,7 @@ describe("event gateway routes", () => {
       {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
-      } as Cloudflare.Env,
+      } as unknown as Cloudflare.Env,
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -354,7 +470,7 @@ describe("identity link validation", () => {
 });
 
 describe("PostHog forwarding", () => {
-  it("forwards stored events without creating PostHog person profiles", async () => {
+  it("forwards stored events with only the deletable pseudonymous person profile", async () => {
     const row = {
       event_id: "8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       event_name: "provider.turn.sent",
@@ -366,7 +482,11 @@ describe("PostHog forwarding", () => {
       identity_type: "desktop_installation",
       session_id: "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       consent_level: "product",
-      properties_json: JSON.stringify({ provider: "codex" }),
+      properties_json: JSON.stringify({
+        appVersion: "0.0.32",
+        buildChannel: "development",
+        provider: "codex",
+      }),
     };
     const run = vi.fn().mockResolvedValue({ success: true });
     const all = vi.fn().mockResolvedValue({ results: [row] });
@@ -393,6 +513,8 @@ describe("PostHog forwarding", () => {
     expect(payload.api_key).toBe("phc_scientfactory_test");
     expect(payload.batch[0]?.properties).toMatchObject({
       provider: "codex",
+      appVersion: "0.0.32",
+      buildChannel: "development",
       event_id: row.event_id,
       $insert_id: row.event_id,
       source: "desktop",
@@ -400,9 +522,53 @@ describe("PostHog forwarding", () => {
       consent_level: "product",
       identity_type: "desktop_installation",
       $session_id: row.session_id,
-      $process_person_profile: false,
+      $process_person_profile: true,
     });
     expect(batch).toHaveBeenCalledOnce();
+  });
+
+  it("submits queued installation erasure through PostHog's distinct-id API", async () => {
+    const row = {
+      request_id: "delete-1",
+      posthog_distinct_id: "installation:16ace444-e7c3-4b26-893f-98713188ae52",
+      posthog_attempts: 0,
+    };
+    const run = vi.fn().mockResolvedValue({ success: true });
+    const all = vi.fn().mockResolvedValue({ results: [row] });
+    const bind = vi.fn(() => ({ run, all }));
+    const prepare = vi.fn((_query: string) => ({ bind }));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          persons_found: 1,
+          persons_deleted: 1,
+          events_queued_for_deletion: true,
+          recordings_queued_for_deletion: false,
+          deletion_errors: [],
+        }),
+        { status: 202, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const submitted = await flushPendingDeletions({
+      ANALYTICS_DB: { prepare, batch: vi.fn() } as unknown as D1Database,
+      POSTHOG_PERSONAL_API_KEY: "phx_person_write_test",
+      POSTHOG_PROJECT_ID: "228610",
+    });
+
+    expect(submitted).toBe(1);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, request] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe("https://eu.posthog.com/api/projects/228610/persons/bulk_delete/");
+    expect(new Headers(request?.headers).get("Authorization")).toBe("Bearer phx_person_write_test");
+    expect(JSON.parse(String(request?.body))).toEqual({
+      distinct_ids: [row.posthog_distinct_id],
+      delete_events: true,
+      delete_recordings: false,
+      keep_person: false,
+    });
+    expect(run).toHaveBeenCalledOnce();
   });
 
   it("forwards anonymous-to-account identity events from the first-party link queue", async () => {
