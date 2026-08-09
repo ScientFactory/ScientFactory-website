@@ -9,7 +9,7 @@ import worker, {
 
 function validPayload() {
   return {
-    schema_version: 2,
+    schema_version: 1,
     source: "desktop",
     events: [
       {
@@ -20,7 +20,14 @@ function validPayload() {
         occurred_at: new Date().toISOString(),
         privacy_level: "product",
         consent_level: "product",
-        properties: { provider: "codex", clientType: "desktop-app" },
+        properties: {
+          provider: "codex",
+          modelFamily: "openai",
+          interactionMode: "default",
+          runtimeMode: "full-access",
+          attachmentCountBucket: "0",
+          hasInput: true,
+        },
       },
     ],
   };
@@ -35,7 +42,13 @@ function createDatabase(existingCanonicalId?: string) {
   const bind = vi.fn(() => ({ run, all, first }));
   const prepare = vi.fn(() => ({ bind }));
   const batch = vi.fn().mockResolvedValue([]);
-  return { database: { prepare, batch } as unknown as D1Database, prepare, bind, batch, first };
+  return {
+    database: { prepare, batch } as unknown as D1Database,
+    prepare,
+    bind,
+    batch,
+    first,
+  };
 }
 
 function incoming(request: Request): Request<unknown, IncomingRequestCfProperties> {
@@ -58,6 +71,68 @@ describe("event gateway validation", () => {
     );
   });
 
+  it("rejects unsupported schema versions", () => {
+    expect(() => validateIngestionPayload({ ...validPayload(), schema_version: 2 })).toThrow(
+      "Unsupported event payload",
+    );
+  });
+
+  it("rejects event names outside the registered contract", () => {
+    const payload = validPayload();
+    expect(() =>
+      validateIngestionPayload({
+        ...payload,
+        events: [{ ...payload.events[0], name: "provider.secret.captured" }],
+      }),
+    ).toThrow("Unregistered event 'provider.secret.captured'");
+  });
+
+  it("rejects properties outside the event allowlist", () => {
+    const payload = validPayload();
+    expect(() =>
+      validateIngestionPayload({
+        ...payload,
+        events: [
+          {
+            ...payload.events[0],
+            properties: {
+              ...payload.events[0].properties,
+              prompt: "private research",
+            },
+          },
+        ],
+      }),
+    ).toThrow("Unregistered property 'prompt' for event 'provider.turn.sent'");
+  });
+
+  it("rejects a declared privacy level that differs from the event contract", () => {
+    const payload = validPayload();
+    expect(() =>
+      validateIngestionPayload({
+        ...payload,
+        events: [{ ...payload.events[0], privacy_level: "essential" }],
+      }),
+    ).toThrow("Event 'provider.turn.sent' requires privacy level 'product'");
+  });
+
+  it("rejects an event when consent is below its required level", () => {
+    const payload = validPayload();
+    expect(() =>
+      validateIngestionPayload({
+        ...payload,
+        events: [{ ...payload.events[0], consent_level: "essential" }],
+      }),
+    ).toThrow("Consent level 'essential' does not allow event 'provider.turn.sent'");
+  });
+
+  it("requires a session identifier for desktop events", () => {
+    const payload = validPayload();
+    const { session_id: _sessionId, ...event } = payload.events[0];
+    expect(() => validateIngestionPayload({ ...payload, events: [event] })).toThrow(
+      "Invalid session_id",
+    );
+  });
+
   it("rejects oversized batches", () => {
     const event = validPayload().events[0];
     expect(() =>
@@ -74,7 +149,10 @@ describe("event gateway validation", () => {
       validateIngestionPayload({
         ...payload,
         events: [
-          { ...payload.events[0], distinct_id: "account:16ace444-e7c3-4b26-893f-98713188ae52" },
+          {
+            ...payload.events[0],
+            distinct_id: "account:16ace444-e7c3-4b26-893f-98713188ae52",
+          },
         ],
       }),
     ).toThrow("Desktop events require an installation identity");
@@ -113,7 +191,14 @@ describe("event gateway routes", () => {
       "product",
       expect.any(String),
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
-      JSON.stringify({ provider: "codex", clientType: "desktop-app" }),
+      JSON.stringify({
+        provider: "codex",
+        modelFamily: "openai",
+        interactionMode: "default",
+        runtimeMode: "full-access",
+        attachmentCountBucket: "0",
+        hasInput: true,
+      }),
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
@@ -128,7 +213,10 @@ describe("event gateway routes", () => {
       incoming(
         new Request("https://events.scientfactory.com/v1/events", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Origin: "https://attacker.example" },
+          headers: {
+            "Content-Type": "application/json",
+            Origin: "https://attacker.example",
+          },
           body: JSON.stringify(validPayload()),
         }),
       ),
@@ -170,7 +258,10 @@ describe("event gateway routes", () => {
           }),
         }),
       ),
-      { ANALYTICS_DB: database.database, IDENTITY_LINK_TOKEN: "secret" } as Cloudflare.Env,
+      {
+        ANALYTICS_DB: database.database,
+        IDENTITY_LINK_TOKEN: "secret",
+      } as Cloudflare.Env,
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -198,12 +289,18 @@ describe("event gateway routes", () => {
           }),
         }),
       ),
-      { ANALYTICS_DB: database.database, IDENTITY_LINK_TOKEN: "secret" } as Cloudflare.Env,
+      {
+        ANALYTICS_DB: database.database,
+        IDENTITY_LINK_TOKEN: "secret",
+      } as Cloudflare.Env,
       { waitUntil } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ linked: 1, canonical_id: accountId });
+    expect(await response.json()).toEqual({
+      linked: 1,
+      canonical_id: accountId,
+    });
     expect(database.batch).toHaveBeenCalledOnce();
     expect(database.bind).toHaveBeenCalledWith(accountId, installationId);
     expect(waitUntil).toHaveBeenCalledOnce();
@@ -226,7 +323,10 @@ describe("event gateway routes", () => {
           }),
         }),
       ),
-      { ANALYTICS_DB: database.database, IDENTITY_LINK_TOKEN: "secret" } as Cloudflare.Env,
+      {
+        ANALYTICS_DB: database.database,
+        IDENTITY_LINK_TOKEN: "secret",
+      } as Cloudflare.Env,
       { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
@@ -294,6 +394,7 @@ describe("PostHog forwarding", () => {
     expect(payload.batch[0]?.properties).toMatchObject({
       provider: "codex",
       event_id: row.event_id,
+      $insert_id: row.event_id,
       source: "desktop",
       privacy_level: "product",
       consent_level: "product",
@@ -341,6 +442,7 @@ describe("PostHog forwarding", () => {
       distinct_id: row.canonical_id,
       properties: {
         $anon_distinct_id: row.source_identity_id,
+        $insert_id: row.link_id,
         $process_person_profile: true,
       },
     });
