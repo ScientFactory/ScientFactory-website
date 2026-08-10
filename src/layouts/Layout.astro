@@ -78,7 +78,7 @@ const primaryLinks = [
         <span class="footer-copy">&copy; {new Date().getFullYear()} ScientFactory</span>
         <div class="footer-links">
           <button type="button" class="footer-link-button" data-analytics-settings>
-            Analytics settings
+            Cookie settings
           </button>
           <a href="/privacy">Privacy</a>
         </div>
@@ -87,10 +87,12 @@ const primaryLinks = [
 
     <aside class="analytics-consent" data-analytics-consent hidden aria-labelledby="analytics-consent-title">
       <div class="analytics-consent-copy">
-        <strong id="analytics-consent-title">Help us improve Scient</strong>
+        <strong id="analytics-consent-title">Cookies on ScientFactory</strong>
         <p>
-          Allow first-party product analytics to connect visits, downloads, and returning sessions.
-          We do not collect research content. <a href="/privacy">Learn more</a>
+          We use an essential cookie to remember your choice. With your permission, we also use
+          first-party analytics cookies to understand visits, downloads, and returning sessions so
+          we can improve Scient. We never collect your research content.
+          <a href="/privacy">Learn more</a>
         </p>
       </div>
       <div class="analytics-consent-actions">
@@ -98,7 +100,7 @@ const primaryLinks = [
           Essential only
         </button>
         <button type="button" class="analytics-consent-primary" data-consent-level="product">
-          Allow analytics
+          Allow analytics cookies
         </button>
       </div>
     </aside>
@@ -513,9 +515,9 @@ const primaryLinks = [
     bottom: clamp(1rem, 3vw, 2rem);
     width: min(35rem, calc(100vw - 2rem));
     display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.85rem;
     padding: 1rem 1.1rem;
     border: 1px solid var(--line);
     border-radius: 0.75rem;
@@ -549,6 +551,7 @@ const primaryLinks = [
 
   .analytics-consent-actions {
     display: flex;
+    justify-content: flex-end;
     gap: 0.5rem;
   }
 
