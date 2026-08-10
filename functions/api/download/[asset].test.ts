@@ -5,14 +5,14 @@ import { onRequestGet, onRequestHead } from "./[asset]";
 const releaseFixture = {
   tag_name: "v0.5.7",
   name: "Scient v0.5.7",
-  html_url: "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.5.7",
+  html_url: "https://github.com/ScientFactory/scient-desktop-next/releases/tag/v0.5.7",
   published_at: "2026-07-20T00:00:00Z",
   prerelease: false,
   assets: [
     {
       name: "Scient-0.5.7-arm64.dmg",
       browser_download_url:
-        "https://github.com/ScientFactory/scient-desktop/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg",
+        "https://github.com/ScientFactory/scient-desktop-next/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg",
       content_type: "application/x-apple-diskimage",
       size: 125_000_000,
     },
@@ -75,7 +75,7 @@ describe("tracked download redirect", () => {
         asset_name: "Scient-0.5.7-arm64.dmg",
         destination_host: "github.com",
         destination_path:
-          "/ScientFactory/scient-desktop/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg",
+          "/ScientFactory/scient-desktop-next/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg",
       }),
       "event",
       expect.stringMatching(/^web-event:/),

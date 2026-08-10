@@ -5,7 +5,7 @@ import { onRequestGet } from "./latest";
 const releaseFixture = {
   tag_name: "v0.5.6",
   name: "Scient v0.5.6",
-  html_url: "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.5.6",
+  html_url: "https://github.com/ScientFactory/scient-desktop-next/releases/tag/v0.5.6",
   published_at: "2026-07-19T00:00:00Z",
   prerelease: false,
   assets: [

@@ -14,34 +14,34 @@ afterEach(() => {
 });
 
 const releaseFixture = {
-  tag_name: "v0.5.5",
-  name: "Scient v0.5.5",
-  html_url: "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.5.5",
+  tag_name: "v0.6.0",
+  name: "Scient v0.6.0",
+  html_url: "https://github.com/ScientFactory/scient-desktop-next/releases/tag/v0.6.0",
   published_at: "2026-07-19T00:00:00Z",
   prerelease: false,
   assets: [
     {
-      name: "Scient-0.5.5-arm64.dmg",
-      browser_download_url: "https://example.test/Scient-0.5.5-arm64.dmg",
+      name: "Scient-0.6.0-arm64.dmg",
+      browser_download_url: "https://example.test/Scient-0.6.0-arm64.dmg",
       content_type: "application/x-apple-diskimage",
       size: 125_000_000,
       digest: "sha256:abc",
     },
     {
-      name: "Scient-0.5.5-x64.dmg",
-      browser_download_url: "https://example.test/Scient-0.5.5-x64.dmg",
+      name: "Scient-0.6.0-x64.dmg",
+      browser_download_url: "https://example.test/Scient-0.6.0-x64.dmg",
       content_type: "application/x-apple-diskimage",
       size: 129_000_000,
     },
     {
-      name: "Scient-0.5.5-x64.exe",
-      browser_download_url: "https://example.test/Scient-0.5.5-x64.exe",
+      name: "Scient-0.6.0-x64.exe",
+      browser_download_url: "https://example.test/Scient-0.6.0-x64.exe",
       content_type: "application/octet-stream",
       size: 98_000_000,
     },
     {
-      name: "Scient-0.5.5-x86_64.AppImage",
-      browser_download_url: "https://example.test/Scient-0.5.5-x86_64.AppImage",
+      name: "Scient-0.6.0-x86_64.AppImage",
+      browser_download_url: "https://example.test/Scient-0.6.0-x86_64.AppImage",
       content_type: "application/octet-stream",
       size: 112_000_000,
     },
@@ -58,10 +58,10 @@ describe("release metadata", () => {
   it("parses a valid GitHub release and finds exact platform assets", () => {
     const release = parseRelease(releaseFixture);
 
-    expect(findDownloadAsset(release, "macArm64")?.name).toBe("Scient-0.5.5-arm64.dmg");
-    expect(findDownloadAsset(release, "windowsX64")?.name).toBe("Scient-0.5.5-x64.exe");
-    expect(findDownloadAsset(release, "linuxX64")?.name).toBe("Scient-0.5.5-x86_64.AppImage");
-    expect(findDownloadAsset(release, "macX64")?.name).toBe("Scient-0.5.5-x64.dmg");
+    expect(findDownloadAsset(release, "macArm64")?.name).toBe("Scient-0.6.0-arm64.dmg");
+    expect(findDownloadAsset(release, "windowsX64")?.name).toBe("Scient-0.6.0-x64.exe");
+    expect(findDownloadAsset(release, "linuxX64")?.name).toBe("Scient-0.6.0-x86_64.AppImage");
+    expect(findDownloadAsset(release, "macX64")?.name).toBe("Scient-0.6.0-x64.dmg");
     expect(findChecksumAsset(release)?.name).toBe("SHA256SUMS.txt");
   });
 
@@ -87,11 +87,11 @@ describe("release metadata", () => {
 
     const release = await fetchLatestRelease({ force: true });
 
-    expect(release.tag_name).toBe("v0.5.5");
+    expect(release.tag_name).toBe("v0.6.0");
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/releases/latest", expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://api.github.com/repos/ScientFactory/scient-desktop/releases/latest",
+      "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest",
       expect.any(Object),
     );
   });
@@ -123,7 +123,7 @@ describe("release metadata", () => {
     vi.stubGlobal("sessionStorage", { getItem, setItem: vi.fn() });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchLatestRelease()).resolves.toMatchObject({ tag_name: "v0.5.5" });
+    await expect(fetchLatestRelease()).resolves.toMatchObject({ tag_name: "v0.6.0" });
     expect(getItem).toHaveBeenCalledWith("scient-latest-release-v2");
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -139,7 +139,7 @@ describe("release metadata", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchLatestRelease()).resolves.toMatchObject({ tag_name: "v0.5.5" });
+    await expect(fetchLatestRelease()).resolves.toMatchObject({ tag_name: "v0.6.0" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -152,7 +152,7 @@ describe("release metadata", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(fetchLatestRelease({ force: true })).resolves.toMatchObject({
-      tag_name: "v0.5.5",
+      tag_name: "v0.6.0",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
