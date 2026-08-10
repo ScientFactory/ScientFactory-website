@@ -7,7 +7,7 @@ import { parseRelease, type Release, type ReleaseAsset } from "../../../src/lib/
 import { queueSiteEvent } from "../../_lib/events";
 
 const GITHUB_RELEASE_URL =
-  "https://api.github.com/repos/ScientFactory/scient-desktop/releases/latest";
+  "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest";
 const DOWNLOAD_ASSET_KEYS = new Set<DownloadAssetKey>([
   "macArm64",
   "macX64",
@@ -38,7 +38,7 @@ function isOfficialDownload(asset: ReleaseAsset): boolean {
     return (
       destination.protocol === "https:" &&
       destination.hostname === "github.com" &&
-      destination.pathname.startsWith("/ScientFactory/scient-desktop/releases/download/")
+      destination.pathname.startsWith("/ScientFactory/scient-desktop-next/releases/download/")
     );
   } catch {
     return false;
