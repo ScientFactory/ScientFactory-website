@@ -7,7 +7,7 @@ The source of truth for [scientfactory.com](https://scientfactory.com), includin
 - `main` is the production website branch.
 - Pull requests receive CI validation and Cloudflare preview deployments.
 - A successful merge to `main` triggers the production Cloudflare Pages deployment.
-- Desktop binaries are not built here. Download metadata comes from the latest published release in [`ScientFactory/scient-desktop`](https://github.com/ScientFactory/scient-desktop/releases).
+- Desktop binaries are not built here. Download metadata comes from the latest published release in [`ScientFactory/scient-desktop-next`](https://github.com/ScientFactory/scient-desktop-next/releases).
 
 ## Repository family
 

@@ -5,7 +5,7 @@
 import { parseRelease } from "../../../src/lib/release-schema";
 
 const GITHUB_RELEASE_URL =
-  "https://api.github.com/repos/ScientFactory/scient-desktop/releases/latest";
+  "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest";
 const CACHE_CONTROL = "public, max-age=300";
 
 function jsonError(message: string, status: number): Response {

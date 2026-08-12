@@ -9,7 +9,7 @@ export type { DownloadAssetKey } from "./download-assets";
 export { parseRelease } from "./release-schema";
 export type { Release, ReleaseAsset } from "./release-schema";
 
-const REPO = "ScientFactory/scient-desktop";
+const REPO = "ScientFactory/scient-desktop-next";
 const GITHUB_API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const SITE_API_URL = "/api/releases/latest";
 const CACHE_KEY = "scient-latest-release-v2";
