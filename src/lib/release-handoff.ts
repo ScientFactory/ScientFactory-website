@@ -26,6 +26,7 @@ function parseAsset(value: unknown): HandoffAsset {
   if (
     !isRecord(value) ||
     typeof value.name !== "string" ||
+    value.name.length > 200 ||
     !/^[A-Za-z0-9][A-Za-z0-9._+-]*$/u.test(value.name) ||
     typeof value.size !== "number" ||
     !Number.isSafeInteger(value.size) ||
@@ -47,17 +48,21 @@ function contentType(name: string): string {
   return "application/octet-stream";
 }
 
-function releaseAsset(tag: string, asset: HandoffAsset): ReleaseAsset {
+function releaseAsset(repository: string, tag: string, asset: HandoffAsset): ReleaseAsset {
   return {
     name: asset.name,
-    browser_download_url: `https://github.com/${DESKTOP_RELEASE_REPOSITORY}/releases/download/${tag}/${encodeURIComponent(asset.name)}`,
+    browser_download_url: `https://github.com/${repository}/releases/download/${tag}/${encodeURIComponent(asset.name)}`,
     content_type: contentType(asset.name),
     size: asset.size,
     digest: `sha256:${asset.sha256}`,
   };
 }
 
-export function releaseFromHandoff(value: unknown, lastModified: string | null): Release {
+export function releaseFromHandoff(
+  value: unknown,
+  lastModified: string | null,
+  deliveryRepository = DESKTOP_RELEASE_REPOSITORY,
+): Release {
   if (
     !isRecord(value) ||
     value.schemaVersion !== 1 ||
@@ -72,7 +77,10 @@ export function releaseFromHandoff(value: unknown, lastModified: string | null):
     !/^[a-f0-9]{40}$/u.test(value.source.commit) ||
     typeof value.source.tree !== "string" ||
     !/^[a-f0-9]{40}$/u.test(value.source.tree) ||
-    !Array.isArray(value.assets)
+    !Array.isArray(value.assets) ||
+    value.assets.length === 0 ||
+    value.assets.length > 128 ||
+    !isOfficialDesktopRepository(deliveryRepository)
   ) {
     throw new Error("Release handoff is invalid.");
   }
@@ -83,19 +91,33 @@ export function releaseFromHandoff(value: unknown, lastModified: string | null):
   }
 
   const tag = `v${value.version}`;
+  const requiredInstallers = [
+    `Scient-${value.version}-arm64.dmg`,
+    `Scient-${value.version}-x64.dmg`,
+    `Scient-${value.version}-x64.exe`,
+    `Scient-${value.version}-x86_64.AppImage`,
+  ];
+  const names = new Set(assets.map((asset) => asset.name));
+  if (!requiredInstallers.every((name) => names.has(name))) {
+    throw new Error("Release handoff is missing a required installer.");
+  }
+  const checksumSize = assets.reduce(
+    (size, asset) => size + asset.sha256.length + 2 + asset.name.length + 1,
+    0,
+  );
   const checksumAsset: ReleaseAsset = {
     name: "SHA256SUMS.txt",
-    browser_download_url: `https://github.com/${DESKTOP_RELEASE_REPOSITORY}/releases/download/${tag}/SHA256SUMS.txt`,
+    browser_download_url: `https://github.com/${deliveryRepository}/releases/download/${tag}/SHA256SUMS.txt`,
     content_type: "text/plain",
-    size: 0,
+    size: checksumSize,
   };
 
   return {
     tag_name: tag,
     name: `Scient ${tag}`,
-    html_url: `https://github.com/${DESKTOP_RELEASE_REPOSITORY}/releases/tag/${tag}`,
+    html_url: `https://github.com/${deliveryRepository}/releases/tag/${tag}`,
     published_at: parsePublishedAt(lastModified),
     prerelease: false,
-    assets: [...assets.map((asset) => releaseAsset(tag, asset)), checksumAsset],
+    assets: [...assets.map((asset) => releaseAsset(deliveryRepository, tag, asset)), checksumAsset],
   };
 }

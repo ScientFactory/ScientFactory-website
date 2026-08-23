@@ -34,6 +34,13 @@ const handoffFixture = {
       size: 125_000_000,
       sha256: "c".repeat(64),
     },
+    { name: "Scient-0.5.6-x64.dmg", size: 129_000_000, sha256: "d".repeat(64) },
+    { name: "Scient-0.5.6-x64.exe", size: 98_000_000, sha256: "e".repeat(64) },
+    {
+      name: "Scient-0.5.6-x86_64.AppImage",
+      size: 112_000_000,
+      sha256: "f".repeat(64),
+    },
   ],
 };
 
@@ -65,7 +72,7 @@ describe("latest release Pages Function", () => {
 
     const response = await onRequestGet(createContext());
 
-    expect(response.headers.get("X-Cache-Test")).toBe("hit");
+    await expect(response.json()).resolves.toMatchObject({ tag_name: "v0.5.6" });
     const cacheRequest = match.mock.calls[0]?.[0] as Request;
     expect(new URL(cacheRequest.url).searchParams.get("source")).toBe(
       "ScientFactory/scient-desktop-next",

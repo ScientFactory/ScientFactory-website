@@ -18,6 +18,21 @@ const handoffFixture = {
       size: 125_000_000,
       sha256: "c".repeat(64),
     },
+    {
+      name: "Scient-0.6.5-x64.dmg",
+      size: 129_000_000,
+      sha256: "d".repeat(64),
+    },
+    {
+      name: "Scient-0.6.5-x64.exe",
+      size: 98_000_000,
+      sha256: "e".repeat(64),
+    },
+    {
+      name: "Scient-0.6.5-x86_64.AppImage",
+      size: 112_000_000,
+      sha256: "f".repeat(64),
+    },
   ],
 };
 
@@ -45,6 +60,7 @@ describe("Scient release handoff", () => {
         name: "SHA256SUMS.txt",
         browser_download_url:
           "https://github.com/ScientFactory/scient-desktop-next/releases/download/v0.6.5/SHA256SUMS.txt",
+        size: 358,
       }),
     );
   });
@@ -67,6 +83,11 @@ describe("Scient release handoff", () => {
       { ...handoffFixture, assets: [handoffFixture.assets[0], handoffFixture.assets[0]] },
       "Sat, 22 Aug 2026 01:50:58 GMT",
     ],
+    [
+      "missing installer",
+      { ...handoffFixture, assets: handoffFixture.assets.slice(0, 3) },
+      "Sat, 22 Aug 2026 01:50:58 GMT",
+    ],
   ])("rejects %s", (_case, value, lastModified) => {
     expect(() => releaseFromHandoff(value, lastModified)).toThrow();
   });
@@ -86,5 +107,19 @@ describe("Scient release handoff", () => {
         "Sat, 22 Aug 2026 01:50:58 GMT",
       ).tag_name,
     ).toBe("v0.6.5");
+  });
+
+  it("routes old provenance through the configured final delivery repository", () => {
+    const release = releaseFromHandoff(
+      handoffFixture,
+      "Sat, 22 Aug 2026 01:50:58 GMT",
+      "ScientFactory/scient-desktop",
+    );
+    expect(release.html_url).toBe(
+      "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.6.5",
+    );
+    expect(release.assets[0]?.browser_download_url).toContain(
+      "/ScientFactory/scient-desktop/releases/download/v0.6.5/",
+    );
   });
 });

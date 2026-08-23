@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { onRequestGet, onRequestHead } from "./[asset]";
 
@@ -35,6 +35,13 @@ const handoffFixture = {
       size: 125_000_000,
       sha256: "c".repeat(64),
     },
+    { name: "Scient-0.5.7-x64.dmg", size: 129_000_000, sha256: "d".repeat(64) },
+    { name: "Scient-0.5.7-x64.exe", size: 98_000_000, sha256: "e".repeat(64) },
+    {
+      name: "Scient-0.5.7-x86_64.AppImage",
+      size: 112_000_000,
+      sha256: "f".repeat(64),
+    },
   ],
 };
 
@@ -70,6 +77,20 @@ function createContext(
   } as unknown as Parameters<typeof onRequestGet>[0] & { waitUntil: ReturnType<typeof vi.fn> };
 }
 
+async function flushWaitUntil(context: ReturnType<typeof createContext>): Promise<void> {
+  await Promise.all(context.waitUntil.mock.calls.map(([promise]) => promise));
+}
+
+beforeEach(() => {
+  vi.stubGlobal("caches", {
+    default: {
+      match: vi.fn().mockResolvedValue(undefined),
+      put: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(true),
+    },
+  });
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -85,8 +106,8 @@ describe("tracked download redirect", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe(releaseFixture.assets[0]?.browser_download_url);
-    expect(context.waitUntil).toHaveBeenCalledTimes(1);
-    await context.waitUntil.mock.calls[0]?.[0];
+    expect(context.waitUntil).toHaveBeenCalledTimes(2);
+    await flushWaitUntil(context);
     expect(db.bind).toHaveBeenCalledWith(
       expect.any(String),
       "download_clicked",
@@ -118,7 +139,7 @@ describe("tracked download redirect", () => {
     const response = await onRequestGet(context);
 
     expect(response.status).toBe(302);
-    await context.waitUntil.mock.calls[0]?.[0];
+    await flushWaitUntil(context);
   });
 
   it("records a ScientFactory-side failure when resolution fails", async () => {
@@ -133,7 +154,7 @@ describe("tracked download redirect", () => {
     const response = await onRequestGet(context);
 
     expect(response.status).toBe(503);
-    await context.waitUntil.mock.calls[0]?.[0];
+    await flushWaitUntil(context);
     expect(db.bind).toHaveBeenCalledWith(
       expect.any(String),
       "download_failed",
@@ -170,7 +191,7 @@ describe("tracked download redirect", () => {
     const response = await onRequestHead(context);
 
     expect(response.status).toBe(302);
-    expect(context.waitUntil).not.toHaveBeenCalled();
+    expect(context.waitUntil).toHaveBeenCalledTimes(1);
   });
 
   it("accepts a final-repository source in a transitional handoff", async () => {
@@ -189,6 +210,6 @@ describe("tracked download redirect", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe(releaseFixture.assets[0]?.browser_download_url);
-    expect(context.waitUntil).not.toHaveBeenCalled();
+    expect(context.waitUntil).toHaveBeenCalledTimes(1);
   });
 });
