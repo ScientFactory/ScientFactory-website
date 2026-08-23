@@ -43,7 +43,7 @@ describe("Scient release handoff", () => {
     expect(release).toMatchObject({
       tag_name: "v0.6.5",
       name: "Scient v0.6.5",
-      html_url: "https://github.com/ScientFactory/scient-desktop-next/releases/tag/v0.6.5",
+      html_url: "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.6.5",
       published_at: "2026-08-22T01:50:58.000Z",
       prerelease: false,
     });
@@ -51,7 +51,7 @@ describe("Scient release handoff", () => {
       expect.objectContaining({
         name: "Scient-0.6.5-arm64.dmg",
         browser_download_url:
-          "https://github.com/ScientFactory/scient-desktop-next/releases/download/v0.6.5/Scient-0.6.5-arm64.dmg",
+          "https://github.com/ScientFactory/scient-desktop/releases/download/v0.6.5/Scient-0.6.5-arm64.dmg",
         digest: `sha256:${"c".repeat(64)}`,
       }),
     );
@@ -59,7 +59,7 @@ describe("Scient release handoff", () => {
       expect.objectContaining({
         name: "SHA256SUMS.txt",
         browser_download_url:
-          "https://github.com/ScientFactory/scient-desktop-next/releases/download/v0.6.5/SHA256SUMS.txt",
+          "https://github.com/ScientFactory/scient-desktop/releases/download/v0.6.5/SHA256SUMS.txt",
         size: 358,
       }),
     );
@@ -109,12 +109,8 @@ describe("Scient release handoff", () => {
     ).toBe("v0.6.5");
   });
 
-  it("routes old provenance through the configured final delivery repository", () => {
-    const release = releaseFromHandoff(
-      handoffFixture,
-      "Sat, 22 Aug 2026 01:50:58 GMT",
-      "ScientFactory/scient-desktop",
-    );
+  it("routes old provenance through the canonical delivery repository", () => {
+    const release = releaseFromHandoff(handoffFixture, "Sat, 22 Aug 2026 01:50:58 GMT");
     expect(release.html_url).toBe(
       "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.6.5",
     );

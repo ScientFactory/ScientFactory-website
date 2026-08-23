@@ -16,7 +16,7 @@ afterEach(() => {
 const releaseFixture = {
   tag_name: "v0.6.0",
   name: "Scient v0.6.0",
-  html_url: "https://github.com/ScientFactory/scient-desktop-next/releases/tag/v0.6.0",
+  html_url: "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.6.0",
   published_at: "2026-07-19T00:00:00Z",
   prerelease: false,
   assets: [
@@ -118,9 +118,7 @@ describe("release metadata", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(fetchLatestRelease()).resolves.toMatchObject({ tag_name: "v0.6.0" });
-    expect(getItem).toHaveBeenCalledWith(
-      "scient-latest-release-v3:ScientFactory/scient-desktop-next",
-    );
+    expect(getItem).toHaveBeenCalledWith("scient-latest-release-v3:ScientFactory/scient-desktop");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

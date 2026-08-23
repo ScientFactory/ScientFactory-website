@@ -70,7 +70,7 @@ describe("latest release resolver", () => {
     const key = match.mock.calls[0]?.[0];
     expect(new URL(key.url).searchParams.toString()).toBe(
       new URLSearchParams({
-        source: "ScientFactory/scient-desktop-next",
+        source: "ScientFactory/scient-desktop",
         schema: "handoff-v1",
       }).toString(),
     );
