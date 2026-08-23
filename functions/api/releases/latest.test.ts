@@ -18,6 +18,38 @@ const releaseFixture = {
   ],
 };
 
+const handoffFixture = {
+  schemaVersion: 1,
+  product: "Scient",
+  version: "0.5.6",
+  tag: "v0.5.6",
+  source: {
+    repository: "ScientFactory/scient-desktop-next",
+    commit: "a".repeat(40),
+    tree: "b".repeat(40),
+  },
+  assets: [
+    {
+      name: "Scient-0.5.6-arm64.dmg",
+      size: 125_000_000,
+      sha256: "c".repeat(64),
+    },
+    { name: "Scient-0.5.6-x64.dmg", size: 129_000_000, sha256: "d".repeat(64) },
+    { name: "Scient-0.5.6-x64.exe", size: 98_000_000, sha256: "e".repeat(64) },
+    {
+      name: "Scient-0.5.6-x86_64.AppImage",
+      size: 112_000_000,
+      sha256: "f".repeat(64),
+    },
+  ],
+};
+
+function handoffResponse(value: unknown = handoffFixture): Response {
+  return Response.json(value, {
+    headers: { "Last-Modified": "Sun, 19 Jul 2026 00:00:00 GMT" },
+  });
+}
+
 function createContext() {
   return {
     request: new Request("https://scientfactory.com/api/releases/latest?ignored=true"),
@@ -40,7 +72,7 @@ describe("latest release Pages Function", () => {
 
     const response = await onRequestGet(createContext());
 
-    expect(response.headers.get("X-Cache-Test")).toBe("hit");
+    await expect(response.json()).resolves.toMatchObject({ tag_name: "v0.5.6" });
     const cacheRequest = match.mock.calls[0]?.[0] as Request;
     expect(new URL(cacheRequest.url).searchParams.get("source")).toBe(
       "ScientFactory/scient-desktop-next",
@@ -54,7 +86,7 @@ describe("latest release Pages Function", () => {
     vi.stubGlobal("caches", {
       default: { match: vi.fn().mockResolvedValue(undefined), put },
     });
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(releaseFixture));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(handoffResponse());
     vi.stubGlobal("fetch", fetchMock);
 
     const response = await onRequestGet(context);
@@ -65,7 +97,7 @@ describe("latest release Pages Function", () => {
     expect(context.waitUntil).toHaveBeenCalledTimes(1);
     expect(put).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest",
+      "https://github.com/ScientFactory/scient-desktop-next/releases/latest/download/scient-release-handoff.json",
       expect.any(Object),
     );
   });
@@ -91,7 +123,7 @@ describe("latest release Pages Function", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message: "bad" })),
+      vi.fn<typeof fetch>().mockResolvedValue(handoffResponse({ message: "bad" })),
     );
 
     const response = await onRequestGet(createContext());

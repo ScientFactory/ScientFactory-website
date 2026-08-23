@@ -50,7 +50,7 @@ import Layout from "../layouts/Layout.astro";
       <div class="content-section__body">
         <h2 id="privacy-downloads">Installer delivery is completed by GitHub.</h2>
         <p>
-          The download page checks ScientFactory's public GitHub release information to locate the latest installer. If the website's release endpoint is unavailable, your browser may request that public information directly from GitHub.
+          The download page checks ScientFactory's release endpoint, which validates the public attested GitHub release handoff before locating an installer. Your browser does not bypass that validation by querying the GitHub API directly.
         </p>
         <p>
           When you choose an installer, your browser first requests a ScientFactory download address. The website records the download click and redirects the browser to the official GitHub release file. A <code>download_failed</code> event means our website could not resolve or start that redirect; it cannot detect a later transfer failure after GitHub begins serving the file. GitHub processes the resulting file request under its own privacy terms.

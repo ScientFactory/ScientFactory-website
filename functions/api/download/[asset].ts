@@ -3,12 +3,13 @@
 // Layer: Cloudflare Pages Function
 
 import { findDownloadAsset, type DownloadAssetKey } from "../../../src/lib/download-assets";
-import { parseRelease, type Release, type ReleaseAsset } from "../../../src/lib/release-schema";
-import {
-  GITHUB_RELEASE_API_URL,
-  isOfficialDesktopReleaseDownload,
-} from "../../../src/lib/release-source";
+import type { Release, ReleaseAsset } from "../../../src/lib/release-schema";
+import { isOfficialDesktopReleaseDownload } from "../../../src/lib/release-source";
 import { queueSiteEvent } from "../../_lib/events";
+import {
+  LatestReleaseResolutionError,
+  resolveLatestDesktopRelease,
+} from "../../_lib/latest-release";
 
 const DOWNLOAD_ASSET_KEYS = new Set<DownloadAssetKey>([
   "macArm64",
@@ -34,32 +35,18 @@ function assetKeyFromContext(context: EventContext<Cloudflare.Env, "asset", unkn
   return value as DownloadAssetKey;
 }
 
-async function resolveDownload(key: DownloadAssetKey): Promise<{
-  readonly release: Release;
-  readonly asset: ReleaseAsset;
-}> {
-  let upstream: Response;
-  try {
-    upstream = await fetch(GITHUB_RELEASE_API_URL, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "ScientFactory-download-service",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
-  } catch {
-    throw new DownloadResolutionError("release_fetch", "upstream_request_failed");
-  }
-
-  if (!upstream.ok) {
-    throw new DownloadResolutionError("release_fetch", "upstream_unavailable");
-  }
-
+async function resolveDownload(
+  key: DownloadAssetKey,
+  context: Parameters<typeof resolveLatestDesktopRelease>[0],
+): Promise<{ readonly release: Release; readonly asset: ReleaseAsset }> {
   let release: Release;
   try {
-    release = parseRelease(await upstream.json());
-  } catch {
-    throw new DownloadResolutionError("release_validation", "release_metadata_invalid");
+    release = await resolveLatestDesktopRelease(context);
+  } catch (error) {
+    if (error instanceof LatestReleaseResolutionError) {
+      throw new DownloadResolutionError(error.stage, error.reason);
+    }
+    throw new DownloadResolutionError("release_fetch", "upstream_request_failed");
   }
 
   const asset = findDownloadAsset(release, key);
@@ -113,7 +100,7 @@ async function handleDownload(
   if (!key) return new Response("Not found", { status: 404 });
 
   try {
-    const { release, asset } = await resolveDownload(key);
+    const { release, asset } = await resolveDownload(key, context);
     if (track) {
       const destination = new URL(asset.browser_download_url);
       queueSiteEvent(context, {

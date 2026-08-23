@@ -2,13 +2,7 @@
 // Purpose: Serves cached, validated desktop release metadata to the marketing site.
 // Layer: Cloudflare Pages Function
 
-import { parseRelease } from "../../../src/lib/release-schema";
-import {
-  DESKTOP_RELEASE_REPOSITORY,
-  GITHUB_RELEASE_API_URL,
-} from "../../../src/lib/release-source";
-
-const CACHE_CONTROL = "public, max-age=300";
+import { latestReleaseResponse, resolveLatestDesktopRelease } from "../../_lib/latest-release";
 
 function jsonError(message: string, status: number): Response {
   return Response.json(
@@ -24,43 +18,8 @@ function jsonError(message: string, status: number): Response {
 }
 
 export const onRequestGet: PagesFunction<Cloudflare.Env> = async (context) => {
-  const cacheKeyUrl = new URL(context.request.url);
-  cacheKeyUrl.search = "";
-  cacheKeyUrl.searchParams.set("source", DESKTOP_RELEASE_REPOSITORY);
-  const cacheKey = new Request(cacheKeyUrl.toString(), { method: "GET" });
-  const cached = await caches.default.match(cacheKey);
-  if (cached) return cached;
-
   try {
-    const upstream = await fetch(GITHUB_RELEASE_API_URL, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "ScientFactory-download-service",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
-
-    if (!upstream.ok) {
-      console.error(
-        JSON.stringify({
-          message: "GitHub release request failed",
-          status: upstream.status,
-        }),
-      );
-      return jsonError("Release metadata is temporarily unavailable.", 503);
-    }
-
-    const release = parseRelease(await upstream.json());
-    const response = Response.json(release, {
-      headers: {
-        "Cache-Control": CACHE_CONTROL,
-        "Content-Type": "application/json; charset=utf-8",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
-
-    context.waitUntil(caches.default.put(cacheKey, response.clone()));
-    return response;
+    return latestReleaseResponse(await resolveLatestDesktopRelease(context));
   } catch (error) {
     console.error(
       JSON.stringify({

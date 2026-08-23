@@ -83,9 +83,7 @@ async function fetchReleaseFromNetwork(
   const isLocalPreview =
     typeof location !== "undefined" &&
     (location.hostname === "127.0.0.1" || location.hostname === "localhost");
-  const endpoints = isLocalPreview
-    ? [GITHUB_RELEASE_API_URL]
-    : [SITE_API_URL, GITHUB_RELEASE_API_URL];
+  const endpoints = isLocalPreview ? [GITHUB_RELEASE_API_URL] : [SITE_API_URL];
 
   let lastStatus: number | null = null;
   for (const endpoint of endpoints) {

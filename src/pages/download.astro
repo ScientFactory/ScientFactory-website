@@ -234,11 +234,13 @@ const linuxIcon = iconData("Linux");
 
     try {
       const release = await fetchLatestRelease({ signal: controller.signal, force });
-      const published = new Intl.DateTimeFormat("en", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }).format(new Date(release.published_at));
+      const published = release.published_at
+        ? new Intl.DateTimeFormat("en", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }).format(new Date(release.published_at))
+        : null;
 
       let availableCount = 0;
       cards.forEach((card) => {
@@ -278,7 +280,10 @@ const linuxIcon = iconData("Linux");
       }
 
       if (availableCount === cards.length) {
-        updateStatus("ready", `${release.tag_name} · Published ${published}`);
+        updateStatus(
+          "ready",
+          published ? `${release.tag_name} · Published ${published}` : release.tag_name,
+        );
       } else if (availableCount > 0) {
         updateStatus("error", `${release.tag_name} is missing one or more installers.`);
       } else {
