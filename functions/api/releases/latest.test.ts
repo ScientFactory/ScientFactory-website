@@ -5,7 +5,7 @@ import { onRequestGet } from "./latest";
 const releaseFixture = {
   tag_name: "v0.5.6",
   name: "Scient v0.5.6",
-  html_url: "https://github.com/ScientFactory/scient-desktop-next/releases/tag/v0.5.6",
+  html_url: "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.5.6",
   published_at: "2026-07-19T00:00:00Z",
   prerelease: false,
   assets: [
@@ -75,7 +75,7 @@ describe("latest release Pages Function", () => {
     await expect(response.json()).resolves.toMatchObject({ tag_name: "v0.5.6" });
     const cacheRequest = match.mock.calls[0]?.[0] as Request;
     expect(new URL(cacheRequest.url).searchParams.get("source")).toBe(
-      "ScientFactory/scient-desktop-next",
+      "ScientFactory/scient-desktop",
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -97,7 +97,7 @@ describe("latest release Pages Function", () => {
     expect(context.waitUntil).toHaveBeenCalledTimes(1);
     expect(put).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://github.com/ScientFactory/scient-desktop-next/releases/latest/download/scient-release-handoff.json",
+      "https://github.com/ScientFactory/scient-desktop/releases/latest/download/scient-release-handoff.json",
       expect.any(Object),
     );
   });
