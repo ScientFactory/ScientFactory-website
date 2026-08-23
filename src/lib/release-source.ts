@@ -20,7 +20,9 @@ function trustedGitHubPath(value: string, segment: "download" | "tag"): boolean 
     if (
       destination.protocol !== "https:" ||
       destination.hostname !== "github.com" ||
-      destination.port !== ""
+      destination.port !== "" ||
+      destination.username !== "" ||
+      destination.password !== ""
     ) {
       return false;
     }

@@ -13,6 +13,7 @@ describe("Scient Desktop release source", () => {
   it.each([
     "http://github.com/ScientFactory/scient-desktop/releases/download/v0.6.6/Scient.dmg",
     "https://github.com:444/ScientFactory/scient-desktop/releases/download/v0.6.6/Scient.dmg",
+    "https://user:password@github.com/ScientFactory/scient-desktop/releases/download/v0.6.6/Scient.dmg",
     "https://github.com/Other/scient-desktop/releases/download/v0.6.6/Scient.dmg",
     "https://github.com/ScientFactory/scient-desktop-evil/releases/download/v0.6.6/Scient.dmg",
     "https://example.com/ScientFactory/scient-desktop/releases/download/v0.6.6/Scient.dmg",
