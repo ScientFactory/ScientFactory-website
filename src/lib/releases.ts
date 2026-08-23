@@ -3,20 +3,22 @@
 // Layer: Marketing utility
 
 import { parseRelease, type Release, type ReleaseAsset } from "./release-schema";
+import {
+  DESKTOP_REPOSITORY_URL,
+  GITHUB_RELEASE_API_URL,
+  RELEASE_CACHE_NAMESPACE,
+} from "./release-source";
 
 export { DOWNLOAD_ASSETS, findDownloadAsset } from "./download-assets";
 export type { DownloadAssetKey } from "./download-assets";
 export { parseRelease } from "./release-schema";
 export type { Release, ReleaseAsset } from "./release-schema";
 
-const REPO = "ScientFactory/scient-desktop-next";
-const GITHUB_API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 const SITE_API_URL = "/api/releases/latest";
-const CACHE_KEY = "scient-latest-release-v2";
 const CACHE_TTL_MS = 15 * 60 * 1000;
 let inFlightRelease: Promise<Release> | null = null;
 
-export const REPO_URL = `https://github.com/${REPO}`;
+export const REPO_URL = DESKTOP_REPOSITORY_URL;
 export const RELEASES_URL = `${REPO_URL}/releases`;
 export const LATEST_RELEASE_URL = `${RELEASES_URL}/latest`;
 
@@ -33,7 +35,7 @@ function readCachedRelease(now: number): Release | null {
   if (typeof sessionStorage === "undefined") return null;
 
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY);
+    const raw = sessionStorage.getItem(RELEASE_CACHE_NAMESPACE);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (!isRecord(parsed) || typeof parsed.cachedAt !== "number") return null;
@@ -49,7 +51,7 @@ function cacheRelease(release: Release, now: number): void {
 
   try {
     const cached: CachedRelease = { cachedAt: now, release };
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+    sessionStorage.setItem(RELEASE_CACHE_NAMESPACE, JSON.stringify(cached));
   } catch {
     // Downloads still work when storage is blocked or full.
   }
@@ -81,7 +83,9 @@ async function fetchReleaseFromNetwork(
   const isLocalPreview =
     typeof location !== "undefined" &&
     (location.hostname === "127.0.0.1" || location.hostname === "localhost");
-  const endpoints = isLocalPreview ? [GITHUB_API_URL] : [SITE_API_URL, GITHUB_API_URL];
+  const endpoints = isLocalPreview
+    ? [GITHUB_RELEASE_API_URL]
+    : [SITE_API_URL, GITHUB_RELEASE_API_URL];
 
   let lastStatus: number | null = null;
   for (const endpoint of endpoints) {

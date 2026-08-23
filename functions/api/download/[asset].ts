@@ -4,10 +4,12 @@
 
 import { findDownloadAsset, type DownloadAssetKey } from "../../../src/lib/download-assets";
 import { parseRelease, type Release, type ReleaseAsset } from "../../../src/lib/release-schema";
+import {
+  GITHUB_RELEASE_API_URL,
+  isOfficialDesktopReleaseDownload,
+} from "../../../src/lib/release-source";
 import { queueSiteEvent } from "../../_lib/events";
 
-const GITHUB_RELEASE_URL =
-  "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest";
 const DOWNLOAD_ASSET_KEYS = new Set<DownloadAssetKey>([
   "macArm64",
   "macX64",
@@ -32,26 +34,13 @@ function assetKeyFromContext(context: EventContext<Cloudflare.Env, "asset", unkn
   return value as DownloadAssetKey;
 }
 
-function isOfficialDownload(asset: ReleaseAsset): boolean {
-  try {
-    const destination = new URL(asset.browser_download_url);
-    return (
-      destination.protocol === "https:" &&
-      destination.hostname === "github.com" &&
-      destination.pathname.startsWith("/ScientFactory/scient-desktop-next/releases/download/")
-    );
-  } catch {
-    return false;
-  }
-}
-
 async function resolveDownload(key: DownloadAssetKey): Promise<{
   readonly release: Release;
   readonly asset: ReleaseAsset;
 }> {
   let upstream: Response;
   try {
-    upstream = await fetch(GITHUB_RELEASE_URL, {
+    upstream = await fetch(GITHUB_RELEASE_API_URL, {
       headers: {
         Accept: "application/vnd.github+json",
         "User-Agent": "ScientFactory-download-service",
@@ -77,7 +66,7 @@ async function resolveDownload(key: DownloadAssetKey): Promise<{
   if (!asset) {
     throw new DownloadResolutionError("asset_resolution", "installer_not_found");
   }
-  if (!isOfficialDownload(asset)) {
+  if (!isOfficialDesktopReleaseDownload(asset.browser_download_url)) {
     throw new DownloadResolutionError("destination_validation", "installer_url_rejected");
   }
 

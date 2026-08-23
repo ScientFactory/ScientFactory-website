@@ -41,6 +41,10 @@ describe("latest release Pages Function", () => {
     const response = await onRequestGet(createContext());
 
     expect(response.headers.get("X-Cache-Test")).toBe("hit");
+    const cacheRequest = match.mock.calls[0]?.[0] as Request;
+    expect(new URL(cacheRequest.url).searchParams.get("source")).toBe(
+      "ScientFactory/scient-desktop-next",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -50,7 +54,8 @@ describe("latest release Pages Function", () => {
     vi.stubGlobal("caches", {
       default: { match: vi.fn().mockResolvedValue(undefined), put },
     });
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(Response.json(releaseFixture)));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(releaseFixture));
+    vi.stubGlobal("fetch", fetchMock);
 
     const response = await onRequestGet(context);
 
@@ -59,6 +64,10 @@ describe("latest release Pages Function", () => {
     await expect(response.json()).resolves.toMatchObject({ tag_name: "v0.5.6" });
     expect(context.waitUntil).toHaveBeenCalledTimes(1);
     expect(put).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest",
+      expect.any(Object),
+    );
   });
 
   it("returns a non-cacheable 503 when GitHub has no public release", async () => {

@@ -53,7 +53,7 @@ const downloadPath = Array.isArray(downloadPathData) ? downloadPathData[0] : dow
           const key = button.dataset.platformDownload as DownloadAssetKey | undefined;
           if (!key) return;
           const asset = findDownloadAsset(release, key);
-          if (asset) button.href = asset.browser_download_url;
+          if (asset) button.href = `/api/download/${encodeURIComponent(key)}`;
         });
       })
       .catch(() => {
