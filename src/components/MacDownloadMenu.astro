@@ -97,7 +97,7 @@ const chevronPath = Array.isArray(chevronPathData) ? chevronPathData[0] : chevro
           if (!key) return;
           const asset = findDownloadAsset(release, key);
           if (!asset) return;
-          item.href = asset.browser_download_url;
+          item.href = `/api/download/${encodeURIComponent(key)}`;
           available += 1;
         });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isOfficialDesktopReleaseDownload } from "./release-source";
+import { isOfficialDesktopReleaseDownload, isOfficialDesktopReleasePage } from "./release-source";
 
 describe("Scient Desktop release source", () => {
   it.each([
@@ -19,5 +19,20 @@ describe("Scient Desktop release source", () => {
     "not a URL",
   ])("rejects an untrusted release path: %s", (url) => {
     expect(isOfficialDesktopReleaseDownload(url)).toBe(false);
+  });
+
+  it.each([
+    "https://github.com/ScientFactory/scient-desktop-next/releases/tag/v0.6.5",
+    "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.6.6",
+  ])("accepts an exact transitional release page: %s", (url) => {
+    expect(isOfficialDesktopReleasePage(url)).toBe(true);
+  });
+
+  it.each([
+    "https://github.com/ScientFactory/scient-desktop/releases/latest",
+    "https://github.com/Other/scient-desktop/releases/tag/v0.6.6",
+    "https://github.com/ScientFactory/scient-desktop/releases/tag/",
+  ])("rejects an untrusted release page: %s", (url) => {
+    expect(isOfficialDesktopReleasePage(url)).toBe(false);
   });
 });

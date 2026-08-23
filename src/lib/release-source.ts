@@ -14,7 +14,7 @@ export const GITHUB_RELEASE_API_URL = `https://api.github.com/repos/${DESKTOP_RE
 export const DESKTOP_REPOSITORY_URL = `https://github.com/${DESKTOP_RELEASE_REPOSITORY}`;
 export const RELEASE_CACHE_NAMESPACE = `scient-latest-release-v3:${DESKTOP_RELEASE_REPOSITORY}`;
 
-export function isOfficialDesktopReleaseDownload(value: string): boolean {
+function trustedGitHubPath(value: string, segment: "download" | "tag"): boolean {
   try {
     const destination = new URL(value);
     if (
@@ -24,10 +24,19 @@ export function isOfficialDesktopReleaseDownload(value: string): boolean {
     ) {
       return false;
     }
-    return [...TRUSTED_DOWNLOAD_REPOSITORIES].some((repository) =>
-      destination.pathname.startsWith(`/${repository}/releases/download/`),
-    );
+    return [...TRUSTED_DOWNLOAD_REPOSITORIES].some((repository) => {
+      const prefix = `/${repository}/releases/${segment}/`;
+      return destination.pathname.startsWith(prefix) && destination.pathname.length > prefix.length;
+    });
   } catch {
     return false;
   }
+}
+
+export function isOfficialDesktopReleaseDownload(value: string): boolean {
+  return trustedGitHubPath(value, "download");
+}
+
+export function isOfficialDesktopReleasePage(value: string): boolean {
+  return trustedGitHubPath(value, "tag");
 }

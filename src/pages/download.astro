@@ -176,6 +176,10 @@ const linuxIcon = iconData("Linux");
     LATEST_RELEASE_URL,
     type DownloadAssetKey,
   } from "../lib/releases";
+  import {
+    isOfficialDesktopReleaseDownload,
+    isOfficialDesktopReleasePage,
+  } from "../lib/release-source";
 
   const cards = [...document.querySelectorAll<HTMLAnchorElement>("[data-download-asset]")];
   const status = document.querySelector<HTMLElement>("[data-release-state]");
@@ -260,9 +264,15 @@ const linuxIcon = iconData("Linux");
         }
       });
 
-      if (releaseNotes) releaseNotes.href = release.html_url;
+      if (releaseNotes && isOfficialDesktopReleasePage(release.html_url)) {
+        releaseNotes.href = release.html_url;
+      }
       const checksumAsset = findChecksumAsset(release);
-      if (checksums && checksumAsset) {
+      if (
+        checksums &&
+        checksumAsset &&
+        isOfficialDesktopReleaseDownload(checksumAsset.browser_download_url)
+      ) {
         checksums.href = checksumAsset.browser_download_url;
         checksums.hidden = false;
       }
