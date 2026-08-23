@@ -3,9 +3,10 @@
 // Layer: Cloudflare Pages Function
 
 import { findDownloadAsset, type DownloadAssetKey } from "../../../src/lib/download-assets";
-import { parseRelease, type Release, type ReleaseAsset } from "../../../src/lib/release-schema";
+import { releaseFromHandoff } from "../../../src/lib/release-handoff";
+import type { Release, ReleaseAsset } from "../../../src/lib/release-schema";
 import {
-  GITHUB_RELEASE_API_URL,
+  GITHUB_RELEASE_HANDOFF_URL,
   isOfficialDesktopReleaseDownload,
 } from "../../../src/lib/release-source";
 import { queueSiteEvent } from "../../_lib/events";
@@ -40,11 +41,10 @@ async function resolveDownload(key: DownloadAssetKey): Promise<{
 }> {
   let upstream: Response;
   try {
-    upstream = await fetch(GITHUB_RELEASE_API_URL, {
+    upstream = await fetch(GITHUB_RELEASE_HANDOFF_URL, {
       headers: {
-        Accept: "application/vnd.github+json",
+        Accept: "application/octet-stream, application/json",
         "User-Agent": "ScientFactory-download-service",
-        "X-GitHub-Api-Version": "2022-11-28",
       },
     });
   } catch {
@@ -57,7 +57,7 @@ async function resolveDownload(key: DownloadAssetKey): Promise<{
 
   let release: Release;
   try {
-    release = parseRelease(await upstream.json());
+    release = releaseFromHandoff(await upstream.json(), upstream.headers.get("Last-Modified"));
   } catch {
     throw new DownloadResolutionError("release_validation", "release_metadata_invalid");
   }

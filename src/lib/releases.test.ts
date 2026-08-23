@@ -78,22 +78,16 @@ describe("release metadata", () => {
     expect(formatFileSize(-1)).toBe("");
   });
 
-  it("falls back to GitHub when the same-origin release endpoint is unavailable", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(null, { status: 503 }))
-      .mockResolvedValueOnce(Response.json(releaseFixture));
+  it("does not bypass the validated site endpoint in production", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 503 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const release = await fetchLatestRelease({ force: true });
-
-    expect(release.tag_name).toBe("v0.6.0");
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/releases/latest", expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest",
-      expect.any(Object),
+    await expect(fetchLatestRelease({ force: true })).rejects.toThrow(
+      "Release request failed (503)",
     );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/releases/latest", expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("coalesces concurrent release requests", async () => {

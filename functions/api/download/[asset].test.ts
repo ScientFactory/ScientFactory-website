@@ -19,6 +19,31 @@ const releaseFixture = {
   ],
 };
 
+const handoffFixture = {
+  schemaVersion: 1,
+  product: "Scient",
+  version: "0.5.7",
+  tag: "v0.5.7",
+  source: {
+    repository: "ScientFactory/scient-desktop-next",
+    commit: "a".repeat(40),
+    tree: "b".repeat(40),
+  },
+  assets: [
+    {
+      name: "Scient-0.5.7-arm64.dmg",
+      size: 125_000_000,
+      sha256: "c".repeat(64),
+    },
+  ],
+};
+
+function handoffResponse(value: unknown = handoffFixture): Response {
+  return Response.json(value, {
+    headers: { "Last-Modified": "Mon, 20 Jul 2026 00:00:00 GMT" },
+  });
+}
+
 function createDatabase(run = vi.fn().mockResolvedValue({ success: true })) {
   const bind = vi.fn(() => ({ run }));
   const prepare = vi.fn(() => ({ bind }));
@@ -54,7 +79,7 @@ describe("tracked download redirect", () => {
   it("records a click and redirects to the official installer", async () => {
     const db = createDatabase();
     const context = createContext("macArm64", db.database);
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(Response.json(releaseFixture)));
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(handoffResponse()));
 
     const response = await onRequestGet(context);
 
@@ -88,7 +113,7 @@ describe("tracked download redirect", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const db = createDatabase(vi.fn().mockRejectedValue(new Error("database unavailable")));
     const context = createContext("macArm64", db.database);
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(Response.json(releaseFixture)));
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(handoffResponse()));
 
     const response = await onRequestGet(context);
 
@@ -140,7 +165,7 @@ describe("tracked download redirect", () => {
 
   it("supports an untracked HEAD verification", async () => {
     const context = createContext();
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(Response.json(releaseFixture)));
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(handoffResponse()));
 
     const response = await onRequestHead(context);
 
@@ -148,17 +173,14 @@ describe("tracked download redirect", () => {
     expect(context.waitUntil).not.toHaveBeenCalled();
   });
 
-  it("accepts the final repository path returned after the GitHub rename", async () => {
-    const finalUrl =
-      "https://github.com/ScientFactory/scient-desktop/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg";
+  it("accepts a final-repository source in a transitional handoff", async () => {
     const context = createContext();
     vi.stubGlobal(
       "fetch",
       vi.fn<typeof fetch>().mockResolvedValue(
-        Response.json({
-          ...releaseFixture,
-          html_url: "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.5.7",
-          assets: [{ ...releaseFixture.assets[0], browser_download_url: finalUrl }],
+        handoffResponse({
+          ...handoffFixture,
+          source: { ...handoffFixture.source, repository: "ScientFactory/scient-desktop" },
         }),
       ),
     );
@@ -166,7 +188,7 @@ describe("tracked download redirect", () => {
     const response = await onRequestHead(context);
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toBe(finalUrl);
+    expect(response.headers.get("Location")).toBe(releaseFixture.assets[0]?.browser_download_url);
     expect(context.waitUntil).not.toHaveBeenCalled();
   });
 });

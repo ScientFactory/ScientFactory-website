@@ -2,10 +2,10 @@
 // Purpose: Serves cached, validated desktop release metadata to the marketing site.
 // Layer: Cloudflare Pages Function
 
-import { parseRelease } from "../../../src/lib/release-schema";
+import { releaseFromHandoff } from "../../../src/lib/release-handoff";
 import {
   DESKTOP_RELEASE_REPOSITORY,
-  GITHUB_RELEASE_API_URL,
+  GITHUB_RELEASE_HANDOFF_URL,
 } from "../../../src/lib/release-source";
 
 const CACHE_CONTROL = "public, max-age=300";
@@ -32,11 +32,10 @@ export const onRequestGet: PagesFunction<Cloudflare.Env> = async (context) => {
   if (cached) return cached;
 
   try {
-    const upstream = await fetch(GITHUB_RELEASE_API_URL, {
+    const upstream = await fetch(GITHUB_RELEASE_HANDOFF_URL, {
       headers: {
-        Accept: "application/vnd.github+json",
+        Accept: "application/octet-stream, application/json",
         "User-Agent": "ScientFactory-download-service",
-        "X-GitHub-Api-Version": "2022-11-28",
       },
     });
 
@@ -50,7 +49,10 @@ export const onRequestGet: PagesFunction<Cloudflare.Env> = async (context) => {
       return jsonError("Release metadata is temporarily unavailable.", 503);
     }
 
-    const release = parseRelease(await upstream.json());
+    const release = releaseFromHandoff(
+      await upstream.json(),
+      upstream.headers.get("Last-Modified"),
+    );
     const response = Response.json(release, {
       headers: {
         "Cache-Control": CACHE_CONTROL,

@@ -11,8 +11,13 @@ const TRUSTED_DOWNLOAD_REPOSITORIES = new Set([
 ]);
 
 export const GITHUB_RELEASE_API_URL = `https://api.github.com/repos/${DESKTOP_RELEASE_REPOSITORY}/releases/latest`;
+export const GITHUB_RELEASE_HANDOFF_URL = `https://github.com/${DESKTOP_RELEASE_REPOSITORY}/releases/latest/download/scient-release-handoff.json`;
 export const DESKTOP_REPOSITORY_URL = `https://github.com/${DESKTOP_RELEASE_REPOSITORY}`;
 export const RELEASE_CACHE_NAMESPACE = `scient-latest-release-v3:${DESKTOP_RELEASE_REPOSITORY}`;
+
+export function isOfficialDesktopRepository(value: string): boolean {
+  return TRUSTED_DOWNLOAD_REPOSITORIES.has(value);
+}
 
 function trustedGitHubPath(value: string, segment: "download" | "tag"): boolean {
   try {

@@ -14,7 +14,7 @@ export interface Release {
   readonly tag_name: string;
   readonly name: string | null;
   readonly html_url: string;
-  readonly published_at: string;
+  readonly published_at: string | null;
   readonly prerelease: boolean;
   readonly assets: readonly ReleaseAsset[];
 }
@@ -40,7 +40,7 @@ export function parseRelease(value: unknown): Release {
     typeof value.tag_name !== "string" ||
     (value.name !== null && typeof value.name !== "string") ||
     typeof value.html_url !== "string" ||
-    typeof value.published_at !== "string" ||
+    (value.published_at !== null && typeof value.published_at !== "string") ||
     typeof value.prerelease !== "boolean" ||
     !Array.isArray(value.assets) ||
     !value.assets.every(isReleaseAsset)
