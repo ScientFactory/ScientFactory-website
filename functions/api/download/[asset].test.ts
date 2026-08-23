@@ -147,4 +147,26 @@ describe("tracked download redirect", () => {
     expect(response.status).toBe(302);
     expect(context.waitUntil).not.toHaveBeenCalled();
   });
+
+  it("accepts the final repository path returned after the GitHub rename", async () => {
+    const finalUrl =
+      "https://github.com/ScientFactory/scient-desktop/releases/download/v0.5.7/Scient-0.5.7-arm64.dmg";
+    const context = createContext();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        Response.json({
+          ...releaseFixture,
+          html_url: "https://github.com/ScientFactory/scient-desktop/releases/tag/v0.5.7",
+          assets: [{ ...releaseFixture.assets[0], browser_download_url: finalUrl }],
+        }),
+      ),
+    );
+
+    const response = await onRequestHead(context);
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(finalUrl);
+    expect(context.waitUntil).not.toHaveBeenCalled();
+  });
 });

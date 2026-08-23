@@ -3,9 +3,11 @@
 // Layer: Cloudflare Pages Function
 
 import { parseRelease } from "../../../src/lib/release-schema";
+import {
+  DESKTOP_RELEASE_REPOSITORY,
+  GITHUB_RELEASE_API_URL,
+} from "../../../src/lib/release-source";
 
-const GITHUB_RELEASE_URL =
-  "https://api.github.com/repos/ScientFactory/scient-desktop-next/releases/latest";
 const CACHE_CONTROL = "public, max-age=300";
 
 function jsonError(message: string, status: number): Response {
@@ -24,12 +26,13 @@ function jsonError(message: string, status: number): Response {
 export const onRequestGet: PagesFunction<Cloudflare.Env> = async (context) => {
   const cacheKeyUrl = new URL(context.request.url);
   cacheKeyUrl.search = "";
+  cacheKeyUrl.searchParams.set("source", DESKTOP_RELEASE_REPOSITORY);
   const cacheKey = new Request(cacheKeyUrl.toString(), { method: "GET" });
   const cached = await caches.default.match(cacheKey);
   if (cached) return cached;
 
   try {
-    const upstream = await fetch(GITHUB_RELEASE_URL, {
+    const upstream = await fetch(GITHUB_RELEASE_API_URL, {
       headers: {
         Accept: "application/vnd.github+json",
         "User-Agent": "ScientFactory-download-service",

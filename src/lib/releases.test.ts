@@ -124,7 +124,9 @@ describe("release metadata", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(fetchLatestRelease()).resolves.toMatchObject({ tag_name: "v0.6.0" });
-    expect(getItem).toHaveBeenCalledWith("scient-latest-release-v2");
+    expect(getItem).toHaveBeenCalledWith(
+      "scient-latest-release-v3:ScientFactory/scient-desktop-next",
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
