@@ -1,0 +1,98 @@
+---
+interface DocsPage {
+  slug: string;
+  title: string;
+  topic: string;
+  url: string;
+}
+
+interface Props {
+  pages: DocsPage[];
+  currentSlug?: string;
+  compact?: boolean;
+}
+
+const { pages, currentSlug, compact = false } = Astro.props;
+const topics = [...new Set(pages.map((page) => page.topic))];
+---
+
+<nav
+  aria-label="Scient Docs pages"
+  class:list={["docs-navigation", { "docs-navigation--compact": compact }]}
+>
+  {
+    topics.map((topic) => (
+      <section class="docs-navigation__group" aria-labelledby={`docs-topic-${compact ? "mobile-" : ""}${topic.replaceAll(" ", "-")}`}>
+        <h2 id={`docs-topic-${compact ? "mobile-" : ""}${topic.replaceAll(" ", "-")}`}>{topic}</h2>
+        <ul>
+          {pages
+            .filter((page) => page.topic === topic)
+            .map((page) => (
+              <li>
+                <a href={page.url} aria-current={page.slug === currentSlug ? "page" : undefined}>
+                  {page.title}
+                </a>
+              </li>
+            ))}
+        </ul>
+      </section>
+    ))
+  }
+</nav>
+
+<style>
+  .docs-navigation {
+    display: grid;
+    gap: 1.4rem;
+    padding-top: 1.45rem;
+  }
+
+  .docs-navigation--compact {
+    padding-top: 1rem;
+  }
+
+  .docs-navigation__group h2 {
+    margin: 0 0 0.45rem;
+    color: var(--ink-dim);
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .docs-navigation__group ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .docs-navigation__group a {
+    display: block;
+    margin-left: -0.75rem;
+    padding: 0.42rem 0.75rem;
+    border-left: 2px solid transparent;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--ink-muted);
+    font-size: 0.88rem;
+    line-height: 1.35;
+  }
+
+  .docs-navigation__group a:hover,
+  .docs-navigation__group a[aria-current="page"] {
+    border-left-color: var(--burgundy);
+    background: var(--burgundy-soft);
+    color: var(--burgundy);
+  }
+
+  .docs-navigation__group a:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 560px) {
+    .docs-navigation__group a {
+      margin-left: 0;
+      padding-left: 0.55rem;
+    }
+  }
+</style>

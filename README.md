@@ -50,6 +50,16 @@ Do not deploy production from a feature branch or store Cloudflare credentials i
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow. The cross-repository operating model is maintained in [`ScientFactory/Scient`](https://github.com/ScientFactory/Scient).
 
+## Scient Docs publishing
+
+The public `/docs` experience is generated from reviewed Markdown in
+`scient-desktop/docs/user/` at an exact commit. The source manifest, hashes,
+preview/stable qualification, correction path, and rollback contract live in
+[`docs/scient-docs-manifest.json`](docs/scient-docs-manifest.json) and
+[`docs/architecture/scient-docs-publishing.md`](docs/architecture/scient-docs-publishing.md).
+Generated website files are intentionally ignored; `bun run docs:sync` rebuilds
+them and fails closed if source content no longer matches the reviewed hashes.
+
 ## First-party event measurement
 
 Cloudflare D1 stores four website event types:

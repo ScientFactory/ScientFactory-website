@@ -1,0 +1,7 @@
+/docs/raw/*
+  Content-Type: text/markdown; charset=utf-8
+  X-Content-Type-Options: nosniff
+
+/docs/index.json
+  Content-Type: application/json; charset=utf-8
+  X-Content-Type-Options: nosniff
