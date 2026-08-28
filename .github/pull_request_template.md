@@ -2,6 +2,12 @@
 
 <!-- What changed and why? -->
 
+## Documentation and source-version impact
+
+<!-- Keep one: None — reason | Updated — paths/source version | Dependent PR — repository and link -->
+
+Documentation impact:
+
 ## Validation
 
 - [ ] `bun run check`
