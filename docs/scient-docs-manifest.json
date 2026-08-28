@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "channel": "preview",
+  "source": {
+    "repository": "ScientFactory/scient-desktop",
+    "revision": "53170890ef9a6e5e53afce10d91c6d607fc91638",
+    "pullRequest": "https://github.com/ScientFactory/scient-desktop/pull/196",
+    "reviewedAt": "2026-08-28"
+  },
+  "version": {
+    "label": "Scient Docs pilot preview",
+    "appliesTo": "Unreleased documentation candidate based on Scient Desktop main through c0baaab2cda29a84682b77b8384bb7542e59a8bd",
+    "stableReleaseTags": []
+  },
+  "corpusDefaults": {
+    "product": "Scient Desktop",
+    "surface": "desktop",
+    "publicationStatus": "preview-only",
+    "audience": "users and support agents"
+  },
+  "publication": {
+    "releaseTrigger": "A reviewed desktop release plus a website manifest PR selecting its exact Help source revision",
+    "correctionTrigger": "A merged desktop Help correction plus a dependent website manifest PR; no desktop binary release is required",
+    "maximumLagHours": 24,
+    "failureMode": "The build fails closed and the previously deployed Docs remain live; CI and preview checks expose the failed source pin",
+    "rollback": "Revert the website manifest pin or the website publishing change; canonical desktop Help is never rewritten by rollback"
+  },
+  "pages": [
+    {
+      "slug": "getting-started",
+      "title": "Getting started",
+      "summary": "Connect a provider, choose optional local preferences, and hand off to your first project.",
+      "topic": "Start",
+      "sourcePath": "docs/user/getting-started.md",
+      "sha256": "29f8b7be9deb280f02f338ab75f64375231390e18d439453acce606785160987"
+    },
+    {
+      "slug": "projects",
+      "title": "Projects",
+      "summary": "Open or create folders and understand Scient's optional, bounded project setup.",
+      "topic": "Start",
+      "sourcePath": "docs/user/projects.md",
+      "sha256": "c0e891234981007e18fb06dd019597ee5f8035e7910074978f7ee48bb75959a4"
+    },
+    {
+      "slug": "file-previews",
+      "title": "File previews",
+      "summary": "Open project and environment files, refresh previews, and understand current file limits.",
+      "topic": "Files and documents",
+      "sourcePath": "docs/user/file-previews.md",
+      "sha256": "d608b0def0b5103c95e982286589369c8ed2b127dc2749aaca86d2e9329db62e"
+    },
+    {
+      "slug": "pdf-reader",
+      "title": "PDF reader",
+      "summary": "Read, search, navigate, and save copies of PDFs while preserving reading state.",
+      "topic": "Files and documents",
+      "sourcePath": "docs/user/pdf-reader.md",
+      "sha256": "cb565e77f934796ce06937cc5d0624b6cc088e599b9fcc85f39db64c4cd1c63f"
+    },
+    {
+      "slug": "latex",
+      "title": "LaTeX",
+      "summary": "Build LaTeX projects, manage toolchains, inspect diagnostics, and navigate with SyncTeX.",
+      "topic": "Files and documents",
+      "sourcePath": "docs/user/latex.md",
+      "sha256": "184ab2ef560c16d8347afaef160b506f4959252ca134d76949784ab9396a1f32"
+    },
+    {
+      "slug": "providers",
+      "title": "Providers",
+      "summary": "Understand provider readiness, accounts, installations, remote authority, and recovery.",
+      "topic": "Providers",
+      "sourcePath": "docs/user/providers.md",
+      "sha256": "7af7778920ca42dd3e740ff309c1e1e31f09280ed0001e9e9053cb08ce313136"
+    },
+    {
+      "slug": "providers-codex",
+      "title": "Codex",
+      "summary": "Connect Codex, choose a runtime, and manage one or more compatible account homes.",
+      "topic": "Providers",
+      "sourcePath": "docs/user/providers-codex.md",
+      "sha256": "0dd51ebb5a790382a121a0aeca0f2403deff677ad2e0ecd271245a8548771653"
+    },
+    {
+      "slug": "providers-claude",
+      "title": "Claude",
+      "summary": "Connect Claude Code and keep account, config-directory, runtime, and advanced routes distinct.",
+      "topic": "Providers",
+      "sourcePath": "docs/user/providers-claude.md",
+      "sha256": "625aa8cd12247d997555d775208e2a447eef67df428e25e19c854ad9672a8c68"
+    },
+    {
+      "slug": "providers-antigravity",
+      "title": "Antigravity",
+      "summary": "Use Google's account flow, managed runtime, dynamic models, and native session behavior.",
+      "topic": "Providers",
+      "sourcePath": "docs/user/providers-antigravity.md",
+      "sha256": "d924595744d67c926d75d12d4996bb7b6de5f4edde1c0d2a0a1419941a225204"
+    },
+    {
+      "slug": "providers-grok",
+      "title": "Grok",
+      "summary": "Enable the Early Access Grok provider and distinguish subscription, API-key, and runtime state.",
+      "topic": "Providers",
+      "sourcePath": "docs/user/providers-grok.md",
+      "sha256": "f9c4c2f77501f3ddedf7d4e29d6fba9b1e315320787db6ef102b2f8cf2990381"
+    },
+    {
+      "slug": "providers-droid",
+      "title": "Droid (Factory)",
+      "summary": "Connect Factory's Droid and understand ACP models, autonomy, steering, and limitations.",
+      "topic": "Providers",
+      "sourcePath": "docs/user/providers-droid.md",
+      "sha256": "85d9ac038edaf54e58100128dfbb9b5097b4741c801162546ae4a44b464b1d9c"
+    },
+    {
+      "slug": "providers-cursor",
+      "title": "Cursor",
+      "summary": "Connect Cursor Agent and keep browser authentication, runtime ownership, and recovery clear.",
+      "topic": "Providers",
+      "sourcePath": "docs/user/providers-cursor.md",
+      "sha256": "7be3cbcad434648a0c0aba8977fb3df948c53c0a7f21c514ce3a074952eaa5b6"
+    }
+  ]
+}

@@ -1,0 +1,391 @@
+---
+import Layout from "../layouts/Layout.astro";
+import ScientDocsNavigation from "./ScientDocsNavigation.astro";
+
+interface DocsPage {
+  slug: string;
+  title: string;
+  summary: string;
+  topic: string;
+  url: string;
+  rawUrl: string;
+  sourceUrl: string;
+}
+
+interface Props {
+  index: {
+    channel: string;
+    source: { revision: string; reviewedAt: string };
+    version: { label: string; appliesTo: string; stableReleaseTags: string[] };
+    pages: DocsPage[];
+  };
+  title: string;
+  description: string;
+  currentSlug?: string;
+  currentPage?: DocsPage;
+}
+
+const { index, title, description, currentSlug, currentPage } = Astro.props;
+const isPreview = index.channel === "preview";
+const shortRevision = index.source.revision.slice(0, 10);
+---
+
+<Layout
+  theme="light"
+  title={`${title} — Scient Docs`}
+  description={description}
+  robots={isPreview ? "noindex, nofollow" : undefined}
+>
+  <div class="docs-shell">
+    <aside class="docs-sidebar">
+      <div class="docs-sidebar__identity">
+        <a href="/docs" class="docs-home" aria-current={currentSlug === undefined ? "page" : undefined}>
+          <span>Scient Docs</span>
+          <span class:list={["docs-channel", { "docs-channel--preview": isPreview }]}>
+            {isPreview ? "Preview" : "Stable"}
+          </span>
+        </a>
+        <p>{index.version.label}</p>
+      </div>
+
+      <ScientDocsNavigation pages={index.pages} currentSlug={currentSlug} />
+    </aside>
+
+    <details class="docs-mobile-navigation">
+      <summary>
+        <span>Browse Scient Docs</span>
+        <span>{currentPage?.title ?? "All pages"}</span>
+      </summary>
+      <ScientDocsNavigation pages={index.pages} currentSlug={currentSlug} compact />
+    </details>
+
+    <div class="docs-workspace">
+      <div class:list={["docs-provenance", { "docs-provenance--preview": isPreview }]}>
+        <div>
+          <strong>{isPreview ? "Preview documentation" : "Versioned documentation"}</strong>
+          <p>{index.version.appliesTo}</p>
+        </div>
+        <div class="docs-provenance__source">
+          <span>Reviewed {index.source.reviewedAt}</span>
+          {
+            currentPage ? (
+              <>
+                <a href={currentPage.sourceUrl}>Source {shortRevision}</a>
+                <a href={currentPage.rawUrl}>Raw Markdown</a>
+              </>
+            ) : (
+              <span>Source {shortRevision}</span>
+            )
+          }
+        </div>
+      </div>
+
+      <div class="docs-content" id="docs-content">
+        <slot />
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-shell {
+    width: min(96rem, 100%);
+    margin: 0 auto;
+    padding: 0 var(--page-gutter) 5rem;
+    display: grid;
+    grid-template-columns: minmax(13.5rem, 17rem) minmax(0, 1fr);
+    gap: clamp(2.25rem, 5vw, 5.5rem);
+    align-items: start;
+  }
+
+  .docs-sidebar {
+    position: sticky;
+    top: 1.5rem;
+    padding: 1.25rem 0 2rem;
+  }
+
+  .docs-mobile-navigation {
+    display: none;
+  }
+
+  .docs-sidebar__identity {
+    padding-bottom: 1.2rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .docs-sidebar__identity p {
+    margin: 0.5rem 0 0;
+    color: var(--ink-dim);
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  .docs-home {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 1.05rem;
+    font-weight: 650;
+  }
+
+  .docs-channel {
+    padding: 0.2rem 0.42rem;
+    border: 1px solid var(--slate);
+    border-radius: 999px;
+    color: var(--slate);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .docs-channel--preview {
+    border-color: var(--burgundy);
+    color: var(--burgundy);
+  }
+
+  .docs-workspace {
+    min-width: 0;
+  }
+
+  .docs-provenance {
+    margin-bottom: 2.75rem;
+    padding: 1rem 1.15rem;
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 0.7rem;
+    background: var(--slate-soft);
+  }
+
+  .docs-provenance--preview {
+    border-color: rgba(84, 27, 29, 0.22);
+    background: var(--burgundy-soft);
+  }
+
+  .docs-provenance strong {
+    color: var(--ink);
+    font-size: 0.86rem;
+  }
+
+  .docs-provenance p {
+    max-width: 48rem;
+    margin: 0.2rem 0 0;
+    color: var(--ink-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .docs-provenance__source {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 0.8rem;
+    color: var(--ink-dim);
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .docs-provenance__source a {
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+  }
+
+  .docs-content {
+    min-width: 0;
+  }
+
+  :global(.docs-prose) {
+    max-width: 52rem;
+    color: var(--ink-muted);
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  :global(.docs-prose h1) {
+    margin: 0 0 1.25rem;
+    color: var(--ink);
+    font-size: clamp(2.3rem, 5vw, 4.8rem);
+    font-weight: 520;
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+  }
+
+  :global(.docs-prose h2) {
+    margin: 3rem 0 0.8rem;
+    padding-top: 0.35rem;
+    color: var(--ink);
+    font-size: 1.55rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    scroll-margin-top: 2rem;
+  }
+
+  :global(.docs-prose h3) {
+    margin: 2rem 0 0.5rem;
+    color: var(--ink);
+    font-size: 1.1rem;
+    scroll-margin-top: 2rem;
+  }
+
+  :global(.docs-prose p),
+  :global(.docs-prose ul),
+  :global(.docs-prose ol),
+  :global(.docs-prose table),
+  :global(.docs-prose pre) {
+    margin-top: 0;
+    margin-bottom: 1.15rem;
+  }
+
+  :global(.docs-prose li + li) {
+    margin-top: 0.35rem;
+  }
+
+  :global(.docs-prose a) {
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.16em;
+  }
+
+  :global(.docs-prose code) {
+    padding: 0.12em 0.34em;
+    border: 1px solid var(--line);
+    border-radius: 0.3rem;
+    background: var(--surface-muted);
+    color: var(--ink);
+    font-size: 0.88em;
+  }
+
+  :global(.docs-prose pre) {
+    overflow-x: auto;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--line);
+    border-radius: 0.65rem;
+    background: #f7f7f8;
+  }
+
+  :global(.docs-prose pre code) {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  :global(.docs-prose table) {
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  :global(.docs-prose th),
+  :global(.docs-prose td) {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  :global(.docs-prose th) {
+    background: var(--surface-muted);
+    color: var(--ink);
+  }
+
+  :global(.docs-prose blockquote) {
+    margin: 1.5rem 0;
+    padding: 0.25rem 0 0.25rem 1rem;
+    border-left: 3px solid var(--slate);
+    color: var(--ink-muted);
+  }
+
+  .docs-home:focus-visible,
+  .docs-mobile-navigation summary:focus-visible,
+  .docs-provenance__source a:focus-visible,
+  :global(.docs-prose a:focus-visible) {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 800px) {
+    .docs-shell {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.5rem;
+    }
+
+    .docs-sidebar {
+      display: none;
+    }
+
+    .docs-mobile-navigation {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background: var(--surface);
+    }
+
+    .docs-mobile-navigation summary {
+      padding: 0.9rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 0.86rem;
+      font-weight: 650;
+      list-style: none;
+    }
+
+    .docs-mobile-navigation summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .docs-mobile-navigation summary::after {
+      content: "+";
+      flex: 0 0 auto;
+      color: var(--burgundy);
+      font-size: 1.15rem;
+      font-weight: 500;
+    }
+
+    .docs-mobile-navigation[open] summary::after {
+      content: "−";
+    }
+
+    .docs-mobile-navigation summary span:last-child {
+      margin-left: auto;
+      color: var(--ink-dim);
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .docs-mobile-navigation > :global(nav) {
+      margin: 0 1rem 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .docs-provenance {
+      margin-bottom: 2rem;
+      flex-direction: column;
+    }
+
+    .docs-provenance__source {
+      flex-wrap: wrap;
+      white-space: normal;
+    }
+  }
+
+  @media (max-width: 560px) {
+    :global(.docs-prose h1) {
+      font-size: clamp(2.25rem, 12vw, 3.5rem);
+    }
+  }
+</style>
