@@ -16,7 +16,9 @@ The source of truth for [scientfactory.com](https://scientfactory.com), includin
 - [`ScientFactory/scient-desktop`](https://github.com/ScientFactory/scient-desktop)
   owns the desktop application and its releases.
 - [`ScientFactory/scient-agent`](https://github.com/ScientFactory/scient-agent)
-  owns the native-agent source foundation.
+  is the planned home for future native Scient-agent work. Its current
+  OpenCode-derived starting repository is not yet an implemented native-agent
+  foundation.
 - [`ScientFactory/ScientFactory-website`](https://github.com/ScientFactory/ScientFactory-website)
   owns this website and download experience.
 
