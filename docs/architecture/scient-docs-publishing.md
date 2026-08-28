@@ -31,11 +31,12 @@ same commit; the generator rejects a different head, and page hashes still
 apply. Generated files are ignored build products. The website never commits a
 hand-maintained prose copy.
 
-This transport was selected for the pilot because it is small, independently
-deployable, exact, auditable, and reversible without introducing a package
-registry or release artifact before one is justified. Re-evaluate it if corpus
-size, availability, rate limits, private sources, or release engineering make
-raw-commit transport materially unreliable.
+This transport was selected in the pilot and retained for the complete
+desktop-first corpus because it remains small, independently deployable, exact,
+auditable, and reversible without introducing a package registry or release
+artifact before one is justified. Re-evaluate it if corpus size, availability,
+rate limits, private sources, or release engineering make raw-commit transport
+materially unreliable.
 
 ## Build And Safety Contract
 
@@ -75,10 +76,14 @@ rewrites canonical desktop Help. A reverted or failed deployment leaves the
 last successful public corpus in place and visible through ordinary website
 deployment history.
 
-## Deferred Scope
+## Current corpus and deferred scope
 
-The pilot deliberately does not publish every Help page, accept a final
-site-wide information architecture, add a documentation MCP, or require a
-larger metadata schema. Expand the manifest only after a page is verified for
-its released surface. Evaluate MCP only after stable HTML, raw Markdown, the
-index, and search reveal a concrete agent-retrieval gap.
+The preview manifest selects all 32 desktop-first Help pages qualified at the
+exact desktop source revision. It deliberately excludes the retained mobile
+page because Scient has no public mobile release. Directory membership still
+does not imply publication, and future Help owners require factual
+qualification before entering the manifest.
+
+Stable release publication, a documentation MCP, and any larger metadata
+schema remain separate decisions. Evaluate MCP only after stable HTML, raw
+Markdown, the index, and search reveal a concrete agent-retrieval gap.

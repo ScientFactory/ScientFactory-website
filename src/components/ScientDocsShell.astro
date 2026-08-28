@@ -101,7 +101,11 @@ const shortRevision = index.source.revision.slice(0, 10);
   .docs-sidebar {
     position: sticky;
     top: 1.5rem;
+    max-height: calc(100svh - 3rem);
     padding: 1.25rem 0 2rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 
   .docs-mobile-navigation {
@@ -367,9 +371,13 @@ const shortRevision = index.source.revision.slice(0, 10);
     }
 
     .docs-mobile-navigation > :global(nav) {
+      max-height: min(70svh, 36rem);
       margin: 0 1rem 1rem;
       padding-top: 1rem;
       border-top: 1px solid var(--line);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
     }
 
     .docs-provenance {

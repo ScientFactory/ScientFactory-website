@@ -3,13 +3,13 @@
   "channel": "preview",
   "source": {
     "repository": "ScientFactory/scient-desktop",
-    "revision": "53170890ef9a6e5e53afce10d91c6d607fc91638",
-    "pullRequest": "https://github.com/ScientFactory/scient-desktop/pull/196",
+    "revision": "1e24ed64800fa0bb20e978742d911faa5e093f6f",
+    "pullRequest": "https://github.com/ScientFactory/scient-desktop/pull/197",
     "reviewedAt": "2026-08-28"
   },
   "version": {
-    "label": "Scient Docs pilot preview",
-    "appliesTo": "Unreleased documentation candidate based on Scient Desktop main through c0baaab2cda29a84682b77b8384bb7542e59a8bd",
+    "label": "Scient Docs complete corpus preview",
+    "appliesTo": "Unreleased Help candidate based on current Scient Desktop main plus documentation PR #197; not a stable release",
     "stableReleaseTags": []
   },
   "corpusDefaults": {
@@ -35,6 +35,22 @@
       "sha256": "29f8b7be9deb280f02f338ab75f64375231390e18d439453acce606785160987"
     },
     {
+      "slug": "install",
+      "title": "Install Scient",
+      "summary": "Choose the official installer for your platform, complete first launch, and understand existing data boundaries.",
+      "topic": "Start",
+      "sourcePath": "docs/user/install.md",
+      "sha256": "162f6499090767632c56d7e52ecf14fcceab84b74a13322e1f39c8448091fb71"
+    },
+    {
+      "slug": "updating",
+      "title": "Update Scient",
+      "summary": "Update the desktop app, keep connected servers aligned, and understand rollback outcomes.",
+      "topic": "Start",
+      "sourcePath": "docs/user/updating.md",
+      "sha256": "3cc12251807afce1034ad6dd1f981c0533f620e255a695f2382031a903597581"
+    },
+    {
       "slug": "projects",
       "title": "Projects",
       "summary": "Open or create folders and understand Scient's optional, bounded project setup.",
@@ -43,10 +59,74 @@
       "sha256": "c0e891234981007e18fb06dd019597ee5f8035e7910074978f7ee48bb75959a4"
     },
     {
+      "slug": "composer",
+      "title": "Message composer",
+      "summary": "Send messages, queue work, steer an active turn, attach files, and recover failed drafts.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/composer.md",
+      "sha256": "1529b13b8c353301985c51c9838d51eddf111a536838d10a5a9d949199ebe7c1"
+    },
+    {
+      "slug": "thread-sidebar",
+      "title": "Organize threads",
+      "summary": "Group, sort, move, settle, archive, and restore conversations in the project sidebar.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/thread-sidebar.md",
+      "sha256": "ca3d67408ce06ec421bccafd4fb10854809854b8e89924ef8031504e5a375045"
+    },
+    {
+      "slug": "conversation-forks",
+      "title": "Fork a conversation",
+      "summary": "Continue from an exact message boundary in the same workspace or an isolated worktree.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/conversation-forks.md",
+      "sha256": "d680bd2ea14e13599a0c2e94194829ab52cdcf6162b96598e49d329ec63a3a02"
+    },
+    {
+      "slug": "permission-modes",
+      "title": "Permission modes",
+      "summary": "Choose provider-specific approval behavior and understand what each mode can authorize.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/permission-modes.md",
+      "sha256": "9c6fb87d74a44642a759fd33fbe34bf01d9fda19ae006088b1a049bad8466c3e"
+    },
+    {
+      "slug": "keybindings",
+      "title": "Keybindings",
+      "summary": "Use current shortcuts, remap commands, and resolve conflicts in the authoritative keybindings file.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/keybindings.md",
+      "sha256": "3fb66a3bce86548259a86d30abf8a26e62650ce40635ed821a5c0b8ecb2923dc"
+    },
+    {
+      "slug": "project-settings",
+      "title": "Project settings",
+      "summary": "Customize project identity and understand which settings are local, persisted, or environment-owned.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/project-settings.md",
+      "sha256": "366d510d1c54964333f978fbacb6276ecf57f87fdad608258438d696babbf659"
+    },
+    {
+      "slug": "voice-dictation",
+      "title": "Voice dictation",
+      "summary": "Transcribe locally, choose a Whisper model, and optionally correct transcript text with a provider.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/voice-dictation.md",
+      "sha256": "05f0eab0640a3be550d250509c27b0a893af9cd5dd56172177a1d6e7e6c7c0b3"
+    },
+    {
+      "slug": "usage",
+      "title": "Review usage",
+      "summary": "Review local provider transcript usage, token totals, cost provenance, and source diagnostics.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/usage.md",
+      "sha256": "47822d730dbf51ed8cddda54b6c1b6b3bce25c63005b063bc855c286ae04c98f"
+    },
+    {
       "slug": "file-previews",
       "title": "File previews",
       "summary": "Open project and environment files, refresh previews, and understand current file limits.",
-      "topic": "Files and documents",
+      "topic": "Files and research",
       "sourcePath": "docs/user/file-previews.md",
       "sha256": "d608b0def0b5103c95e982286589369c8ed2b127dc2749aaca86d2e9329db62e"
     },
@@ -54,17 +134,81 @@
       "slug": "pdf-reader",
       "title": "PDF reader",
       "summary": "Read, search, navigate, and save copies of PDFs while preserving reading state.",
-      "topic": "Files and documents",
+      "topic": "Files and research",
       "sourcePath": "docs/user/pdf-reader.md",
       "sha256": "cb565e77f934796ce06937cc5d0624b6cc088e599b9fcc85f39db64c4cd1c63f"
+    },
+    {
+      "slug": "sources",
+      "title": "Sources and PDF import",
+      "summary": "Import PDFs or Zotero records, review evidence and citations, and work with bounded agent tools.",
+      "topic": "Files and research",
+      "sourcePath": "docs/user/sources.md",
+      "sha256": "0d5ce584b2684eccda6021da5d6d8911299e46667cbbff1af5e4cbf398953ff6"
     },
     {
       "slug": "latex",
       "title": "LaTeX",
       "summary": "Build LaTeX projects, manage toolchains, inspect diagnostics, and navigate with SyncTeX.",
-      "topic": "Files and documents",
+      "topic": "Files and research",
       "sourcePath": "docs/user/latex.md",
       "sha256": "184ab2ef560c16d8347afaef160b506f4959252ca134d76949784ab9396a1f32"
+    },
+    {
+      "slug": "matlab-run-file",
+      "title": "Run a MATLAB file",
+      "summary": "Verify an installed MATLAB runtime, run a saved file, inspect history, and promote results.",
+      "topic": "Files and research",
+      "sourcePath": "docs/user/matlab-run-file.md",
+      "sha256": "43f3173d7e110120099f8db3072b6a93195f4b041dc105bb41c78555ef8a00ef"
+    },
+    {
+      "slug": "source-control",
+      "title": "Source control",
+      "summary": "Connect supported Git forges, authenticate in the execution environment, and manage pull requests.",
+      "topic": "Files and research",
+      "sourcePath": "docs/user/source-control.md",
+      "sha256": "600d938724d7d3c5dffa9f51ed839e3569835889f1d3f18627e366489df6b4db"
+    },
+    {
+      "slug": "content-direction",
+      "title": "Conversation text direction",
+      "summary": "Control automatic, RTL, or LTR conversation layout while preserving technical content.",
+      "topic": "Rich chat",
+      "sourcePath": "docs/user/content-direction.md",
+      "sha256": "c700225b3cdfc45d1994ca3b3f6d7ba95d130b0ed0425910773ef08dfdc432c4"
+    },
+    {
+      "slug": "math-in-chat",
+      "title": "Math in chat",
+      "summary": "Write and inspect inline or display math with safe rendering, copy, and fallback behavior.",
+      "topic": "Rich chat",
+      "sourcePath": "docs/user/math-in-chat.md",
+      "sha256": "52cebb454c1c275d97d62a56b16f75e6e2488ecd3bc5af05ca1b75db14ec9e53"
+    },
+    {
+      "slug": "diagrams-in-chat",
+      "title": "Diagrams in chat",
+      "summary": "Render, inspect, copy, and export secure Mermaid diagrams from settled messages.",
+      "topic": "Rich chat",
+      "sourcePath": "docs/user/diagrams-in-chat.md",
+      "sha256": "481bad02569517e3d825c15de229dc3f5663903fdc3cab3f819107e7c54348f2"
+    },
+    {
+      "slug": "images-in-chat",
+      "title": "Images in chat",
+      "summary": "Display workspace-relative and remote images without crossing workspace authority boundaries.",
+      "topic": "Rich chat",
+      "sourcePath": "docs/user/images-in-chat.md",
+      "sha256": "16b17875835a0934a537188dd3f26893b7e72c35d49cac986cd5a0ec2d4929bf"
+    },
+    {
+      "slug": "charts-in-chat",
+      "title": "Interactive charts",
+      "summary": "Use Vega-Lite and Plotly charts, preserve source fidelity, and export current views.",
+      "topic": "Rich chat",
+      "sourcePath": "docs/user/charts-in-chat.md",
+      "sha256": "93d908404894f1a45f26491e1b9e47023fe595ad46c35f657779d2d0c104a147"
     },
     {
       "slug": "providers",
@@ -72,7 +216,7 @@
       "summary": "Understand provider readiness, accounts, installations, remote authority, and recovery.",
       "topic": "Providers",
       "sourcePath": "docs/user/providers.md",
-      "sha256": "7af7778920ca42dd3e740ff309c1e1e31f09280ed0001e9e9053cb08ce313136"
+      "sha256": "8563b8b25326290fc4820eb385ca0eb233b69f0a065ce062f8d65799eac3ba38"
     },
     {
       "slug": "providers-codex",
@@ -80,7 +224,7 @@
       "summary": "Connect Codex, choose a runtime, and manage one or more compatible account homes.",
       "topic": "Providers",
       "sourcePath": "docs/user/providers-codex.md",
-      "sha256": "0dd51ebb5a790382a121a0aeca0f2403deff677ad2e0ecd271245a8548771653"
+      "sha256": "ba910e44aa65df5a47bd5178ad191a6f8409c4e36fc2dbe6eab1dbac9f426191"
     },
     {
       "slug": "providers-claude",
@@ -121,6 +265,22 @@
       "topic": "Providers",
       "sourcePath": "docs/user/providers-cursor.md",
       "sha256": "7be3cbcad434648a0c0aba8977fb3df948c53c0a7f21c514ce3a074952eaa5b6"
+    },
+    {
+      "slug": "remote-access",
+      "title": "Remote environments",
+      "summary": "Connect over desktop-managed SSH or an advanced direct/private-network path without crossing environment authority.",
+      "topic": "Remote environments",
+      "sourcePath": "docs/user/remote-access.md",
+      "sha256": "c3029be49c6cdd99ff7c0bcac574ac471688e8f90e8ea40df96d9b40b4db465f"
+    },
+    {
+      "slug": "background-service",
+      "title": "Background service",
+      "summary": "Install, inspect, update, or remove a user-scoped Scient server service on Linux or macOS.",
+      "topic": "Remote environments",
+      "sourcePath": "docs/user/background-service.md",
+      "sha256": "478d9df277a35dbf12c488117aaac4a98c8c465129395280adf9ba9ffbd49921"
     }
   ]
 }
