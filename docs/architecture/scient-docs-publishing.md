@@ -23,7 +23,8 @@ The website build reads a committed manifest that pins:
 - every selected `docs/user/` source path;
 - a SHA-256 digest for each source page;
 - stable or preview channel and truthful applicability wording; and
-- corpus defaults plus page-level topic, title, summary, and surface metadata.
+- corpus defaults plus page-level topic, title, summary, navigation priority,
+  and surface metadata.
 
 CI and ordinary builds fetch each page from GitHub's immutable raw-commit URL.
 Local development may set `SCIENT_DOCS_SOURCE_ROOT` to an exact checkout at the
@@ -49,7 +50,8 @@ unselected relative Help links to the exact GitHub source. It generates:
 - exact raw Markdown under `/docs/raw/<slug>.md`;
 - `/docs/index.json` with title, summary, topic, channel, applicability, page
   URL, raw URL, source path/revision/URL, and search text; and
-- the metadata used by client-side topic/text search and source banners.
+- the metadata used by client-side topic/text search, navigation, and the
+  compact source footer.
 
 Missing content, a changed hash, unsafe content, a mutable/non-full revision,
 duplicate routing, an unqualified stable manifest, or a wrong local checkout
@@ -78,7 +80,7 @@ deployment history.
 
 ## Current corpus and deferred scope
 
-The preview manifest selects all 32 desktop-first Help pages qualified at the
+The preview manifest selects all 31 desktop-first Help pages qualified at the
 exact desktop source revision. It deliberately excludes the retained mobile
 page because Scient has no public mobile release. Directory membership still
 does not imply publication, and future Help owners require factual

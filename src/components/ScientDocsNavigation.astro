@@ -1,8 +1,13 @@
 ---
+import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
+
+import { getScientDocsNavigationGroups } from "../lib/scient-docs-navigation";
+
 interface DocsPage {
   slug: string;
   title: string;
   topic: string;
+  secondary?: boolean;
   url: string;
 }
 
@@ -13,7 +18,9 @@ interface Props {
 }
 
 const { pages, currentSlug, compact = false } = Astro.props;
-const topics = [...new Set(pages.map((page) => page.topic))];
+const navigationGroups = getScientDocsNavigationGroups(pages);
+const [chevronWidth, chevronHeight, , , chevronPathData] = faChevronDown.icon;
+const chevronPath = Array.isArray(chevronPathData) ? chevronPathData[0] : chevronPathData;
 ---
 
 <nav
@@ -21,24 +28,145 @@ const topics = [...new Set(pages.map((page) => page.topic))];
   class:list={["docs-navigation", { "docs-navigation--compact": compact }]}
 >
   {
-    topics.map((topic) => (
-      <section class="docs-navigation__group" aria-labelledby={`docs-topic-${compact ? "mobile-" : ""}${topic.replaceAll(" ", "-")}`}>
-        <h2 id={`docs-topic-${compact ? "mobile-" : ""}${topic.replaceAll(" ", "-")}`}>{topic}</h2>
-        <ul>
-          {pages
-            .filter((page) => page.topic === topic)
-            .map((page) => (
-              <li>
-                <a href={page.url} aria-current={page.slug === currentSlug ? "page" : undefined}>
-                  {page.title}
-                </a>
-              </li>
-            ))}
-        </ul>
-      </section>
-    ))
+    navigationGroups.map((group, groupIndex) => {
+      const topic = group.title;
+      const { pages: topicPages, primaryPages, secondaryPages } = group;
+      const currentPageIsSecondary = secondaryPages.some((page) => page.slug === currentSlug);
+      const currentPageIsInTopic = topicPages.some((page) => page.slug === currentSlug);
+      const openByDefault = groupIndex === 0 || currentPageIsInTopic;
+      const topicId = `docs-topic-${compact ? "mobile-" : ""}${topic.replaceAll(" ", "-")}`;
+
+      return (
+        <details
+          class="docs-navigation__group"
+          open={openByDefault}
+          data-docs-navigation-topic={topic}
+          data-docs-navigation-current-topic={currentPageIsInTopic ? "true" : undefined}
+        >
+          <summary class="docs-navigation__topic-summary" id={topicId}>
+            <span class="docs-navigation__topic-title">{topic}</span>
+            <svg
+              class="docs-navigation__topic-chevron"
+              viewBox={`0 0 ${chevronWidth} ${chevronHeight}`}
+              width="8"
+              height="8"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d={chevronPath}></path>
+            </svg>
+          </summary>
+          <div class="docs-navigation__topic-content">
+            <ul>
+              {primaryPages.map((page) => (
+                <li>
+                  <a href={page.url} aria-current={page.slug === currentSlug ? "page" : undefined}>
+                    {page.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+            {secondaryPages.length > 0 && (
+              <details
+                class="docs-navigation__more"
+                open={currentPageIsSecondary}
+                data-docs-navigation-more
+              >
+                <summary>
+                  <span data-docs-navigation-more-label>{currentPageIsSecondary ? "Less" : "More"}</span>
+                  <span class="docs-navigation__more-arrow" data-docs-navigation-more-arrow aria-hidden="true">
+                    {currentPageIsSecondary ? "↑" : "↓"}
+                  </span>
+                </summary>
+                <ul>
+                  {secondaryPages.map((page) => (
+                    <li>
+                      <a href={page.url} aria-current={page.slug === currentSlug ? "page" : undefined}>
+                        {page.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        </details>
+      );
+    })
   }
 </nav>
+
+<script>
+  const topicStoragePrefix = "scient-docs-topic:v3:";
+  const topicDisclosures = [
+    ...document.querySelectorAll<HTMLDetailsElement>("[data-docs-navigation-topic]"),
+  ];
+  const readTopicState = (topic: string) => {
+    try {
+      return window.localStorage.getItem(`${topicStoragePrefix}${topic}`);
+    } catch {
+      return null;
+    }
+  };
+  const writeTopicState = (topic: string, open: boolean) => {
+    try {
+      window.localStorage.setItem(`${topicStoragePrefix}${topic}`, open ? "open" : "closed");
+    } catch {
+      // Disclosure behavior still works when storage is unavailable.
+    }
+  };
+
+  for (const disclosure of topicDisclosures) {
+    if (disclosure.dataset.docsNavigationTopicReady === "true") continue;
+    disclosure.dataset.docsNavigationTopicReady = "true";
+    const topic = disclosure.dataset.docsNavigationTopic;
+    const currentTopic = disclosure.dataset.docsNavigationCurrentTopic === "true";
+
+    if (topic && !currentTopic) {
+      const savedState = readTopicState(topic);
+      if (savedState === "open" || savedState === "closed") {
+        disclosure.open = savedState === "open";
+      }
+    }
+
+    const summary = disclosure.querySelector<HTMLElement>(".docs-navigation__topic-summary");
+    summary?.addEventListener("click", (event) => {
+      if (!topic) return;
+      event.preventDefault();
+      const nextOpen = !disclosure.open;
+      writeTopicState(topic, nextOpen);
+      for (const peer of topicDisclosures) {
+        if (peer.dataset.docsNavigationTopic === topic) peer.open = nextOpen;
+      }
+    });
+  }
+
+  const disclosures = [
+    ...document.querySelectorAll<HTMLDetailsElement>("[data-docs-navigation-more]"),
+  ];
+
+  for (const disclosure of disclosures) {
+    if (disclosure.dataset.docsNavigationReady === "true") continue;
+    disclosure.dataset.docsNavigationReady = "true";
+    const label = disclosure.querySelector<HTMLElement>("[data-docs-navigation-more-label]");
+    const arrow = disclosure.querySelector<HTMLElement>("[data-docs-navigation-more-arrow]");
+    const syncLabel = () => {
+      if (label) label.textContent = disclosure.open ? "Less" : "More";
+      if (arrow) arrow.textContent = disclosure.open ? "↑" : "↓";
+    };
+    disclosure.addEventListener("toggle", syncLabel);
+    syncLabel();
+  }
+
+  window.requestAnimationFrame(() => {
+    const currentLink = [
+      ...document.querySelectorAll<HTMLAnchorElement>(
+        '.docs-navigation a[aria-current="page"]',
+      ),
+    ].find((link) => link.getClientRects().length > 0);
+    currentLink?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
+</script>
 
 <style>
   .docs-navigation {
@@ -51,13 +179,58 @@ const topics = [...new Set(pages.map((page) => page.topic))];
     padding-top: 1rem;
   }
 
-  .docs-navigation__group h2 {
+  .docs-navigation__topic-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
     margin: 0 0 0.45rem;
+    padding: 0.16rem 0.35rem 0.16rem 0;
+    border-radius: var(--radius-sm);
     color: var(--ink-dim);
+    cursor: pointer;
+    list-style: none;
+    transition: color 140ms var(--ease-out);
+  }
+
+  .docs-navigation__group:not([open]) > .docs-navigation__topic-summary {
+    margin-bottom: 0;
+  }
+
+  .docs-navigation__topic-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .docs-navigation__topic-title {
+    margin: 0;
     font-size: 0.68rem;
     font-weight: 750;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+  }
+
+  .docs-navigation__topic-summary:hover {
+    color: var(--ink-muted);
+  }
+
+  .docs-navigation__topic-summary:focus-visible {
+    outline: 1px solid color-mix(in srgb, var(--ink-dim) 36%, transparent);
+    outline-offset: 2px;
+  }
+
+  .docs-navigation__topic-chevron {
+    flex: 0 0 auto;
+    width: 0.48rem;
+    height: 0.48rem;
+    fill: currentColor;
+    opacity: 0.52;
+    transform: rotate(-90deg);
+    transition: transform 160ms var(--ease-out), opacity 140ms var(--ease-out);
+  }
+
+  .docs-navigation__group[open] > .docs-navigation__topic-summary .docs-navigation__topic-chevron {
+    opacity: 0.7;
+    transform: rotate(0deg);
   }
 
   .docs-navigation__group ul {
@@ -68,20 +241,27 @@ const topics = [...new Set(pages.map((page) => page.topic))];
 
   .docs-navigation__group a {
     display: block;
-    margin-left: -0.75rem;
-    padding: 0.42rem 0.75rem;
-    border-left: 2px solid transparent;
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 0.42rem 0.65rem;
+    border-radius: var(--radius-sm);
     color: var(--ink-muted);
     font-size: 0.88rem;
     line-height: 1.35;
+    transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out);
   }
 
-  .docs-navigation__group a:hover,
+  .docs-navigation__group li + li {
+    margin-top: 0.12rem;
+  }
+
+  .docs-navigation__group a:not([aria-current="page"]):hover {
+    background: var(--surface-muted);
+    color: var(--ink);
+  }
+
   .docs-navigation__group a[aria-current="page"] {
-    border-left-color: var(--burgundy);
     background: var(--burgundy-soft);
     color: var(--burgundy);
+    font-weight: 600;
   }
 
   .docs-navigation__group a:focus-visible {
@@ -89,9 +269,61 @@ const topics = [...new Set(pages.map((page) => page.topic))];
     outline-offset: 3px;
   }
 
+  .docs-navigation__more {
+    margin-top: 0.2rem;
+  }
+
+  .docs-navigation__more[open] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .docs-navigation__more[open] > ul {
+    order: 1;
+  }
+
+  .docs-navigation__more[open] > summary {
+    order: 2;
+    margin-top: 0.2rem;
+  }
+
+  .docs-navigation__more summary {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: fit-content;
+    margin-left: 1.25rem;
+    padding: 0.25rem 0.45rem;
+    border-radius: var(--radius-sm);
+    color: color-mix(in srgb, var(--ink-dim) 52%, white);
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 550;
+    line-height: 1.2;
+    list-style: none;
+    transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out);
+  }
+
+  .docs-navigation__more summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .docs-navigation__more summary:hover {
+    background: var(--surface-muted);
+    color: var(--ink-dim);
+  }
+
+  .docs-navigation__more summary:focus-visible {
+    outline: 1px solid color-mix(in srgb, var(--ink-dim) 36%, transparent);
+    outline-offset: 1px;
+  }
+
+  .docs-navigation__more-arrow {
+    font-size: 0.72rem;
+  }
+
   @media (max-width: 560px) {
     .docs-navigation__group a {
-      margin-left: 0;
       padding-left: 0.55rem;
     }
   }

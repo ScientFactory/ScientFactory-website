@@ -1,8 +1,9 @@
 ---
 import ScientDocsShell from "../components/ScientDocsShell.astro";
 import docsIndex from "../generated/scient-docs/index.json";
+import { getScientDocsNavigationGroups } from "../lib/scient-docs-navigation";
 
-const topics = [...new Set(docsIndex.pages.map((page) => page.topic))];
+const navigationGroups = getScientDocsNavigationGroups(docsIndex.pages);
 ---
 
 <ScientDocsShell
@@ -14,10 +15,6 @@ const topics = [...new Set(docsIndex.pages.map((page) => page.topic))];
     <header class="docs-landing__header">
       <p class="docs-landing__eyebrow">Documentation</p>
       <h1>Learn Scient from the source.</h1>
-      <p>
-        These guides are generated from reviewed Scient Desktop Help at an exact commit. Search the
-        current preview, browse by topic, or open any page's raw Markdown and source evidence.
-      </p>
     </header>
 
     <div class="docs-search">
@@ -34,29 +31,56 @@ const topics = [...new Set(docsIndex.pages.map((page) => page.topic))];
 
     <div class="docs-topics">
       {
-        topics.map((topic) => (
-          <section class="docs-topic" data-docs-topic>
-            <h2>{topic}</h2>
-            <div class="docs-grid">
-              {docsIndex.pages
-                .filter((page) => page.topic === topic)
-                .map((page) => (
+        navigationGroups.map((group) => {
+          const { title: topic, primaryPages, secondaryPages } = group;
+
+          return (
+            <section class="docs-topic" data-docs-topic>
+              <h2>{topic}</h2>
+              <div class="docs-grid">
+                {primaryPages.map((page) => (
                   <article
                     class="docs-card"
                     data-docs-card
-                    data-docs-search-text={`${page.title} ${page.summary} ${page.topic} ${page.searchText}`.toLowerCase()}
+                    data-docs-search-text={`${page.title} ${page.summary} ${topic} ${page.searchText}`.toLowerCase()}
                   >
                     <div>
-                      <p>{page.topic}</p>
+                      <p>{topic}</p>
                       <h3><a href={page.url}>{page.title}</a></h3>
                       <span>{page.summary}</span>
                     </div>
                     <a class="docs-card__arrow" href={page.url} aria-label={`Read ${page.title}`}>→</a>
                   </article>
                 ))}
-            </div>
-          </section>
-        ))
+              </div>
+              {secondaryPages.length > 0 && (
+                <details class="docs-topic__more" data-docs-more>
+                  <summary>
+                    <span class="docs-topic__more-closed">See {secondaryPages.length} more</span>
+                    <span class="docs-topic__more-open">Show less</span>
+                    <span class="docs-topic__more-arrow" aria-hidden="true">↓</span>
+                  </summary>
+                  <div class="docs-grid docs-grid--secondary">
+                    {secondaryPages.map((page) => (
+                      <article
+                        class="docs-card"
+                        data-docs-card
+                        data-docs-search-text={`${page.title} ${page.summary} ${topic} ${page.searchText}`.toLowerCase()}
+                      >
+                        <div>
+                          <p>{topic}</p>
+                          <h3><a href={page.url}>{page.title}</a></h3>
+                          <span>{page.summary}</span>
+                        </div>
+                        <a class="docs-card__arrow" href={page.url} aria-label={`Read ${page.title}`}>→</a>
+                      </article>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </section>
+          );
+        })
       }
     </div>
   </div>
@@ -66,7 +90,9 @@ const topics = [...new Set(docsIndex.pages.map((page) => page.topic))];
   const input = document.querySelector<HTMLInputElement>("[data-docs-search]");
   const cards = [...document.querySelectorAll<HTMLElement>("[data-docs-card]")];
   const topics = [...document.querySelectorAll<HTMLElement>("[data-docs-topic]")];
+  const disclosures = [...document.querySelectorAll<HTMLDetailsElement>("[data-docs-more]")];
   const status = document.querySelector<HTMLElement>("[data-docs-search-status]");
+  let searchWasActive = false;
 
   function updateSearch(): void {
     const query = input?.value.trim().toLowerCase() ?? "";
@@ -79,6 +105,20 @@ const topics = [...new Set(docsIndex.pages.map((page) => page.topic))];
     for (const topic of topics) {
       topic.hidden = !topic.querySelector<HTMLElement>("[data-docs-card]:not([hidden])");
     }
+    for (const disclosure of disclosures) {
+      const hasMatch = Boolean(disclosure.querySelector<HTMLElement>("[data-docs-card]:not([hidden])"));
+      disclosure.hidden = query !== "" && !hasMatch;
+      if (query !== "") {
+        if (!searchWasActive) {
+          disclosure.dataset.docsSearchPreviousOpen = disclosure.open ? "true" : "false";
+        }
+        disclosure.open = hasMatch;
+      } else if (searchWasActive) {
+        disclosure.open = disclosure.dataset.docsSearchPreviousOpen === "true";
+        delete disclosure.dataset.docsSearchPreviousOpen;
+      }
+    }
+    searchWasActive = query !== "";
     if (status) status.textContent = `${visible} ${visible === 1 ? "page" : "pages"}`;
   }
 
@@ -112,14 +152,6 @@ const topics = [...new Set(docsIndex.pages.map((page) => page.topic))];
     line-height: 0.95;
   }
 
-  .docs-landing__header > p:last-child {
-    max-width: 45rem;
-    margin: 1.5rem 0 0;
-    color: var(--ink-muted);
-    font-size: 1.08rem;
-    line-height: 1.65;
-  }
-
   .docs-search {
     margin: 3rem 0;
     display: grid;
@@ -147,9 +179,9 @@ const topics = [...new Set(docsIndex.pages.map((page) => page.topic))];
   }
 
   .docs-search input:focus {
-    border-color: var(--slate);
-    outline: 3px solid var(--focus-ring);
-    outline-offset: 2px;
+    border-color: var(--burgundy);
+    outline: none;
+    box-shadow: inset 0 0 0 1px var(--burgundy);
   }
 
   .docs-search p {
@@ -176,6 +208,56 @@ const topics = [...new Set(docsIndex.pages.map((page) => page.topic))];
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.8rem;
+  }
+
+  .docs-grid--secondary {
+    margin-top: 0.8rem;
+  }
+
+  .docs-topic__more {
+    margin-top: 0.9rem;
+  }
+
+  .docs-topic__more summary {
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: var(--radius-sm);
+    color: var(--burgundy);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 650;
+    list-style: none;
+  }
+
+  .docs-topic__more summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .docs-topic__more summary:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  .docs-topic__more-arrow {
+    transition: transform 180ms var(--ease-out);
+  }
+
+  .docs-topic__more-open {
+    display: none;
+  }
+
+  .docs-topic__more[open] .docs-topic__more-closed {
+    display: none;
+  }
+
+  .docs-topic__more[open] .docs-topic__more-open {
+    display: inline;
+  }
+
+  .docs-topic__more[open] .docs-topic__more-arrow {
+    transform: rotate(180deg);
   }
 
   .docs-card {

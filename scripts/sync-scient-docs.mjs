@@ -87,6 +87,9 @@ export function validateManifest(value) {
     requiredString(page.title, `${prefix}.title`);
     requiredString(page.summary, `${prefix}.summary`);
     requiredString(page.topic, `${prefix}.topic`);
+    if (page.secondary !== undefined && typeof page.secondary !== "boolean") {
+      throw new Error(`${prefix}.secondary must be a boolean when provided`);
+    }
     if (!/^[0-9a-f]{64}$/.test(requiredString(page.sha256, `${prefix}.sha256`))) {
       throw new Error(`${prefix}.sha256 must be a SHA-256 digest`);
     }

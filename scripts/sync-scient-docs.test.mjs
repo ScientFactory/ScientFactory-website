@@ -50,6 +50,7 @@ function fixtureManifest(markdown = "# Getting started\n\nSee [Providers](./prov
         title: "Providers",
         summary: "Connect a provider.",
         topic: "Providers",
+        secondary: true,
         sourcePath: "docs/user/providers.md",
         sha256: hashMarkdown("# Providers\n"),
       },
@@ -84,6 +85,14 @@ describe("Scient Docs manifest", () => {
         }),
       /docs\/user Markdown path/,
     );
+    assert.throws(
+      () =>
+        validateManifest({
+          ...manifest,
+          pages: [{ ...manifest.pages[0], secondary: "yes" }],
+        }),
+      /secondary must be a boolean/,
+    );
   });
 
   it("rewrites selected Help links to public routes and unselected Help to exact source", () => {
@@ -115,6 +124,7 @@ describe("Scient Docs manifest", () => {
         outputRoot,
       });
       assert.equal(result.pages.length, 2);
+      assert.equal(result.pages[1].secondary, true);
       assert.match(
         readFileSync(join(outputRoot, "pages/getting-started.md"), "utf8"),
         /\/docs\/providers\//,
