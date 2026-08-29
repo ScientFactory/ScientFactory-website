@@ -1,103 +1,324 @@
 ---
-import Prose from "../components/Prose.astro";
-import Layout from "../layouts/Layout.astro";
+import ScientDocsShell from "../components/ScientDocsShell.astro";
+import docsIndex from "../generated/scient-docs/index.json";
+import { getScientDocsNavigationGroups } from "../lib/scient-docs-navigation";
+
+const navigationGroups = getScientDocsNavigationGroups(docsIndex.pages);
 ---
 
-<Layout
-  theme="light"
-  title="Scient Docs — Get started"
-  description="The essential first steps for installing Scient, opening a project, choosing an AI provider, and starting your first session."
+<ScientDocsShell
+  index={docsIndex}
+  title="Documentation"
+  description="Version-aware Scient documentation generated from the exact canonical Scient Desktop Help source."
 >
-  <Prose
-    eyebrow="Scient docs"
-    title="Get started with Scient."
-    intro="Scient is an early-access desktop workspace for working with AI agents and the research projects on your computer. This page covers the essential first steps."
-  >
-    <section class="content-section" aria-labelledby="docs-install">
-      <p class="content-section__label">Install</p>
-      <div class="content-section__body">
-        <h2 id="docs-install">Download the right build for your computer.</h2>
-        <p>
-          The <a class="inline-link" href="/download">download page</a> provides the current installers for macOS, Windows, and Linux directly from ScientFactory's official GitHub release.
-        </p>
-        <p>
-          It also explains how to choose between Apple Silicon and Intel on macOS and how to handle the first-launch security message on each platform.
-        </p>
-        <div class="content-actions">
-          <a class="content-action content-action--primary" href="/download">Open the download page</a>
-        </div>
-      </div>
-    </section>
+  <div class="docs-landing">
+    <header class="docs-landing__header">
+      <p class="docs-landing__eyebrow">Documentation</p>
+      <h1>Learn Scient from the source.</h1>
+    </header>
 
-    <section class="content-section" aria-labelledby="docs-first-project">
-      <p class="content-section__label">First project</p>
-      <div class="content-section__body">
-        <h2 id="docs-first-project">Begin with a project you already understand.</h2>
-        <ol class="content-steps">
-          <li>
-            <div>
-              <h3>Open a project folder</h3>
-              <p>Add a local folder containing the files or work you want Scient and its agents to help with.</p>
-            </div>
-          </li>
-          <li>
-            <div>
-              <h3>Choose an available provider</h3>
-              <p>Scient works with supported AI tools installed and authorized on your computer. Choose the provider you want for the new thread.</p>
-            </div>
-          </li>
-          <li>
-            <div>
-              <h3>Start a focused thread</h3>
-              <p>Describe one concrete task, provide the necessary context, and review the agent's proposed work as it progresses.</p>
-            </div>
-          </li>
-          <li>
-            <div>
-              <h3>Keep the work visible</h3>
-              <p>Use Scient's chat, terminal, browser, and review surfaces to understand what changed before accepting the result.</p>
-            </div>
-          </li>
-        </ol>
-      </div>
-    </section>
+    <div class="docs-search">
+      <label for="docs-search-input">Search Scient Docs</label>
+      <input
+        id="docs-search-input"
+        type="search"
+        placeholder="Try PDF, provider, remote, MATLAB, or SyncTeX"
+        autocomplete="off"
+        data-docs-search
+      />
+      <p data-docs-search-status aria-live="polite">{docsIndex.pages.length} pages</p>
+    </div>
 
-    <section class="content-section" aria-labelledby="docs-basics">
-      <p class="content-section__label">The basics</p>
-      <div class="content-section__body">
-        <h2 id="docs-basics">A few concepts are enough to find your way around.</h2>
-        <div class="content-grid">
-          <article class="content-card">
-            <h3>Projects</h3>
-            <p>A project connects Scient to a local folder and keeps related work together.</p>
-          </article>
-          <article class="content-card">
-            <h3>Threads</h3>
-            <p>Each thread is a focused conversation with an agent about a particular task.</p>
-          </article>
-          <article class="content-card">
-            <h3>Providers</h3>
-            <p>You choose which supported AI provider and model powers a session.</p>
-          </article>
-          <article class="content-card">
-            <h3>Workspace tools</h3>
-            <p>Chats, terminals, browser previews, and reviews remain accessible in one workspace.</p>
-          </article>
-        </div>
-      </div>
-    </section>
+    <div class="docs-topics">
+      {
+        navigationGroups.map((group) => {
+          const { title: topic, primaryPages, secondaryPages } = group;
 
-    <section class="content-section" aria-labelledby="docs-help">
-      <p class="content-section__label">Help</p>
-      <div class="content-section__body">
-        <h2 id="docs-help">Expect change, and tell us when something breaks.</h2>
-        <p>
-          Scient is under active development. Features may change between releases, and you may encounter unfinished behavior or platform-specific issues.
-        </p>
-        <div class="content-callout">
-          <p>When reporting a problem, include your operating system, Scient version, the provider you were using, and the shortest sequence that reproduces the issue.</p>
-        </div>
-      </div>
-    </section>
-  </Prose>
-</Layout>
+          return (
+            <section class="docs-topic" data-docs-topic>
+              <h2>{topic}</h2>
+              <div class="docs-grid">
+                {primaryPages.map((page) => (
+                  <article
+                    class="docs-card"
+                    data-docs-card
+                    data-docs-search-text={`${page.title} ${page.summary} ${topic} ${page.searchText}`.toLowerCase()}
+                  >
+                    <div>
+                      <p>{topic}</p>
+                      <h3><a href={page.url}>{page.title}</a></h3>
+                      <span>{page.summary}</span>
+                    </div>
+                    <a class="docs-card__arrow" href={page.url} aria-label={`Read ${page.title}`}>→</a>
+                  </article>
+                ))}
+              </div>
+              {secondaryPages.length > 0 && (
+                <details class="docs-topic__more" data-docs-more>
+                  <summary>
+                    <span class="docs-topic__more-closed">See {secondaryPages.length} more</span>
+                    <span class="docs-topic__more-open">Show less</span>
+                    <span class="docs-topic__more-arrow" aria-hidden="true">↓</span>
+                  </summary>
+                  <div class="docs-grid docs-grid--secondary">
+                    {secondaryPages.map((page) => (
+                      <article
+                        class="docs-card"
+                        data-docs-card
+                        data-docs-search-text={`${page.title} ${page.summary} ${topic} ${page.searchText}`.toLowerCase()}
+                      >
+                        <div>
+                          <p>{topic}</p>
+                          <h3><a href={page.url}>{page.title}</a></h3>
+                          <span>{page.summary}</span>
+                        </div>
+                        <a class="docs-card__arrow" href={page.url} aria-label={`Read ${page.title}`}>→</a>
+                      </article>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </section>
+          );
+        })
+      }
+    </div>
+  </div>
+</ScientDocsShell>
+
+<script>
+  const input = document.querySelector<HTMLInputElement>("[data-docs-search]");
+  const cards = [...document.querySelectorAll<HTMLElement>("[data-docs-card]")];
+  const topics = [...document.querySelectorAll<HTMLElement>("[data-docs-topic]")];
+  const disclosures = [...document.querySelectorAll<HTMLDetailsElement>("[data-docs-more]")];
+  const status = document.querySelector<HTMLElement>("[data-docs-search-status]");
+  let searchWasActive = false;
+
+  function updateSearch(): void {
+    const query = input?.value.trim().toLowerCase() ?? "";
+    let visible = 0;
+    for (const card of cards) {
+      const matches = query === "" || (card.dataset.docsSearchText ?? "").includes(query);
+      card.hidden = !matches;
+      if (matches) visible += 1;
+    }
+    for (const topic of topics) {
+      topic.hidden = !topic.querySelector<HTMLElement>("[data-docs-card]:not([hidden])");
+    }
+    for (const disclosure of disclosures) {
+      const hasMatch = Boolean(disclosure.querySelector<HTMLElement>("[data-docs-card]:not([hidden])"));
+      disclosure.hidden = query !== "" && !hasMatch;
+      if (query !== "") {
+        if (!searchWasActive) {
+          disclosure.dataset.docsSearchPreviousOpen = disclosure.open ? "true" : "false";
+        }
+        disclosure.open = hasMatch;
+      } else if (searchWasActive) {
+        disclosure.open = disclosure.dataset.docsSearchPreviousOpen === "true";
+        delete disclosure.dataset.docsSearchPreviousOpen;
+      }
+    }
+    searchWasActive = query !== "";
+    if (status) status.textContent = `${visible} ${visible === 1 ? "page" : "pages"}`;
+  }
+
+  input?.addEventListener("input", updateSearch);
+</script>
+
+<style>
+  .docs-landing {
+    max-width: 66rem;
+  }
+
+  .docs-landing__header {
+    max-width: 53rem;
+  }
+
+  .docs-landing__eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--burgundy);
+    font-size: 0.72rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .docs-landing__header h1 {
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(2.7rem, 6vw, 5.6rem);
+    font-weight: 500;
+    letter-spacing: -0.06em;
+    line-height: 0.95;
+  }
+
+  .docs-search {
+    margin: 3rem 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 0.55rem 1rem;
+  }
+
+  .docs-search label {
+    grid-column: 1 / -1;
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 650;
+  }
+
+  .docs-search input {
+    width: 100%;
+    min-height: 3.2rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.6rem;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 1rem;
+  }
+
+  .docs-search input:focus {
+    border-color: var(--burgundy);
+    outline: none;
+    box-shadow: inset 0 0 0 1px var(--burgundy);
+  }
+
+  .docs-search p {
+    margin: 0 0 0.9rem;
+    color: var(--ink-dim);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .docs-topics {
+    display: grid;
+    gap: 3rem;
+  }
+
+  .docs-topic > h2 {
+    margin: 0 0 0.9rem;
+    color: var(--ink-dim);
+    font-size: 0.72rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+  }
+
+  .docs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+  }
+
+  .docs-grid--secondary {
+    margin-top: 0.8rem;
+  }
+
+  .docs-topic__more {
+    margin-top: 0.9rem;
+  }
+
+  .docs-topic__more summary {
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: var(--radius-sm);
+    color: var(--burgundy);
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 650;
+    list-style: none;
+  }
+
+  .docs-topic__more summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .docs-topic__more summary:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  .docs-topic__more-arrow {
+    transition: transform 180ms var(--ease-out);
+  }
+
+  .docs-topic__more-open {
+    display: none;
+  }
+
+  .docs-topic__more[open] .docs-topic__more-closed {
+    display: none;
+  }
+
+  .docs-topic__more[open] .docs-topic__more-open {
+    display: inline;
+  }
+
+  .docs-topic__more[open] .docs-topic__more-arrow {
+    transform: rotate(180deg);
+  }
+
+  .docs-card {
+    min-height: 10.5rem;
+    padding: 1.25rem;
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--surface);
+    transition: border-color 180ms var(--ease-out), transform 180ms var(--ease-out);
+  }
+
+  .docs-card[hidden],
+  .docs-topic[hidden] {
+    display: none;
+  }
+
+  .docs-card:hover {
+    border-color: rgba(84, 27, 29, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .docs-card p {
+    margin: 0 0 0.45rem;
+    color: var(--slate);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .docs-card h3 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 1.15rem;
+  }
+
+  .docs-card span {
+    display: block;
+    margin-top: 0.55rem;
+    color: var(--ink-muted);
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .docs-card__arrow {
+    color: var(--burgundy);
+    font-size: 1.25rem;
+  }
+
+  .docs-card a:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 680px) {
+    .docs-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

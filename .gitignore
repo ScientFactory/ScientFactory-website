@@ -2,6 +2,9 @@ node_modules/
 dist/
 .astro/
 .tmp/
+.generated/
+.playwright-cli/
+src/generated/scient-docs/
 .wrangler/
 .DS_Store
 *.log

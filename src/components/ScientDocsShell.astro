@@ -1,0 +1,545 @@
+---
+import Layout from "../layouts/Layout.astro";
+import ScientDocsNavigation from "./ScientDocsNavigation.astro";
+import { faDownload } from "@fortawesome/free-solid-svg-icons";
+
+interface DocsPage {
+  slug: string;
+  title: string;
+  summary: string;
+  topic: string;
+  secondary?: boolean;
+  url: string;
+  rawUrl: string;
+  sourceUrl: string;
+}
+
+interface Props {
+  index: {
+    channel: string;
+    source: { repository: string; revision: string; reviewedAt: string };
+    version: { label: string; appliesTo: string; stableReleaseTags: string[] };
+    pages: DocsPage[];
+  };
+  title: string;
+  description: string;
+  currentSlug?: string;
+  currentPage?: DocsPage;
+}
+
+const { index, title, description, currentSlug, currentPage } = Astro.props;
+const isPreview = index.channel === "preview";
+const [downloadIconWidth, downloadIconHeight, , , downloadIconPathData] = faDownload.icon;
+const downloadIconPath = Array.isArray(downloadIconPathData)
+  ? downloadIconPathData[0]
+  : downloadIconPathData;
+const shortRevision = index.source.revision.slice(0, 10);
+const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${index.source.revision}`;
+---
+
+<Layout
+  theme="light"
+  title={`${title} — Scient Docs`}
+  description={description}
+  robots={isPreview ? "noindex, nofollow" : undefined}
+>
+  <div class="docs-shell">
+    <aside class="docs-sidebar">
+      <div class="docs-sidebar__identity">
+        <a href="/docs" class="docs-home" aria-current={currentSlug === undefined ? "page" : undefined}>
+          <span>Scient Docs</span>
+          <span class:list={["docs-channel", { "docs-channel--preview": isPreview }]}>
+            {isPreview ? (
+              <>
+                Preview <span class="docs-channel__arrow" aria-hidden="true">→</span>
+              </>
+            ) : (
+              "Stable"
+            )}
+          </span>
+        </a>
+      </div>
+
+      <ScientDocsNavigation pages={index.pages} currentSlug={currentSlug} />
+    </aside>
+
+    <details class="docs-mobile-navigation">
+      <summary>
+        <span>Browse Scient Docs</span>
+        <span>{currentPage?.title ?? "All pages"}</span>
+      </summary>
+      <ScientDocsNavigation pages={index.pages} currentSlug={currentSlug} compact />
+    </details>
+
+    <div class="docs-workspace">
+      <div class="docs-content" id="docs-content">
+        <slot />
+      </div>
+      <footer class="docs-source" aria-label="Documentation source">
+        <span>{index.version.appliesTo}</span>
+        <span aria-hidden="true">·</span>
+        <span>Reviewed {index.source.reviewedAt}</span>
+        {
+          currentPage && (
+            <>
+              <span aria-hidden="true">·</span>
+              <a href={currentPage.rawUrl}>Raw Markdown</a>
+            </>
+          )
+        }
+        <span aria-hidden="true">·</span>
+        <a href={currentPage?.sourceUrl ?? sourceRevisionUrl}>Source {shortRevision}</a>
+      </footer>
+    </div>
+  </div>
+
+  <template id="docs-download-icon-template">
+    <svg
+      class="docs-download-link__icon"
+      viewBox={`0 0 ${downloadIconWidth} ${downloadIconHeight}`}
+      width="12"
+      height="12"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={downloadIconPath}></path>
+    </svg>
+  </template>
+</Layout>
+
+<script>
+  const downloadIconTemplate = document.querySelector<HTMLTemplateElement>(
+    "#docs-download-icon-template",
+  );
+  const downloadLinks = [
+    ...document.querySelectorAll<HTMLAnchorElement>(
+      '.docs-prose a[href*="scientfactory.com/api/download/"], .docs-prose a[href^="/api/download/"]',
+    ),
+  ];
+
+  for (const [index, link] of downloadLinks.entries()) {
+    if (link.dataset.docsDownloadReady === "true" || !downloadIconTemplate) continue;
+    link.dataset.docsDownloadReady = "true";
+    link.classList.add("docs-download-link");
+
+    const artifactName = link.textContent?.trim() || "installer";
+    const tooltipId = `docs-download-tooltip-${index}`;
+    link.setAttribute("aria-label", `Download ${artifactName}`);
+    link.setAttribute("aria-describedby", tooltipId);
+    link.append(downloadIconTemplate.content.cloneNode(true));
+
+    const tooltip = document.createElement("span");
+    tooltip.id = tooltipId;
+    tooltip.className = "docs-download-link__tooltip";
+    tooltip.setAttribute("role", "tooltip");
+    tooltip.textContent = "Download now";
+    link.append(tooltip);
+  }
+</script>
+
+<style>
+  .docs-shell {
+    width: min(96rem, 100%);
+    margin: 0 auto;
+    padding: 0 var(--page-gutter) 5rem;
+    display: grid;
+    grid-template-columns: minmax(11.5rem, 14rem) minmax(0, 1fr);
+    gap: clamp(2.25rem, 5vw, 5.5rem);
+    align-items: start;
+  }
+
+  .docs-sidebar {
+    position: sticky;
+    top: 1.5rem;
+    max-height: calc(100svh - 3rem);
+    padding: 1.25rem 0 2rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    scrollbar-color: rgba(67, 72, 80, 0.11) transparent;
+    scrollbar-width: thin;
+  }
+
+  .docs-sidebar::-webkit-scrollbar {
+    width: 2px;
+  }
+
+  .docs-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .docs-sidebar::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(67, 72, 80, 0.11);
+  }
+
+  .docs-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(67, 72, 80, 0.2);
+  }
+
+  .docs-mobile-navigation {
+    display: none;
+  }
+
+  .docs-sidebar__identity {
+    padding-bottom: 1.2rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .docs-home {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 1.05rem;
+    font-weight: 650;
+  }
+
+  .docs-channel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--slate);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .docs-channel--preview {
+    color: var(--burgundy);
+  }
+
+  .docs-channel__arrow {
+    font-size: 1.15em;
+    line-height: 1;
+  }
+
+  .docs-workspace {
+    min-width: 0;
+  }
+
+  .docs-content {
+    min-width: 0;
+  }
+
+  .docs-source {
+    max-width: 52rem;
+    margin-top: 3.5rem;
+    padding-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    border-top: 1px solid var(--line);
+    color: var(--ink-dim);
+    font-size: 0.7rem;
+    line-height: 1.5;
+  }
+
+  .docs-source a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 0.06em;
+    text-underline-offset: 0.15em;
+  }
+
+  .docs-source a:hover {
+    color: var(--burgundy);
+  }
+
+  :global(.docs-prose) {
+    max-width: 52rem;
+    color: var(--ink-muted);
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  :global(.docs-prose h1) {
+    margin: 0 0 1.25rem;
+    color: var(--ink);
+    font-size: clamp(2.3rem, 5vw, 4.8rem);
+    font-weight: 520;
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+  }
+
+  :global(.docs-prose h2) {
+    margin: 3rem 0 0.8rem;
+    padding-top: 0.35rem;
+    color: var(--ink);
+    font-size: 1.55rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    scroll-margin-top: 2rem;
+  }
+
+  :global(.docs-prose h3) {
+    margin: 2rem 0 0.5rem;
+    color: var(--ink);
+    font-size: 1.1rem;
+    scroll-margin-top: 2rem;
+  }
+
+  :global(.docs-prose p),
+  :global(.docs-prose ul),
+  :global(.docs-prose ol),
+  :global(.docs-prose table),
+  :global(.docs-prose pre) {
+    margin-top: 0;
+    margin-bottom: 1.15rem;
+  }
+
+  :global(.docs-prose li + li) {
+    margin-top: 0.35rem;
+  }
+
+  :global(.docs-prose a) {
+    color: var(--burgundy);
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.16em;
+  }
+
+  :global(.docs-prose a.docs-download-link) {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.48rem;
+    color: var(--ink-muted);
+    text-decoration: none;
+    transition: color 160ms var(--ease-out);
+  }
+
+  :global(.docs-download-link__icon) {
+    width: 0.72rem;
+    height: 0.72rem;
+    flex: 0 0 auto;
+    fill: var(--burgundy);
+    opacity: 0.64;
+    transition: opacity 160ms var(--ease-out), transform 180ms var(--ease-out);
+  }
+
+  :global(.docs-download-link__tooltip) {
+    position: absolute;
+    z-index: 5;
+    top: 50%;
+    left: calc(100% + 0.44rem);
+    width: max-content;
+    padding: 0.28rem 0.42rem;
+    border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+    border-radius: 0.32rem;
+    background: var(--surface);
+    box-shadow: 0 5px 15px rgba(17, 17, 17, 0.08);
+    color: var(--ink-dim);
+    font-size: 0.66rem;
+    font-weight: 550;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(0.18rem, -50%);
+    transition: opacity 140ms ease, transform 160ms var(--ease-out);
+  }
+
+  :global(.docs-prose a.docs-download-link:hover),
+  :global(.docs-prose a.docs-download-link:focus-visible) {
+    color: var(--burgundy);
+  }
+
+  :global(.docs-prose a.docs-download-link:hover .docs-download-link__icon),
+  :global(.docs-prose a.docs-download-link:focus-visible .docs-download-link__icon) {
+    opacity: 1;
+    transform: translateY(0.08rem);
+  }
+
+  :global(.docs-prose a.docs-download-link:hover .docs-download-link__tooltip),
+  :global(.docs-prose a.docs-download-link:focus-visible .docs-download-link__tooltip) {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+
+  :global(.docs-prose code) {
+    padding: 0.12em 0.34em;
+    border: 1px solid var(--line);
+    border-radius: 0.3rem;
+    background: var(--surface-muted);
+    color: var(--ink);
+    font-size: 0.88em;
+  }
+
+  :global(.docs-prose pre) {
+    overflow-x: auto;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--line);
+    border-radius: 0.65rem;
+    background: #f7f7f8;
+  }
+
+  :global(.docs-prose pre code) {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+  }
+
+  :global(.docs-prose table) {
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  :global(.docs-prose th),
+  :global(.docs-prose td) {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  :global(.docs-prose th) {
+    background: var(--surface-muted);
+    color: var(--ink);
+  }
+
+  :global(.docs-prose blockquote) {
+    margin: 1.5rem 0;
+    padding: 0.25rem 0 0.25rem 1rem;
+    border-left: 3px solid var(--slate);
+    color: var(--ink-muted);
+  }
+
+  .docs-home:focus-visible,
+  .docs-mobile-navigation summary:focus-visible,
+  .docs-source a:focus-visible,
+  :global(.docs-prose a:focus-visible) {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  @media (min-width: 801px) {
+    .docs-shell {
+      height: calc(100svh - 12rem);
+      padding-bottom: 0;
+      overflow: hidden;
+    }
+
+    .docs-sidebar,
+    .docs-workspace {
+      height: 100%;
+      overscroll-behavior: contain;
+      overflow-y: auto;
+      scrollbar-color: rgba(67, 72, 80, 0.11) transparent;
+      scrollbar-width: thin;
+    }
+
+    .docs-sidebar {
+      position: static;
+      max-height: none;
+    }
+
+    .docs-workspace {
+      scrollbar-gutter: stable;
+    }
+
+    .docs-sidebar::-webkit-scrollbar,
+    .docs-workspace::-webkit-scrollbar {
+      width: 2px;
+    }
+
+    .docs-sidebar::-webkit-scrollbar-track,
+    .docs-workspace::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .docs-sidebar::-webkit-scrollbar-thumb,
+    .docs-workspace::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(67, 72, 80, 0.11);
+    }
+
+    .docs-sidebar::-webkit-scrollbar-thumb:hover,
+    .docs-workspace::-webkit-scrollbar-thumb:hover {
+      background: rgba(67, 72, 80, 0.2);
+    }
+
+    .docs-content {
+      padding-bottom: 5rem;
+    }
+  }
+
+  @media (max-width: 800px) {
+    .docs-shell {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.5rem;
+    }
+
+    .docs-sidebar {
+      display: none;
+    }
+
+    .docs-mobile-navigation {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 0.7rem;
+      background: var(--surface);
+    }
+
+    .docs-mobile-navigation summary {
+      padding: 0.9rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 0.86rem;
+      font-weight: 650;
+      list-style: none;
+    }
+
+    .docs-mobile-navigation summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .docs-mobile-navigation summary::after {
+      content: "+";
+      flex: 0 0 auto;
+      color: var(--burgundy);
+      font-size: 1.15rem;
+      font-weight: 500;
+    }
+
+    .docs-mobile-navigation[open] summary::after {
+      content: "−";
+    }
+
+    .docs-mobile-navigation summary span:last-child {
+      margin-left: auto;
+      color: var(--ink-dim);
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .docs-mobile-navigation > :global(nav) {
+      max-height: min(70svh, 36rem);
+      margin: 0 1rem 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+    }
+
+  }
+
+  @media (max-width: 560px) {
+    :global(.docs-prose h1) {
+      font-size: clamp(2.25rem, 12vw, 3.5rem);
+    }
+  }
+</style>
