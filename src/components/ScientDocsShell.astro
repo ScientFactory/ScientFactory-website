@@ -48,15 +48,13 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
       <div class="docs-sidebar__identity">
         <a href="/docs" class="docs-home" aria-current={currentSlug === undefined ? "page" : undefined}>
           <span>Scient Docs</span>
-          <span class:list={["docs-channel", { "docs-channel--preview": isPreview }]}>
-            {isPreview ? (
-              <>
+          {
+            isPreview && (
+              <span class="docs-channel docs-channel--preview">
                 Preview <span class="docs-channel__arrow" aria-hidden="true">→</span>
-              </>
-            ) : (
-              "Stable"
-            )}
-          </span>
+              </span>
+            )
+          }
         </a>
       </div>
 
