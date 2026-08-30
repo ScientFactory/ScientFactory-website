@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "channel": "preview",
+  "channel": "stable",
   "source": {
     "repository": "ScientFactory/scient-desktop",
-    "revision": "7d2187eb383505956e95c8ebcfcfe8006d6edba2",
-    "pullRequest": "https://github.com/ScientFactory/scient-desktop/pull/199",
-    "reviewedAt": "2026-08-29"
+    "revision": "6e95b70b183e27ffffc49915b7b3f009fed9757d",
+    "pullRequest": "https://github.com/ScientFactory/scient-desktop/pull/210",
+    "reviewedAt": "2026-08-30"
   },
   "version": {
-    "label": "Scient Docs preview",
-    "appliesTo": "Unreleased Scient Desktop documentation; not a stable release",
-    "stableReleaseTags": []
+    "label": "Scient v0.6.8",
+    "appliesTo": "Scient Desktop v0.6.8",
+    "stableReleaseTags": ["v0.6.8"]
   },
   "corpusDefaults": {
     "product": "Scient Desktop",
     "surface": "desktop",
-    "publicationStatus": "preview-only",
+    "publicationStatus": "stable",
     "audience": "users and support agents"
   },
   "publication": {
@@ -48,7 +48,7 @@
       "summary": "Message Scient, attach files, use skills, continue with another provider, queue work, and recover.",
       "topic": "Essentials",
       "sourcePath": "docs/user/composer.md",
-      "sha256": "d58e901fc418bc25bbb36dce49fa9eb0dfa3405688c3f783fbaf4eb339dff9c6"
+      "sha256": "c117433b82d652bb549cbda2daf8b1084bd1cbb7e9e5059558855d87be97df8b"
     },
     {
       "slug": "providers",
@@ -56,7 +56,7 @@
       "summary": "Understand provider readiness, accounts, installations, remote authority, and recovery.",
       "topic": "Essentials",
       "sourcePath": "docs/user/providers.md",
-      "sha256": "3b08cf154d847eb20a744aaa18ad35bcb8501376133ec0b0a2dd50f4b806af0e"
+      "sha256": "7dc4fc3d806096fd0aaafb2e40fa236e9ccf1ab454609fd5b207c22a483f9ba8"
     },
     {
       "slug": "file-previews",
@@ -64,7 +64,7 @@
       "summary": "Open project and environment files, refresh previews, and understand current file limits.",
       "topic": "Essentials",
       "sourcePath": "docs/user/file-previews.md",
-      "sha256": "988a9062b52b72e6c0796ba3ed828f20582c83d73013f4b3f8e82563976a80ac"
+      "sha256": "0bd3fa7863eb402ae6aadb186a012c01bc5632544b08ec8fc94440352899264c"
     },
     {
       "slug": "thread-sidebar",
@@ -72,7 +72,7 @@
       "summary": "Group, sort, move, settle, archive, and restore conversations in the project sidebar.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/thread-sidebar.md",
-      "sha256": "ffeb799759d7b8f3b6c8c22ce68bb9f64ffc8571b318d1f4646f48cc17075e5e"
+      "sha256": "4f32951a95be29dc8978949e4d0cd24466f829717a0b9064ed3df0b4ea8acf90"
     },
     {
       "slug": "permission-modes",
@@ -91,6 +91,15 @@
       "sha256": "a1c74e2391fa828b0868c9d3d6a8afd634149c8a19f116f2850ddfd5401439e4"
     },
     {
+      "slug": "environment-theme",
+      "title": "Environment theme",
+      "summary": "Follow themes published by an environment and understand per-client appearance choices.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/environment-theme.md",
+      "sha256": "1136d1a0fef18ccc875b7faecb2242b89eaaaaf77e2a6118e5e2f0fd8e3b32e2",
+      "secondary": true
+    },
+    {
       "slug": "voice-dictation",
       "title": "Voice dictation",
       "summary": "Transcribe locally, choose a Whisper model, and optionally correct transcript text with a provider.",
@@ -104,7 +113,7 @@
       "summary": "Use current shortcuts, remap commands, and resolve conflicts.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/keybindings.md",
-      "sha256": "24b81088c63d84067c5734e06785cefaf2ebd24da45ecd0c435d8e5c385d614b",
+      "sha256": "964d94deaaf1b2a3719634d1381d1657e12a563e95948845d2b00bc45dbd7e85",
       "secondary": true
     },
     {
@@ -122,7 +131,7 @@
       "summary": "Manage project-owned scientific references, Zotero intake, PDF import, citations, and agent access.",
       "topic": "Research & files",
       "sourcePath": "docs/user/sources.md",
-      "sha256": "e3282a8503ba27698da2244cb540c4342a2d196f87cde7dbf58bba2e960dd2d8"
+      "sha256": "767fe4d4f26f971017f1d953a6dd81cff2dd35cc214492b47bcf6ee721720c30"
     },
     {
       "slug": "pdf-reader",
@@ -138,8 +147,16 @@
       "summary": "Build LaTeX projects, manage toolchains, inspect diagnostics, and navigate with SyncTeX.",
       "topic": "Research & files",
       "sourcePath": "docs/user/latex.md",
-      "sha256": "4770862ffcd4f21a669109a31a44f972b803732b5cf1e65e9bba042924d0cd47",
+      "sha256": "413bf36a060ecd1797f3aedd04014ddae628074db923dfaeaa4212d2e6854057",
       "secondary": true
+    },
+    {
+      "slug": "scientific-computing",
+      "title": "Scientific computing",
+      "summary": "Configure Python, run stateful project code, and review durable results and figures.",
+      "topic": "Research & files",
+      "sourcePath": "docs/user/scientific-computing.md",
+      "sha256": "ed2ad81793dc7ad580beb582ecb8ecff3862747fab3c03eb4709e015f478d7ee"
     },
     {
       "slug": "matlab-run-file",
@@ -156,7 +173,7 @@
       "summary": "Connect supported Git forges, authenticate in the execution environment, and manage pull requests.",
       "topic": "Research & files",
       "sourcePath": "docs/user/source-control.md",
-      "sha256": "a924db9797014c145999c5573529f0c211d738cd9317473b786d8eb95a2c707f",
+      "sha256": "0a15a748c9e8b4b1172395f3227e95f2dd9b3aba8a9d538afcbeae97ac3924fa",
       "secondary": true
     },
     {
@@ -207,7 +224,7 @@
       "summary": "Connect Codex, choose a runtime, and manage one or more compatible account homes.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-codex.md",
-      "sha256": "8c4ee79147bc3a1245e4b636b344d467a965379f8802f53efdf7f87583554f8c"
+      "sha256": "e67c2cbe0d74976fa67426da3febe4f84baae89224ca0ba35cac443528c0fda5"
     },
     {
       "slug": "providers-claude",
@@ -215,7 +232,7 @@
       "summary": "Connect Claude Code and keep account, config-directory, runtime, and advanced routes distinct.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-claude.md",
-      "sha256": "61d9c309ba0a37ff0a5ee87828032966c0e833a944c7f1d42f287533db12fd3e"
+      "sha256": "8dcf87898507d83d383437ad849b7a7a16f639281c103bfc8bd0493b0ef742d3"
     },
     {
       "slug": "providers-antigravity",
@@ -223,7 +240,7 @@
       "summary": "Use Google's account flow, managed runtime, dynamic models, and native session behavior.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-antigravity.md",
-      "sha256": "687519a02c58d8ee658a6260bb189fab51b0a7e9880cc429248de7f1cd662c8a",
+      "sha256": "29c35d740f7554ba216c8375214209bc22bf6005233eda803379dea1c061e86c",
       "secondary": true
     },
     {
@@ -232,7 +249,7 @@
       "summary": "Enable the Early Access Grok provider and distinguish subscription, API-key, and runtime state.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-grok.md",
-      "sha256": "fb7e37fd981985d27951ed731d25b41c8834bc71cf904ee4eed1d474db73428d",
+      "sha256": "bdd344b0353f1db04a81bb013590d64856bcbee870f38bec48ca92bfc9ddfcae",
       "secondary": true
     },
     {
@@ -241,7 +258,7 @@
       "summary": "Connect Factory's Droid and understand ACP models, autonomy, steering, and limitations.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-droid.md",
-      "sha256": "31bf8c57efe58b1ff13dc91a4487741adb4ba44b2beb4cdcdb5e1565785b94a5",
+      "sha256": "73bc63b0f9500151fe2a6fbd961d9b8f4c917b53019b0d2b235d3e98da4402e5",
       "secondary": true
     },
     {
@@ -250,7 +267,16 @@
       "summary": "Connect Cursor Agent and keep browser authentication, runtime ownership, and recovery clear.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-cursor.md",
-      "sha256": "68980e1a29429469b2e8e3de9485739fbe01de3f6aec54280ca359ed640a02d7",
+      "sha256": "73b051b5242167b540476fe7e97ab9955dbbf67a77fc748f008da59628b7ef39",
+      "secondary": true
+    },
+    {
+      "slug": "providers-opencode",
+      "title": "OpenCode in Scient",
+      "summary": "Connect an OpenCode server, refresh models, and understand authentication and catalog behavior.",
+      "topic": "Provider guides",
+      "sourcePath": "docs/user/providers-opencode.md",
+      "sha256": "11c7aca83f8dfe5881a37248895bf09db6ac6dbe906848c98fc8f9442c98f564",
       "secondary": true
     },
     {
