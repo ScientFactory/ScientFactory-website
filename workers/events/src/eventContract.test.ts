@@ -3,8 +3,26 @@ import { describe, expect, it } from "vitest";
 import { EVENT_DEFINITIONS, eventContractViolation } from "./eventContract";
 
 describe("desktop event contract", () => {
-  it("keeps the initial registry deliberately bounded", () => {
-    expect(Object.keys(EVENT_DEFINITIONS)).toHaveLength(33);
+  it("keeps the revision-two registry deliberately bounded", () => {
+    expect(Object.keys(EVENT_DEFINITIONS)).toHaveLength(45);
+  });
+
+  it("accepts the no-op outcome only with sufficient consent and bounded properties", () => {
+    const event = {
+      name: "scient.operation.skipped",
+      privacyLevel: "product",
+      consentLevel: "product",
+      properties: {
+        appVersion: "0.6.8",
+        buildChannel: "development",
+        operationKind: "source-import",
+      },
+    } as const;
+    expect(eventContractViolation(event)).toBeNull();
+    expect(eventContractViolation({ ...event, consentLevel: "essential" })).not.toBeNull();
+    expect(
+      eventContractViolation({ ...event, properties: { ...event.properties, title: "PRIVATE" } }),
+    ).not.toBeNull();
   });
 
   it("allows higher consent for a lower-level event", () => {

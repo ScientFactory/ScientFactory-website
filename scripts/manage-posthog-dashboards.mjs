@@ -3,9 +3,9 @@
 import { execFileSync } from "node:child_process";
 
 import { dashboards } from "./posthog-dashboard-manifest.mjs";
+import { createPosthogApi } from "./posthog-api.mjs";
 
 const PROJECT_ID = "228610";
-const API_ORIGIN = "https://eu.posthog.com";
 const KEYCHAIN_SERVICE = "scient-posthog-personal-api-key";
 const apply = process.argv.includes("--apply-ready");
 const validateQueries = process.argv.includes("--validate-queries");
@@ -31,32 +31,7 @@ if (!apiKey) {
   process.exit(1);
 }
 
-async function api(path, init = {}) {
-  const url = path.startsWith("https://")
-    ? path
-    : `${API_ORIGIN}/api/projects/${PROJECT_ID}/${path}`;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const response = await fetch(url, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
-        ...init.headers,
-      },
-    });
-    if (response.ok) return response.json();
-    const message = await response.text();
-    const retryable = response.status === 429 || response.status >= 500;
-    if (retryable && attempt < 2) {
-      await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
-      continue;
-    }
-    throw new Error(
-      `PostHog ${init.method ?? "GET"} ${path} failed (${response.status}): ${message}`,
-    );
-  }
-  throw new Error(`PostHog ${init.method ?? "GET"} ${path} exhausted retries`);
-}
+const api = createPosthogApi({ apiKey, projectId: PROJECT_ID });
 
 async function observedEvents() {
   const response = await api("query/", {
@@ -64,7 +39,8 @@ async function observedEvents() {
     body: JSON.stringify({
       query: {
         kind: "HogQLQuery",
-        query: "SELECT event, count() FROM events GROUP BY event ORDER BY event",
+        query:
+          "SELECT event, count() FROM events WHERE timestamp >= now() - INTERVAL 30 DAY GROUP BY event ORDER BY event",
       },
     }),
   });
@@ -74,8 +50,12 @@ async function observedEvents() {
 async function allPages(path) {
   const results = [];
   let next = `${path}${path.includes("?") ? "&" : "?"}limit=100`;
+  const seen = new Set();
   while (next) {
+    if (seen.has(next) || seen.size >= 100) throw new Error("PostHog pagination limit exceeded");
+    seen.add(next);
     const page = await api(next);
+    if (!Array.isArray(page.results)) throw new Error("Invalid PostHog pagination response");
     results.push(...page.results);
     next = page.next ?? "";
   }
@@ -91,7 +71,7 @@ async function ensureDashboard(definition, existingDashboards, existingInsights)
       body: JSON.stringify({
         name: definition.name,
         description: definition.description,
-        tags: ["scient-managed", "analytics-contract-v1"],
+        tags: ["scient-managed", "analytics-contract-v2"],
       }),
     });
     console.log(`created dashboard: ${definition.name}`);
@@ -101,16 +81,25 @@ async function ensureDashboard(definition, existingDashboards, existingInsights)
       body: JSON.stringify({
         name: definition.name,
         description: definition.description,
-        tags: ["scient-managed", "analytics-contract-v1"],
+        tags: ["scient-managed", "analytics-contract-v2"],
       }),
     });
     console.log(`updated dashboard: ${definition.name}`);
   }
 
   for (const insightDefinition of definition.insights ?? []) {
+    const missing = (insightDefinition.requiredEvents ?? []).filter((name) => !observed.has(name));
+    if (missing.length > 0) {
+      console.log(`skipped insight: ${insightDefinition.name} (unobserved required events)`);
+      continue;
+    }
+    const acceptedInsightNames = new Set([
+      insightDefinition.name,
+      ...(insightDefinition.aliases ?? []),
+    ]);
     const existing = existingInsights.find(
       (candidate) =>
-        candidate.name === insightDefinition.name && candidate.tags?.includes("scient-managed"),
+        acceptedInsightNames.has(candidate.name) && candidate.tags?.includes("scient-managed"),
     );
     const currentDashboards = existing?.dashboards ?? [];
     const payload = {
