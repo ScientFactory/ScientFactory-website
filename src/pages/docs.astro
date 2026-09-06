@@ -9,12 +9,12 @@ const navigationGroups = getScientDocsNavigationGroups(docsIndex.pages);
 <ScientDocsShell
   index={docsIndex}
   title="Documentation"
-  description="Version-aware Scient documentation generated from the exact canonical Scient Desktop Help source."
+  description="Guides for getting started and working in Scient."
 >
   <div class="docs-landing">
     <header class="docs-landing__header">
       <p class="docs-landing__eyebrow">Documentation</p>
-      <h1>Learn Scient from the source.</h1>
+      <h1>Get to know Scient.</h1>
     </header>
 
     <div class="docs-search">
@@ -22,7 +22,7 @@ const navigationGroups = getScientDocsNavigationGroups(docsIndex.pages);
       <input
         id="docs-search-input"
         type="search"
-        placeholder="Try PDF, provider, remote, MATLAB, or SyncTeX"
+        placeholder="Search a feature or question"
         autocomplete="off"
         data-docs-search
       />
@@ -45,7 +45,6 @@ const navigationGroups = getScientDocsNavigationGroups(docsIndex.pages);
                     data-docs-search-text={`${page.title} ${page.summary} ${topic} ${page.searchText}`.toLowerCase()}
                   >
                     <div>
-                      <p>{topic}</p>
                       <h3><a href={page.url}>{page.title}</a></h3>
                       <span>{page.summary}</span>
                     </div>
@@ -68,7 +67,6 @@ const navigationGroups = getScientDocsNavigationGroups(docsIndex.pages);
                         data-docs-search-text={`${page.title} ${page.summary} ${topic} ${page.searchText}`.toLowerCase()}
                       >
                         <div>
-                          <p>{topic}</p>
                           <h3><a href={page.url}>{page.title}</a></h3>
                           <span>{page.summary}</span>
                         </div>

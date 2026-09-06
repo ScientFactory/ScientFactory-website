@@ -3,7 +3,7 @@
 Status: Active
 Owner: Yaacov
 Created: 2026-08-28
-Last updated: 2026-08-30
+Last updated: 2026-09-06
 Purpose: Defines the website-owned transport, provenance, failure, correction, and rollback contract for publishing canonical Scient Desktop Help.
 Doc type: Architecture decision
 
@@ -80,8 +80,8 @@ deployment history.
 
 ## Current corpus and deferred scope
 
-The stable manifest selects all 34 current desktop-first Help pages qualified
-for Scient Desktop v0.6.8 at the exact corrected Help source revision. Scient
+The stable manifest selects all 36 desktop-first Help pages from the
+Scient Desktop v0.6.10 release's exact source revision. Scient
 has no public mobile-specific Help corpus. Directory membership still does not
 imply publication, and future Help owners require factual qualification before
 entering the manifest.

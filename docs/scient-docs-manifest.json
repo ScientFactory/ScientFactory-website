@@ -3,14 +3,13 @@
   "channel": "stable",
   "source": {
     "repository": "ScientFactory/scient-desktop",
-    "revision": "6e95b70b183e27ffffc49915b7b3f009fed9757d",
-    "pullRequest": "https://github.com/ScientFactory/scient-desktop/pull/210",
-    "reviewedAt": "2026-08-30"
+    "revision": "0b33fabfb97a009651ccc78bb3be944e50cb84aa",
+    "reviewedAt": "2026-09-06"
   },
   "version": {
-    "label": "Scient v0.6.8",
-    "appliesTo": "Scient Desktop v0.6.8",
-    "stableReleaseTags": ["v0.6.8"]
+    "label": "Scient v0.6.10",
+    "appliesTo": "Scient Desktop v0.6.10",
+    "stableReleaseTags": ["v0.6.10"]
   },
   "corpusDefaults": {
     "product": "Scient Desktop",
@@ -29,7 +28,7 @@
     {
       "slug": "getting-started",
       "title": "Getting started with Scient",
-      "summary": "Connect your AI, open a project, and start working with Scient.",
+      "summary": "Connect your AI and open your first project.",
       "topic": "Essentials",
       "sourcePath": "docs/user/getting-started.md",
       "sha256": "bd6c5a63468f00b73935275d882016bf2522eb1c86c8003d2c530476acaa75d1"
@@ -37,7 +36,7 @@
     {
       "slug": "projects",
       "title": "Work inside a project",
-      "summary": "Understand why Scient works inside projects, then open or create one.",
+      "summary": "Open, organize and configure projects.",
       "topic": "Essentials",
       "sourcePath": "docs/user/projects.md",
       "sha256": "de0e00d1c395a26b9432abcffc5629f5d5d8ce60bfd190de3be6fb11b9043974"
@@ -45,55 +44,55 @@
     {
       "slug": "composer",
       "title": "Message Scient",
-      "summary": "Message Scient, attach files, use skills, continue with another provider, queue work, and recover.",
+      "summary": "Send messages, attach files and manage ongoing work.",
       "topic": "Essentials",
       "sourcePath": "docs/user/composer.md",
-      "sha256": "c117433b82d652bb549cbda2daf8b1084bd1cbb7e9e5059558855d87be97df8b"
+      "sha256": "1caa9a13473da39eb2eec9b6e854f2256c9fed79847a15ea9d6e8eb7874960f6"
     },
     {
       "slug": "providers",
       "title": "Providers in Scient",
-      "summary": "Understand provider readiness, accounts, installations, remote authority, and recovery.",
+      "summary": "Connect an AI provider and manage its installation.",
       "topic": "Essentials",
       "sourcePath": "docs/user/providers.md",
-      "sha256": "7dc4fc3d806096fd0aaafb2e40fa236e9ccf1ab454609fd5b207c22a483f9ba8"
+      "sha256": "183d5698a6e90f6d87f6af56d17f9461e2243dfe76d178b14abbc5866520cc03"
     },
     {
       "slug": "file-previews",
       "title": "File previews",
-      "summary": "Open project and environment files, refresh previews, and understand current file limits.",
+      "summary": "Open and preview project files.",
       "topic": "Essentials",
       "sourcePath": "docs/user/file-previews.md",
-      "sha256": "0bd3fa7863eb402ae6aadb186a012c01bc5632544b08ec8fc94440352899264c"
+      "sha256": "30cc4e3bee3d8da157fa858a3c9dabcfc1373d8b85227045175ce01c908b650b"
     },
     {
       "slug": "thread-sidebar",
       "title": "Organizing threads",
-      "summary": "Group, sort, move, settle, archive, and restore conversations in the project sidebar.",
+      "summary": "Organize and find your conversations.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/thread-sidebar.md",
-      "sha256": "4f32951a95be29dc8978949e4d0cd24466f829717a0b9064ed3df0b4ea8acf90"
+      "sha256": "a01e403a52e7ac7fcd0e684ea72f04d43a002238b46f6c7bf38d631a8b27c652"
     },
     {
       "slug": "permission-modes",
       "title": "Permission modes",
-      "summary": "Choose provider-specific approval behavior and understand what each mode can authorize.",
+      "summary": "Choose what your agent may do.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/permission-modes.md",
-      "sha256": "597cda2775ce04dfafe4b54e0c90dacf7c9ae9d3f7b2aa0ebb104861629cd48b"
+      "sha256": "44dcf5f9ca9b21c9ca1c95ff13ac149a6b814ff2a16045458163464f0ab2b1c0"
     },
     {
       "slug": "project-settings",
       "title": "Project settings",
-      "summary": "Manage project skills, project icons, and automatic browser previews.",
+      "summary": "Set project-specific preferences.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/project-settings.md",
-      "sha256": "a1c74e2391fa828b0868c9d3d6a8afd634149c8a19f116f2850ddfd5401439e4"
+      "sha256": "61f92db757ef0f6520d3cbab138970ede56c1e3ed4aed26c96454be288a3a0f9"
     },
     {
       "slug": "environment-theme",
       "title": "Environment theme",
-      "summary": "Follow themes published by an environment and understand per-client appearance choices.",
+      "summary": "Use a shared environment theme.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/environment-theme.md",
       "sha256": "1136d1a0fef18ccc875b7faecb2242b89eaaaaf77e2a6118e5e2f0fd8e3b32e2",
@@ -102,7 +101,7 @@
     {
       "slug": "voice-dictation",
       "title": "Voice dictation",
-      "summary": "Transcribe locally, choose a Whisper model, and optionally correct transcript text with a provider.",
+      "summary": "Dictate messages instead of typing.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/voice-dictation.md",
       "sha256": "4f1dcb185a6111b39ad2a383a8dc6fef7e1533c660cdceb0e6a0033194a8747d"
@@ -110,25 +109,25 @@
     {
       "slug": "keybindings",
       "title": "Keybindings",
-      "summary": "Use current shortcuts, remap commands, and resolve conflicts.",
+      "summary": "Find and customize keyboard shortcuts.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/keybindings.md",
-      "sha256": "964d94deaaf1b2a3719634d1381d1657e12a563e95948845d2b00bc45dbd7e85",
+      "sha256": "fc1540c19314e9e0bb353d05c86f9a634c88e663ab3881e724ec087cd0ae2ca1",
       "secondary": true
     },
     {
       "slug": "usage",
       "title": "Review usage",
-      "summary": "Review local provider transcript usage, token totals, cost provenance, and source diagnostics.",
+      "summary": "Check usage and limits.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/usage.md",
-      "sha256": "37d5694525ee93ac3f47a2c8acb26ad818d90abcf4a3626dbdc9c1c64b4cfd92",
+      "sha256": "dd0a390c8766a8cbe3644ccf695c8170f34ebb57df0a52a2630d5ed1a7ac3bcb",
       "secondary": true
     },
     {
       "slug": "sources",
       "title": "Sources and PDF import",
-      "summary": "Manage project-owned scientific references, Zotero intake, PDF import, citations, and agent access.",
+      "summary": "Import references and manage citations.",
       "topic": "Research & files",
       "sourcePath": "docs/user/sources.md",
       "sha256": "767fe4d4f26f971017f1d953a6dd81cff2dd35cc214492b47bcf6ee721720c30"
@@ -136,7 +135,7 @@
     {
       "slug": "pdf-reader",
       "title": "PDF reader",
-      "summary": "Read, search, navigate, and save copies of PDFs while preserving reading state.",
+      "summary": "Read and annotate PDFs.",
       "topic": "Research & files",
       "sourcePath": "docs/user/pdf-reader.md",
       "sha256": "b26c52ec755baf3af69f9d64f91d2e4113b7e3197b111c2bf349c906e41304ce"
@@ -144,7 +143,7 @@
     {
       "slug": "latex",
       "title": "LaTeX",
-      "summary": "Build LaTeX projects, manage toolchains, inspect diagnostics, and navigate with SyncTeX.",
+      "summary": "Build LaTeX documents and review errors.",
       "topic": "Research & files",
       "sourcePath": "docs/user/latex.md",
       "sha256": "413bf36a060ecd1797f3aedd04014ddae628074db923dfaeaa4212d2e6854057",
@@ -153,7 +152,7 @@
     {
       "slug": "scientific-computing",
       "title": "Scientific computing",
-      "summary": "Configure Python, run stateful project code, and review durable results and figures.",
+      "summary": "Run Python and review results.",
       "topic": "Research & files",
       "sourcePath": "docs/user/scientific-computing.md",
       "sha256": "ed2ad81793dc7ad580beb582ecb8ecff3862747fab3c03eb4709e015f478d7ee"
@@ -161,7 +160,7 @@
     {
       "slug": "matlab-run-file",
       "title": "Run a MATLAB file",
-      "summary": "Verify an installed MATLAB runtime, run a saved file, inspect history, and promote results.",
+      "summary": "Run MATLAB scripts in your project.",
       "topic": "Research & files",
       "sourcePath": "docs/user/matlab-run-file.md",
       "sha256": "8b47b750655c769816c80bcca3efbb21bad88ab126bfaa5988898b6921ad806b",
@@ -170,40 +169,40 @@
     {
       "slug": "source-control",
       "title": "Source control integrations",
-      "summary": "Connect supported Git forges, authenticate in the execution environment, and manage pull requests.",
+      "summary": "Review changes and manage pull requests.",
       "topic": "Research & files",
       "sourcePath": "docs/user/source-control.md",
-      "sha256": "0a15a748c9e8b4b1172395f3227e95f2dd9b3aba8a9d538afcbeae97ac3924fa",
+      "sha256": "d21e50bc7400cd442b850ee0c8fceb4347d65eda7c2196bb53577550fb11c2ac",
       "secondary": true
     },
     {
       "slug": "math-in-chat",
       "title": "Math in chat",
-      "summary": "Write and inspect inline or display math with safe rendering, copy, and fallback behavior.",
+      "summary": "Read and write mathematical notation.",
       "topic": "Rich responses",
       "sourcePath": "docs/user/math-in-chat.md",
-      "sha256": "de0962f379c9b0860e722e143fe83907e0975020bbd9e0f439002552be9a1993"
+      "sha256": "7de4674c712db081b22c4962b36a251d43cc0bcb1c8131bbf37b96444c03c65d"
     },
     {
       "slug": "images-in-chat",
       "title": "Images in chat",
-      "summary": "Display workspace-relative and remote images without crossing workspace authority boundaries.",
+      "summary": "View, zoom and save images.",
       "topic": "Rich responses",
       "sourcePath": "docs/user/images-in-chat.md",
-      "sha256": "36c1b3610f372477695d77f1e41059d892896bfbceab9faceab6276048fb47ce"
+      "sha256": "1d450a1703f505bbd647f233ef2c04b63d332eb14c3b2a7a48532166edcbda0f"
     },
     {
       "slug": "charts-in-chat",
       "title": "Interactive charts in chat",
-      "summary": "Use Vega-Lite and Plotly charts, preserve source fidelity, and export current views.",
+      "summary": "Explore interactive charts.",
       "topic": "Rich responses",
       "sourcePath": "docs/user/charts-in-chat.md",
-      "sha256": "e708e4ead43ef4bc54f7132f9098ab745799243800a9640545dce17c1bf01100"
+      "sha256": "87698092d6cf156665fc16722e79499e9cba66bd937f98bea5fbcc2fa577fda1"
     },
     {
       "slug": "content-direction",
       "title": "Conversation text direction",
-      "summary": "Control automatic, RTL, or LTR conversation layout while preserving technical content.",
+      "summary": "Use left-to-right or right-to-left text.",
       "topic": "Rich responses",
       "sourcePath": "docs/user/content-direction.md",
       "sha256": "5c6f065aac02b4be8ab8d7ad1c0c4d2cdc0dd114d970cc16648ec2f3dbaa16e7",
@@ -212,41 +211,41 @@
     {
       "slug": "diagrams-in-chat",
       "title": "Diagrams in chat",
-      "summary": "Render, inspect, copy, and export secure Mermaid diagrams from settled messages.",
+      "summary": "View and export diagrams.",
       "topic": "Rich responses",
       "sourcePath": "docs/user/diagrams-in-chat.md",
-      "sha256": "22fe76dab774e9eca947f32e30f156c85d2f64ce7cf29dd4008866ae864629ed",
+      "sha256": "95e34cd56c6eaa25ddfdafd0d84442fc9f0e3db664705cf91702e760dc21ed25",
       "secondary": true
     },
     {
       "slug": "providers-codex",
       "title": "Codex in Scient",
-      "summary": "Connect Codex, choose a runtime, and manage one or more compatible account homes.",
+      "summary": "Connect and use Codex.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-codex.md",
-      "sha256": "e67c2cbe0d74976fa67426da3febe4f84baae89224ca0ba35cac443528c0fda5"
+      "sha256": "3323bc322631949a8a39e5d48f80a5fcfdabab0f05243f8810115862668ad48f"
     },
     {
       "slug": "providers-claude",
       "title": "Claude in Scient",
-      "summary": "Connect Claude Code and keep account, config-directory, runtime, and advanced routes distinct.",
+      "summary": "Connect and use Claude Code.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-claude.md",
-      "sha256": "8dcf87898507d83d383437ad849b7a7a16f639281c103bfc8bd0493b0ef742d3"
+      "sha256": "1601ad61e57061040c275ce1e3d9622f97ed02483d53e10d95522adbe7504e63"
     },
     {
       "slug": "providers-antigravity",
       "title": "Antigravity in Scient",
-      "summary": "Use Google's account flow, managed runtime, dynamic models, and native session behavior.",
+      "summary": "Connect and use Antigravity.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-antigravity.md",
-      "sha256": "29c35d740f7554ba216c8375214209bc22bf6005233eda803379dea1c061e86c",
+      "sha256": "02191a3c29995b6c6c135af963e1850d3328953a985544438d2e412e2a7b8098",
       "secondary": true
     },
     {
       "slug": "providers-grok",
       "title": "Grok in Scient",
-      "summary": "Enable the Early Access Grok provider and distinguish subscription, API-key, and runtime state.",
+      "summary": "Connect and use Grok.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-grok.md",
       "sha256": "bdd344b0353f1db04a81bb013590d64856bcbee870f38bec48ca92bfc9ddfcae",
@@ -255,7 +254,7 @@
     {
       "slug": "providers-droid",
       "title": "Droid (Factory) in Scient",
-      "summary": "Connect Factory's Droid and understand ACP models, autonomy, steering, and limitations.",
+      "summary": "Connect and use Droid.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-droid.md",
       "sha256": "73bc63b0f9500151fe2a6fbd961d9b8f4c917b53019b0d2b235d3e98da4402e5",
@@ -264,7 +263,7 @@
     {
       "slug": "providers-cursor",
       "title": "Cursor in Scient",
-      "summary": "Connect Cursor Agent and keep browser authentication, runtime ownership, and recovery clear.",
+      "summary": "Connect and use Cursor.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-cursor.md",
       "sha256": "73b051b5242167b540476fe7e97ab9955dbbf67a77fc748f008da59628b7ef39",
@@ -273,43 +272,61 @@
     {
       "slug": "providers-opencode",
       "title": "OpenCode in Scient",
-      "summary": "Connect an OpenCode server, refresh models, and understand authentication and catalog behavior.",
+      "summary": "Connect and use OpenCode.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-opencode.md",
-      "sha256": "11c7aca83f8dfe5881a37248895bf09db6ac6dbe906848c98fc8f9442c98f564",
+      "sha256": "d7ae8aa53681291974f75658301d2bf3b4dc63e55319a52a31920753b15edd67",
       "secondary": true
     },
     {
       "slug": "install",
       "title": "Install Scient",
-      "summary": "Download the correct public installer and complete the first launch safely.",
+      "summary": "Install Scient on your computer.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/install.md",
-      "sha256": "8fd1db97a3fde09683b0bafb07694f384fb894983c3686fc3abadad8d696d944"
+      "sha256": "733a8d002a717e10c0397d754d92fbabf4ab7b579e90aefd46a73971be6b3fad"
     },
     {
       "slug": "updating",
       "title": "Update Scient",
-      "summary": "Update the desktop app, keep connected servers aligned, and understand rollback outcomes.",
+      "summary": "Update Scient and troubleshoot installation.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/updating.md",
-      "sha256": "ae8e7c96e21e080429832c3e0f950017b8a89352375812089a715bdbd9a64c40"
+      "sha256": "c415d2322124bf4254ce6cc05a631046179d48656c4f57b4a45cd545a04a3c14"
     },
     {
       "slug": "remote-access",
       "title": "Remote environments",
-      "summary": "Connect over desktop-managed SSH or an advanced direct/private-network path without crossing environment authority.",
+      "summary": "Connect to Scient on another machine.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/remote-access.md",
-      "sha256": "52cf889cccbf10c636ecc1e1cdda93b58249be70b16b8d897f0585a19d2dcd3e"
+      "sha256": "1046ad412574ee7598902a15ae2a50929b3f4643a60fa29e60d12b1646332f4f"
     },
     {
       "slug": "background-service",
       "title": "Run a Scient server in the background",
-      "summary": "Install, inspect, update, or remove a user-scoped Scient server service on Linux or macOS.",
+      "summary": "Manage Scient in the background.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/background-service.md",
-      "sha256": "a5eae7a134d305b7d34551c4ec23d3bc7360a0dd52181b32e63682d08ad4fc60"
+      "sha256": "4145ffe128e4efca92b85606e57e94956c7ba87283769834beb6b4915b4ea9f8"
+    },
+    {
+      "slug": "browser-import",
+      "title": "Import browser logins",
+      "summary": "Bring existing browser logins into Scient.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/browser-import.md",
+      "secondary": true,
+      "sha256": "ec809fc2dceb95588adf50cf3e9d643e076410fd3d1ae6aa3c4cfcc51c6222ac"
+    },
+    {
+      "slug": "tool-activity",
+      "title": "Tool activity",
+      "summary": "Inspect agent actions and their results.",
+      "topic": "Work in Scient",
+      "sourcePath": "docs/user/tool-activity.md",
+      "secondary": true,
+      "sha256": "3a29776b35f6fd613f8e27993a0fe600fffe12b4ebe8fad13cf5cd3eb1b1fc7a"
     }
   ]
 }
