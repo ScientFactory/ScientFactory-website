@@ -11,7 +11,7 @@ const insight = (name, description, query) => ({
 export const providerUsageInsights = [
   insight(
     "Provider and model usage",
-    "Deduplicated live terminal usage reports, not model-picker clicks. Unknown/private/mixed models remain separate; counts include failed and stopped turns.",
+    "Deduplicated live terminal usage reports, not model-picker clicks. Missing models are unknown; private and mixed-model labels use other. Counts include failed and stopped turns.",
     `SELECT properties.provider AS provider, properties.modelKey AS model,
 uniqExact(distinct_id) AS installations, uniqExact(properties.event_id) AS reported_turns
 FROM events WHERE ${population} AND event = 'provider.turn.usage'
