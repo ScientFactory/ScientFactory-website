@@ -32,11 +32,46 @@ const trends = ({ series, display = "ActionsLineGraph", dateFrom = "-30d", inter
 
 const hogql = (query) => ({ kind: "HogQLQuery", query });
 
-const preparedInsight = (name, description, query) => ({
+const preparedInsight = (name, description, query, aliases = []) => ({
   name,
   description,
   query: hogql(query),
+  aliases,
 });
+
+// Product denominators never mix Product successes with Essential-only failures.
+// These are participating installations/profiles, not accounts or all Scient users.
+export const PRODUCT_POPULATION =
+  "properties.source = 'desktop' AND properties.consent_level IN ('product', 'diagnostic')";
+export const SCIENTIFIC_OUTCOME =
+  "event = 'scient.operation.completed' AND properties.operationKind IN ('pdf-export', 'source-import', 'compute-run', 'compute-artifact', 'latex-build', 'document-export')";
+const JOURNEYS = `cohort_events AS (
+  SELECT distinct_id, event, timestamp, properties.productFirstSeenAt AS cohort_start
+  FROM events
+  WHERE ${PRODUCT_POPULATION} AND properties.productFirstSeenAt IS NOT NULL
+    AND timestamp >= now() - INTERVAL 180 DAY
+), projects AS (
+  SELECT distinct_id,
+    min(parseDateTimeBestEffort(cohort_start)) AS first_seen,
+    minIf(timestamp, event = 'project.opened') AS project_opened
+  FROM cohort_events
+  GROUP BY distinct_id
+  HAVING first_seen >= now() - INTERVAL 180 DAY
+), providers AS (
+  SELECT projects.distinct_id, projects.first_seen, projects.project_opened,
+    minIf(cohort_events.timestamp, cohort_events.event = 'provider.session.started'
+      AND cohort_events.timestamp >= projects.project_opened) AS provider_started
+  FROM projects INNER JOIN cohort_events ON projects.distinct_id = cohort_events.distinct_id
+  GROUP BY projects.distinct_id, projects.first_seen, projects.project_opened
+), journeys AS (
+  SELECT providers.distinct_id, providers.first_seen, providers.project_opened, providers.provider_started,
+    minIf(cohort_events.timestamp, cohort_events.event = 'provider.turn.completed'
+      AND cohort_events.timestamp >= providers.provider_started) AS turn_completed
+  FROM providers INNER JOIN cohort_events ON providers.distinct_id = cohort_events.distinct_id
+  GROUP BY providers.distinct_id, providers.first_seen, providers.project_opened, providers.provider_started
+)`;
+const ACTIVATED =
+  "project_opened >= first_seen AND provider_started >= project_opened AND turn_completed >= provider_started AND turn_completed <= first_seen + INTERVAL 7 DAY";
 
 export const dashboards = [
   {
@@ -71,11 +106,12 @@ export const dashboards = [
         }),
       },
       {
-        name: "Active website visitors",
+        name: "Observed website identities",
+        aliases: ["Active website visitors"],
         description:
-          "Unique consented or event-scoped website identities. Interpret with the consent model documented in the repository.",
+          "Consent-dependent identity count, not a visitor count: without persistent consent each event may have its own identity.",
         query: trends({
-          series: [event("page_viewed", "Active website visitors", "dau")],
+          series: [event("page_viewed", "Observed website identities", "dau")],
           interval: "day",
         }),
       },
@@ -88,10 +124,50 @@ export const dashboards = [
         }),
       },
       preparedInsight(
-        "Monthly event volume and free-tier budget",
-        "Rolling 30-day event volume. Compare this total with the configured PostHog billing limit before enabling a wider cohort.",
-        "SELECT count() AS events_last_30_days, round(count() / 1000000 * 100, 1) AS percent_of_one_million FROM events WHERE timestamp >= now() - INTERVAL 30 DAY",
+        "Monthly event volume",
+        "Rolling 30-day event volume. Billing limits are configured separately; this is not a cost estimate or calendar-month invoice count.",
+        "SELECT count() AS events_last_30_days FROM events WHERE timestamp >= now() - INTERVAL 30 DAY",
+        ["Monthly event volume and free-tier budget"],
       ),
+      {
+        ...preparedInsight(
+          "Observed provider lifecycle outcomes",
+          "Observed starts and terminal outcomes, not clicks or a current-state fleet. Product/Diagnostic population only; failures at Essential consent appear in the failure view.",
+          `SELECT properties.appVersion AS app_version, properties.provider AS provider,
+  properties.action AS action, properties.runtimeSource AS runtime_source, event,
+  uniqExact(properties.event_id) AS observations
+FROM events WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 30 DAY
+  AND event IN ('provider.lifecycle.started', 'provider.lifecycle.completed', 'provider.lifecycle.failed', 'provider.lifecycle.cancelled')
+GROUP BY app_version, provider, action, runtime_source, event ORDER BY observations DESC`,
+        ),
+        requiredEvents: ["provider.lifecycle.started"],
+      },
+      {
+        ...preparedInsight(
+          "Observed provider readiness transitions",
+          "Reported changes only. Missing or offline installations are not assumed ready, and no observations is not a healthy zero.",
+          `SELECT properties.provider AS provider, properties.from AS previous_state,
+  properties.to AS next_state, uniqExact(properties.event_id) AS transitions
+FROM events WHERE ${PRODUCT_POPULATION} AND event = 'provider.readiness.changed'
+  AND timestamp >= now() - INTERVAL 30 DAY
+GROUP BY provider, previous_state, next_state ORDER BY transitions DESC`,
+        ),
+        requiredEvents: ["provider.readiness.changed"],
+      },
+      {
+        ...preparedInsight(
+          "Observed app health outcomes",
+          "Server startup and renderer termination observations by release and consent. Desktop-update and migration coverage is not implied; counts are not a success rate.",
+          `SELECT properties.appVersion AS app_version, properties.component AS component,
+  properties.operation AS operation, properties.outcome AS outcome, properties.consent_level AS consent,
+  uniqExact(properties.event_id) AS observations
+FROM events WHERE properties.source = 'desktop' AND event = 'app.health'
+  AND properties.outcome IN ('completed', 'failed', 'abnormal') AND timestamp >= now() - INTERVAL 30 DAY
+GROUP BY app_version, component, operation, outcome, consent ORDER BY observations DESC`,
+          ["Observed server health outcomes"],
+        ),
+        requiredEvents: ["app.health"],
+      },
     ],
   },
   {
@@ -110,81 +186,63 @@ export const dashboards = [
     insights: [
       preparedInsight(
         "Weekly Meaningful Active Installations",
-        "An installation qualifies after three completed turns across two sessions, or one completed scientific operation, in a calendar week.",
+        "Twelve complete calendar weeks. An installation qualifies after three completed turns across two sessions, or one completed scientific operation; the current partial week is excluded.",
         `SELECT week, countIf(turns >= 3 AND sessions >= 2 OR scientific_operations >= 1) AS meaningful_installations
 FROM (
   SELECT toStartOfWeek(timestamp) AS week, distinct_id,
-    countIf(event = 'provider.turn.completed') AS turns,
+    uniqExactIf(properties.event_id, event = 'provider.turn.completed') AS turns,
     uniqIf(properties.$session_id, event = 'provider.turn.completed') AS sessions,
-    countIf(event = 'scient.operation.completed') AS scientific_operations
+    uniqExactIf(properties.event_id, ${SCIENTIFIC_OUTCOME}) AS scientific_operations
   FROM events
-  WHERE timestamp >= now() - INTERVAL 12 WEEK
+  WHERE ${PRODUCT_POPULATION} AND timestamp >= toStartOfWeek(now()) - INTERVAL 12 WEEK
+    AND timestamp < toStartOfWeek(now())
   GROUP BY week, distinct_id
 )
 GROUP BY week ORDER BY week`,
       ),
       preparedInsight(
         "Successful assistant-turn rate",
-        "Completed provider turns divided by all terminal provider-turn outcomes.",
+        "Product-consenting completed turns divided by completed plus failed turns. Stops/cancellations are reported separately; Essential-only failures are excluded from this denominator.",
         `SELECT toStartOfDay(timestamp) AS day,
-  round(100 * countIf(event = 'provider.turn.completed') / nullIf(countIf(event IN ('provider.turn.completed', 'provider.turn.failed')), 0), 1) AS success_percent
+  uniqExactIf(properties.event_id, event = 'provider.turn.completed') AS completed,
+  uniqExactIf(properties.event_id, event IN ('provider.turn.completed', 'provider.turn.failed')) AS terminal,
+  round(100 * completed / nullIf(terminal, 0), 1) AS success_percent
 FROM events
-WHERE timestamp >= now() - INTERVAL 30 DAY
+WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 30 DAY
+  AND (event <> 'provider.turn.failed' OR properties.failureClass NOT IN ('cancelled', 'interrupted'))
 GROUP BY day ORDER BY day`,
       ),
       preparedInsight(
         "Activated installations",
-        "Installations that opened a project, started a provider session, and completed a provider turn within seven days of first use.",
-        `WITH journeys AS (
-  SELECT distinct_id,
-    minIf(timestamp, event = 'app.session.started') AS first_seen,
-    minIf(timestamp, event = 'project.opened') AS project_opened,
-    minIf(timestamp, event = 'provider.session.started') AS provider_started,
-    minIf(timestamp, event = 'provider.turn.completed') AS turn_completed
-  FROM events
-  WHERE timestamp >= now() - INTERVAL 90 DAY
-    AND event IN ('app.session.started', 'project.opened', 'provider.session.started', 'provider.turn.completed')
-  GROUP BY distinct_id
-)
-SELECT countIf(
-  project_opened >= first_seen AND project_opened <= first_seen + INTERVAL 7 DAY
-  AND provider_started >= first_seen AND provider_started <= first_seen + INTERVAL 7 DAY
-  AND turn_completed >= first_seen AND turn_completed <= first_seen + INTERVAL 7 DAY
-) AS activated_installations
+        "Ordered project → provider session → completed turn within seven days of first observed Product participation. Only complete seven-day windows and known cohort origins count; not install-to-activation conversion.",
+        `WITH ${JOURNEYS}
+SELECT countIf(first_seen <= now() - INTERVAL 7 DAY) AS eligible_installations,
+  countIf(first_seen > now() - INTERVAL 7 DAY) AS immature_installations,
+  countIf(first_seen <= now() - INTERVAL 7 DAY AND ${ACTIVATED}) AS activated_installations
 FROM journeys`,
       ),
       preparedInsight(
         "Week-one and week-four retained activation",
-        "Activated cohorts that later qualify for meaningful weekly use in week one or week four.",
-        `WITH journeys AS (
-  SELECT distinct_id,
-    minIf(timestamp, event = 'app.session.started') AS first_seen,
-    minIf(timestamp, event = 'project.opened') AS project_opened,
-    minIf(timestamp, event = 'provider.session.started') AS provider_started,
-    minIf(timestamp, event = 'provider.turn.completed') AS turn_completed
-  FROM events
-  WHERE timestamp >= now() - INTERVAL 180 DAY
-  GROUP BY distinct_id
-), activated AS (
+        "Activated Product cohorts qualifying for meaningful later-week use. Separate mature denominators exclude incomplete week-one/week-four windows; absent cohort history is unknown, not new.",
+        `WITH ${JOURNEYS}, activated AS (
   SELECT distinct_id, toStartOfWeek(greatest(project_opened, greatest(provider_started, turn_completed))) AS activation_week
   FROM journeys
-  WHERE project_opened >= first_seen AND project_opened <= first_seen + INTERVAL 7 DAY
-    AND provider_started >= first_seen AND provider_started <= first_seen + INTERVAL 7 DAY
-    AND turn_completed >= first_seen AND turn_completed <= first_seen + INTERVAL 7 DAY
+  WHERE ${ACTIVATED}
 ), meaningful AS (
   SELECT distinct_id, toStartOfWeek(timestamp) AS week,
-    countIf(event = 'provider.turn.completed') AS turns,
+    uniqExactIf(properties.event_id, event = 'provider.turn.completed') AS turns,
     uniqIf(properties.$session_id, event = 'provider.turn.completed') AS sessions,
-    countIf(event = 'scient.operation.completed') AS scientific_operations
+    uniqExactIf(properties.event_id, ${SCIENTIFIC_OUTCOME}) AS scientific_operations
   FROM events
-  WHERE timestamp >= now() - INTERVAL 180 DAY
+  WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 180 DAY
   GROUP BY distinct_id, week
   HAVING turns >= 3 AND sessions >= 2 OR scientific_operations >= 1
 )
 SELECT activation_week,
-  uniqExact(activated.distinct_id) AS activated,
-  uniqExactIf(activated.distinct_id, meaningful.week = activation_week + INTERVAL 1 WEEK) AS retained_week_one,
-  uniqExactIf(activated.distinct_id, meaningful.week = activation_week + INTERVAL 4 WEEK) AS retained_week_four
+  uniqExactIf(activated.distinct_id, activation_week + INTERVAL 2 WEEK <= toStartOfWeek(now())) AS eligible_week_one,
+  uniqExactIf(activated.distinct_id, activation_week + INTERVAL 5 WEEK <= toStartOfWeek(now())) AS eligible_week_four,
+  uniqExactIf(activated.distinct_id, activation_week + INTERVAL 2 WEEK <= toStartOfWeek(now()) AND meaningful.week = activation_week + INTERVAL 1 WEEK) AS retained_week_one,
+  uniqExactIf(activated.distinct_id, activation_week + INTERVAL 5 WEEK <= toStartOfWeek(now()) AND meaningful.week = activation_week + INTERVAL 4 WEEK) AS retained_week_four
 FROM activated
 LEFT JOIN meaningful ON activated.distinct_id = meaningful.distinct_id
 GROUP BY activation_week ORDER BY activation_week`,
@@ -203,7 +261,7 @@ GROUP BY activation_week ORDER BY activation_week`,
       "provider.turn.completed",
     ],
     description:
-      "First-session and seven-day activation from app start through a completed provider turn.",
+      "First-observed Product participation and seven-day activation through an ordered project/provider/answer journey. Not install conversion.",
     plannedInsights: [
       "App start → project → provider session → successful turn funnel",
       "Median time-to-activation bucket",
@@ -212,20 +270,21 @@ GROUP BY activation_week ORDER BY activation_week`,
     insights: [
       preparedInsight(
         "Activation stage reach",
-        "Unique installations reaching each durable activation stage in the selected period.",
+        "Product-participating installations observed at each stage. These independent reach counts are not an ordered funnel or conversion rate.",
         `SELECT event, uniqExact(distinct_id) AS installations
 FROM events
-WHERE timestamp >= now() - INTERVAL 30 DAY
+WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 30 DAY
   AND event IN ('app.session.started', 'project.opened', 'provider.session.started', 'provider.turn.completed')
 GROUP BY event ORDER BY installations DESC`,
       ),
       preparedInsight(
-        "First-answer activation by build channel",
-        "Activated installation counts grouped by the bounded build channel recorded on session start.",
+        "Answer-producing installations by build channel",
+        "Product-participating installations with a completed turn, grouped by its build channel. This is not first-use activation.",
         `SELECT properties.buildChannel AS build_channel, uniqExact(distinct_id) AS installations
 FROM events
-WHERE event = 'provider.turn.completed' AND timestamp >= now() - INTERVAL 30 DAY
+WHERE ${PRODUCT_POPULATION} AND event = 'provider.turn.completed' AND timestamp >= now() - INTERVAL 30 DAY
 GROUP BY build_channel ORDER BY installations DESC`,
+        ["First-answer activation by build channel"],
       ),
     ],
   },
@@ -247,16 +306,18 @@ GROUP BY build_channel ORDER BY installations DESC`,
         "Completed turns per active installation",
         "Distribution of completed provider turns per pseudonymous installation over the last 30 days.",
         `SELECT turns, count() AS installations FROM (
-  SELECT distinct_id, countIf(event = 'provider.turn.completed') AS turns
-  FROM events WHERE timestamp >= now() - INTERVAL 30 DAY GROUP BY distinct_id
+  SELECT distinct_id, uniqExactIf(properties.event_id, event = 'provider.turn.completed') AS turns
+  FROM events WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 30 DAY GROUP BY distinct_id
 ) GROUP BY turns ORDER BY turns`,
       ),
       preparedInsight(
         "Returning active installations by week",
-        "Installations active in both the current and immediately preceding week.",
+        "Product-participating installations with completed turns in consecutive complete calendar weeks. Not the stricter meaningful-use retention KPI.",
         `WITH weekly AS (
   SELECT distinct_id, toStartOfWeek(timestamp) AS week
-  FROM events WHERE event = 'provider.turn.completed' GROUP BY distinct_id, week
+  FROM events WHERE ${PRODUCT_POPULATION} AND event = 'provider.turn.completed'
+    AND timestamp >= toStartOfWeek(now()) - INTERVAL 13 WEEK AND timestamp < toStartOfWeek(now())
+  GROUP BY distinct_id, week
 )
 SELECT current.week, uniqExact(current.distinct_id) AS returning_installations
 FROM weekly AS current
@@ -285,27 +346,27 @@ GROUP BY current.week ORDER BY current.week`,
     insights: [
       preparedInsight(
         "Provider terminal outcomes",
-        "Completed and failed provider turns by bounded provider kind.",
-        `SELECT properties.provider AS provider, event, count() AS turns
+        "Completed, failed and stopped turns for the same Product-consenting population, by provider. Stopped turns are not failures.",
+        `SELECT properties.provider AS provider, event, uniqExact(properties.event_id) AS turns
 FROM events
-WHERE timestamp >= now() - INTERVAL 30 DAY
-  AND event IN ('provider.turn.completed', 'provider.turn.failed')
+WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 30 DAY
+  AND event IN ('provider.turn.completed', 'provider.turn.failed', 'provider.turn.stopped')
 GROUP BY provider, event ORDER BY provider, event`,
       ),
       preparedInsight(
         "Model selection",
-        "Completed and attempted turns by maintained public model key; private custom model names collapse to other.",
-        `SELECT properties.modelKey AS model_key, count() AS turns
+        "Attempted turns by maintained public model key; private custom model names collapse to other.",
+        `SELECT properties.modelKey AS model_key, uniqExact(properties.event_id) AS turns
 FROM events
-WHERE event = 'provider.turn.sent' AND timestamp >= now() - INTERVAL 30 DAY
+WHERE ${PRODUCT_POPULATION} AND event = 'provider.turn.sent' AND timestamp >= now() - INTERVAL 30 DAY
 GROUP BY model_key ORDER BY turns DESC`,
       ),
       preparedInsight(
         "Provider failure classes",
         "Bounded provider failure classes without raw messages or stack traces.",
-        `SELECT properties.provider AS provider, properties.failureClass AS failure_class, count() AS failures
+        `SELECT properties.provider AS provider, properties.failureClass AS failure_class, uniqExact(properties.event_id) AS failures
 FROM events
-WHERE event = 'provider.turn.failed' AND timestamp >= now() - INTERVAL 30 DAY
+WHERE properties.source = 'desktop' AND event = 'provider.turn.failed' AND timestamp >= now() - INTERVAL 30 DAY
 GROUP BY provider, failure_class ORDER BY failures DESC`,
       ),
     ],
@@ -332,26 +393,26 @@ GROUP BY provider, failure_class ORDER BY failures DESC`,
       preparedInsight(
         "Feature completion by installation",
         "Unique installations completing bounded Scient feature outcomes.",
-        `SELECT event, uniqExact(distinct_id) AS installations, count() AS completions
+        `SELECT event, uniqExact(distinct_id) AS installations, uniqExact(properties.event_id) AS completions
 FROM events
-WHERE timestamp >= now() - INTERVAL 30 DAY
+WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 30 DAY
   AND event IN ('project.initialization.completed', 'thread.fork.completed', 'thread.revert.completed', 'voice.transcription.completed')
 GROUP BY event ORDER BY installations DESC`,
       ),
       preparedInsight(
         "Selected surfaces opened",
         "Once-per-session style surface signals; this is deliberately not clickstream tracking.",
-        `SELECT properties.surface AS surface, uniqExact(distinct_id) AS installations, count() AS opens
+        `SELECT properties.surface AS surface, uniqExact(distinct_id) AS installations, uniqExact(properties.event_id) AS opens
 FROM events
-WHERE event = 'surface.opened' AND timestamp >= now() - INTERVAL 30 DAY
+WHERE ${PRODUCT_POPULATION} AND event = 'surface.opened' AND timestamp >= now() - INTERVAL 30 DAY
 GROUP BY surface ORDER BY installations DESC`,
       ),
       preparedInsight(
         "Measured settings choices",
         "Bounded direction, theme, and notification choices only.",
-        `SELECT properties.setting AS setting, properties.value AS value, count() AS changes
+        `SELECT properties.setting AS setting, properties.value AS value, uniqExact(properties.event_id) AS changes
 FROM events
-WHERE event = 'setting.changed' AND timestamp >= now() - INTERVAL 30 DAY
+WHERE ${PRODUCT_POPULATION} AND event = 'setting.changed' AND timestamp >= now() - INTERVAL 30 DAY
 GROUP BY setting, value ORDER BY setting, changes DESC`,
       ),
     ],
@@ -379,19 +440,26 @@ GROUP BY setting, value ORDER BY setting, changes DESC`,
       preparedInsight(
         "Failures by class and release",
         "Bounded failures grouped by event, class, and application version.",
-        `SELECT properties.appVersion AS app_version, event, properties.failureClass AS failure_class, count() AS failures
+        `SELECT properties.appVersion AS app_version, event, properties.failureClass AS failure_class, uniqExact(properties.event_id) AS failures
 FROM events
-WHERE timestamp >= now() - INTERVAL 30 DAY
-  AND event IN ('provider.turn.failed', 'project.add.failed', 'project.initialization.failed', 'thread.fork.failed', 'thread.revert.failed', 'voice.transcription.failed')
+WHERE properties.source = 'desktop' AND timestamp >= now() - INTERVAL 30 DAY
+  AND (event IN ('provider.turn.failed', 'project.add.failed', 'project.initialization.failed', 'thread.fork.failed', 'thread.revert.failed', 'voice.transcription.failed', 'provider.lifecycle.failed', 'scient.operation.failed')
+    OR (event = 'app.health' AND properties.outcome IN ('failed', 'abnormal')))
 GROUP BY app_version, event, failure_class ORDER BY failures DESC`,
       ),
       preparedInsight(
         "Duration bucket distribution",
-        "Coarse latency buckets for completed and failed product operations.",
-        `SELECT event, properties.durationBucket AS duration_bucket, count() AS outcomes
+        "Coarse terminal-outcome latency histograms, not exact percentiles. Starts are excluded; missing duration remains unknown.",
+        `SELECT event, properties.component AS component, properties.operation AS operation,
+  properties.operationKind AS operation_kind, properties.outcome AS health_outcome,
+  properties.durationBucket AS duration_bucket, uniqExact(properties.event_id) AS outcomes
 FROM events
-WHERE timestamp >= now() - INTERVAL 30 DAY AND properties.durationBucket IS NOT NULL
-GROUP BY event, duration_bucket ORDER BY event, outcomes DESC`,
+WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 30 DAY
+  AND (event IN ('provider.turn.completed', 'provider.turn.failed', 'provider.turn.stopped',
+    'provider.lifecycle.completed', 'provider.lifecycle.failed', 'provider.lifecycle.cancelled',
+    'scient.operation.completed', 'scient.operation.failed', 'scient.operation.cancelled', 'scient.operation.skipped', 'voice.transcription.completed')
+    OR (event = 'app.health' AND properties.outcome IN ('completed', 'failed', 'abnormal')))
+GROUP BY event, component, operation, operation_kind, health_outcome, duration_bucket ORDER BY event, outcomes DESC`,
       ),
     ],
   },
@@ -405,7 +473,7 @@ GROUP BY event, duration_bucket ORDER BY event, outcomes DESC`,
       "scient.operation.failed",
     ],
     description:
-      "Registered scientific operations and reviewed outcomes once those operations exist.",
+      "Prepared for actual compute-run, latex-build, agent pdf-export and per-item source-import outcomes. Import skips are separate from saved sources; technical completion does not prove scientific review.",
     plannedInsights: [
       "Completed scientific operations",
       "Reviewed outcome rate",
@@ -415,10 +483,11 @@ GROUP BY event, duration_bucket ORDER BY event, outcomes DESC`,
     insights: [
       preparedInsight(
         "Scientific operation outcomes",
-        "Registered scientific operation completions and bounded failures after those operations ship.",
-        `SELECT properties.operationKind AS operation_kind, event, count() AS outcomes
+        "Technical completions, failures, cancellations and no-op skips for qualified producers in one consent population. Source imports count individual attempts, not batches; no reviewed-outcome rate is inferred.",
+        `SELECT properties.operationKind AS operation_kind, event, uniqExact(properties.event_id) AS outcomes
 FROM events
-WHERE event IN ('scient.operation.completed', 'scient.operation.failed')
+WHERE ${PRODUCT_POPULATION} AND timestamp >= now() - INTERVAL 30 DAY
+  AND event IN ('scient.operation.completed', 'scient.operation.failed', 'scient.operation.cancelled', 'scient.operation.skipped')
 GROUP BY operation_kind, event ORDER BY outcomes DESC`,
       ),
     ],

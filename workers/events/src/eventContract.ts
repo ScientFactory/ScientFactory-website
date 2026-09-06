@@ -1,3 +1,5 @@
+// Generated from scient-desktop/packages/scient-analytics/src/wireContract.ts. Do not edit here.
+// Scient desktop wire contract. The website gateway consumes a generated copy.
 export const PRIVACY_LEVELS = ["essential", "product", "diagnostic", "contribution"] as const;
 
 export type PrivacyLevel = (typeof PRIVACY_LEVELS)[number];
@@ -14,7 +16,17 @@ interface EventDefinition {
 
 const provider = {
   kind: "enum",
-  values: ["codex", "claudeAgent", "cursor", "grok", "opencode", "other"],
+  values: [
+    "codex",
+    "claudeAgent",
+    "antigravity",
+    "droid",
+    "cursor",
+    "grok",
+    "opencode",
+    "pi",
+    "other",
+  ],
 } as const satisfies PropertyRule;
 const runtimeMode = {
   kind: "enum",
@@ -34,7 +46,8 @@ const buildChannel = {
 } as const satisfies PropertyRule;
 const appVersion = {
   kind: "pattern",
-  pattern: /^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$/,
+  pattern:
+    /^(?:unknown|\d{1,4}\.\d{1,4}\.\d{1,4}(?:-(?:beta|nightly|rc|dev)(?:\.\d{1,14}){0,3})?)$/,
 } as const satisfies PropertyRule;
 const modelKey = {
   kind: "enum",
@@ -62,7 +75,153 @@ const modelKey = {
   ],
 } as const satisfies PropertyRule;
 
+const runtimeSource = {
+  kind: "enum",
+  values: ["custom", "system", "scient_managed", "missing", "unknown"],
+} as const satisfies PropertyRule;
+const providerState = {
+  kind: "enum",
+  values: ["ready", "warning", "error", "disabled", "unknown"],
+} as const satisfies PropertyRule;
+const failureClass = {
+  kind: "enum",
+  values: [
+    "configuration",
+    "authentication",
+    "connection",
+    "permission",
+    "provider",
+    "timeout",
+    "filesystem",
+    "checkpoint",
+    "validation",
+    "unavailable",
+    "incompatible-version",
+    "missing-dependency",
+    "resource-exhaustion",
+    "process-crash",
+    "internal",
+    "unknown",
+  ],
+} as const satisfies PropertyRule;
+const lifecycleProperties = {
+  provider,
+  action: {
+    kind: "enum",
+    values: [
+      "install",
+      "update",
+      "repair",
+      "remove",
+      "sign-in",
+      "sign-out",
+      "source-switch",
+      "unknown",
+    ],
+  },
+  runtimeSource,
+  stage: {
+    kind: "enum",
+    values: [
+      "preparing",
+      "downloading",
+      "verifying",
+      "installing",
+      "testing",
+      "activating",
+      "removing",
+      "starting",
+      "waiting_for_browser",
+      "waiting_for_device_code",
+      "queued",
+      "running",
+      "unknown",
+    ],
+  },
+  failureClass,
+  durationBucket,
+} as const satisfies Readonly<Record<string, PropertyRule>>;
+const operationProperties = {
+  operationKind: {
+    kind: "enum",
+    values: [
+      "file-preview",
+      "pdf-open",
+      "pdf-search",
+      "pdf-export",
+      "source-import",
+      "browser",
+      "chart-render",
+      "math-render",
+      "diagram-render",
+      "compute-session",
+      "compute-run",
+      "compute-artifact",
+      "latex-build",
+      "document-export",
+      "source-control",
+      "built-in-skill",
+      "worktree-provision",
+      "thread-fork",
+      "thread-revert",
+      "turn-retry",
+      "turn-steer",
+      "queued-follow-up",
+      "provider-handoff",
+      "other",
+    ],
+  },
+  trigger: { kind: "enum", values: ["user", "agent", "automation", "other"], optional: true },
+  durationBucket: { ...durationBucket, optional: true },
+  failureClass: { ...failureClass, optional: true },
+  reviewRequired: { kind: "boolean", optional: true },
+} as const satisfies Readonly<Record<string, PropertyRule>>;
+
 export const EVENT_DEFINITIONS = {
+  "app.health": {
+    privacyLevel: "essential",
+    properties: {
+      component: {
+        kind: "enum",
+        values: ["desktop", "server", "renderer", "browser", "analytics", "unknown"],
+      },
+      operation: {
+        kind: "enum",
+        values: ["startup", "restart", "shutdown", "termination", "migration", "update", "unknown"],
+      },
+      outcome: { kind: "enum", values: ["started", "completed", "failed", "abnormal", "unknown"] },
+      failureClass,
+      durationBucket,
+    },
+  },
+  "app.diagnostics": {
+    privacyLevel: "diagnostic",
+    properties: {
+      queuedCountBucket: countBucket,
+      droppedCountBucket: countBucket,
+      retryCountBucket: countBucket,
+      deliveryClass: {
+        kind: "enum",
+        values: ["idle", "delivered", "network", "timeout", "rejected", "unavailable", "unknown"],
+      },
+    },
+  },
+  "provider.discovered": {
+    privacyLevel: "product",
+    properties: { provider, runtimeSource, state: providerState },
+  },
+  "provider.readiness.changed": {
+    privacyLevel: "product",
+    properties: { provider, from: providerState, to: providerState },
+  },
+  "provider.runtime.source.changed": {
+    privacyLevel: "product",
+    properties: { provider, from: runtimeSource, to: runtimeSource },
+  },
+  "provider.lifecycle.started": { privacyLevel: "product", properties: lifecycleProperties },
+  "provider.lifecycle.completed": { privacyLevel: "product", properties: lifecycleProperties },
+  "provider.lifecycle.failed": { privacyLevel: "essential", properties: lifecycleProperties },
+  "provider.lifecycle.cancelled": { privacyLevel: "product", properties: lifecycleProperties },
   "app.session.started": {
     privacyLevel: "essential",
     properties: {
@@ -207,6 +366,15 @@ export const EVENT_DEFINITIONS = {
       durationBucket,
     },
   },
+  "provider.turn.stopped": {
+    privacyLevel: "product",
+    properties: {
+      provider,
+      modelKey,
+      durationBucket,
+      stopClass: { kind: "enum", values: ["aborted", "cancelled", "interrupted", "unknown"] },
+    },
+  },
   "provider.turn.interrupted": {
     privacyLevel: "product",
     properties: { provider, initiator: { kind: "enum", values: ["user", "system", "unknown"] } },
@@ -233,15 +401,15 @@ export const EVENT_DEFINITIONS = {
   "thread.fork.completed": {
     privacyLevel: "product",
     properties: {
-      workspaceMode: { kind: "enum", values: ["local", "new-worktree"] },
-      boundaryClass: { kind: "enum", values: ["conversation", "checkpoint"] },
+      workspaceMode: { kind: "enum", values: ["local", "new-worktree", "unknown"] },
+      boundaryClass: { kind: "enum", values: ["conversation", "checkpoint", "unknown"] },
       refork: { kind: "boolean" },
     },
   },
   "thread.fork.failed": {
     privacyLevel: "essential",
     properties: {
-      workspaceMode: { kind: "enum", values: ["local", "new-worktree"] },
+      workspaceMode: { kind: "enum", values: ["local", "new-worktree", "unknown"] },
       failureClass: {
         kind: "enum",
         values: [
@@ -301,14 +469,23 @@ export const EVENT_DEFINITIONS = {
     properties: {
       surface: {
         kind: "enum",
-        values: ["files", "preview", "browser", "terminal", "usage", "settings", "whats-new"],
+        values: [
+          "files",
+          "preview",
+          "browser",
+          "terminal",
+          "usage",
+          "settings",
+          "whats-new",
+          "unknown",
+        ],
       },
     },
   },
   "setting.changed": {
     privacyLevel: "product",
     properties: {
-      setting: { kind: "enum", values: ["direction", "theme", "notifications"] },
+      setting: { kind: "enum", values: ["direction", "theme", "notifications", "unknown"] },
       value: {
         kind: "enum",
         values: [
@@ -327,41 +504,18 @@ export const EVENT_DEFINITIONS = {
   },
   "scient.operation.started": {
     privacyLevel: "product",
-    properties: {
-      operationKind: { kind: "enum", values: ["other"] },
-      trigger: { kind: "enum", values: ["user", "agent", "automation", "other"] },
-    },
+    properties: operationProperties,
   },
   "scient.operation.completed": {
     privacyLevel: "product",
-    properties: {
-      operationKind: { kind: "enum", values: ["other"] },
-      durationBucket,
-      reviewRequired: { kind: "boolean" },
-    },
+    properties: operationProperties,
   },
   "scient.operation.failed": {
     privacyLevel: "essential",
-    properties: {
-      operationKind: { kind: "enum", values: ["other"] },
-      failureClass: {
-        kind: "enum",
-        values: [
-          "configuration",
-          "connection",
-          "permission",
-          "provider",
-          "timeout",
-          "filesystem",
-          "checkpoint",
-          "validation",
-          "unavailable",
-          "internal",
-          "unknown",
-        ],
-      },
-    },
+    properties: operationProperties,
   },
+  "scient.operation.cancelled": { privacyLevel: "product", properties: operationProperties },
+  "scient.operation.skipped": { privacyLevel: "product", properties: operationProperties },
 } as const satisfies Readonly<Record<string, EventDefinition>>;
 
 export type RegisteredEventName = keyof typeof EVENT_DEFINITIONS;
@@ -407,6 +561,7 @@ export function eventContractViolation(input: {
   const rules: Readonly<Record<string, PropertyRule>> = {
     appVersion,
     buildChannel,
+    contractRevision: { kind: "enum", values: ["1", "2"], optional: true },
     ...definition.properties,
   };
   for (const key of Object.keys(input.properties)) {

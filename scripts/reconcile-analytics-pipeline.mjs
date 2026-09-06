@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawnSync } from "node:child_process";
+import { reconciliationQueries, comparePipeline } from "./analytics-reconciliation.mjs";
+import { createPosthogApi } from "./posthog-api.mjs";
 
 const PROJECT_ID = "228610";
 const KEYCHAIN_SERVICE = "scient-posthog-personal-api-key";
@@ -23,28 +25,40 @@ function personalApiKey() {
   }
 }
 
-const d1Query = `
-  SELECT event_name, posthog_state, COUNT(*) AS event_count
-  FROM analytics_events
-  GROUP BY event_name, posthog_state
-  ORDER BY event_name, posthog_state
-`;
-const d1 = spawnSync(
-  "wrangler",
-  ["d1", "execute", "scientfactory-downloads", "--remote", "--json", "--command", d1Query],
-  { encoding: "utf8" },
-);
-if (d1.error) fail(`Unable to query D1: ${d1.error.message}`);
-if (d1.status !== 0) fail(`D1 query failed: ${d1.stderr.trim()}`);
+// Exclude the newest hour, where accepted captures may still be processing.
+// A settled window is a reporting convention, not proof of completed deletion.
+const until = process.env.ANALYTICS_RECONCILE_TO ?? new Date(Date.now() - 3600000).toISOString();
+const queries = reconciliationQueries({
+  source: process.env.ANALYTICS_RECONCILE_SOURCE ?? "desktop",
+  from:
+    process.env.ANALYTICS_RECONCILE_FROM ??
+    new Date(Date.parse(until) - 7 * 86400000).toISOString(),
+  to: until,
+});
+function queryD1(query) {
+  const d1 = spawnSync(
+    "wrangler",
+    ["d1", "execute", "scientfactory-downloads", "--remote", "--json", "--command", query],
+    { encoding: "utf8", timeout: 60_000, maxBuffer: 2 * 1024 * 1024 },
+  );
+  if (d1.error) fail("Unable to run the bounded D1 query");
+  if (d1.status !== 0) fail("D1 query failed; verify operator access and database availability");
 
-let d1Body;
-try {
-  d1Body = JSON.parse(d1.stdout);
-} catch {
-  fail("D1 returned an unreadable reconciliation response");
+  let d1Body;
+  try {
+    d1Body = JSON.parse(d1.stdout);
+  } catch {
+    fail("D1 returned an unreadable reconciliation response");
+  }
+  const d1Rows = d1Body?.[0]?.results;
+  if (!Array.isArray(d1Rows)) fail("D1 reconciliation response has no result rows");
+  return d1Rows;
 }
-const d1Rows = d1Body?.[0]?.results;
-if (!Array.isArray(d1Rows)) fail("D1 reconciliation response has no result rows");
+const d1Rows = queryD1(queries.d1);
+const deletionBacklog = queryD1(queries.backlog).reduce(
+  (sum, row) => sum + Number(row.request_count),
+  0,
+);
 
 const apiKey = personalApiKey();
 if (!apiKey) {
@@ -52,48 +66,23 @@ if (!apiKey) {
     `PostHog personal API key unavailable. Set POSTHOG_PERSONAL_API_KEY or add macOS Keychain service '${KEYCHAIN_SERVICE}'.`,
   );
 }
-const response = await fetch(`https://eu.posthog.com/api/projects/${PROJECT_ID}/query/`, {
+const api = createPosthogApi({ apiKey, projectId: PROJECT_ID });
+const posthogBody = await api("query/", {
   method: "POST",
-  headers: {
-    Authorization: `Bearer ${apiKey}`,
-    "Content-Type": "application/json",
-  },
   body: JSON.stringify({
     query: {
       kind: "HogQLQuery",
-      query: "SELECT event, count() FROM events GROUP BY event ORDER BY event",
+      query: queries.posthog,
     },
   }),
 });
-if (!response.ok) fail(`PostHog reconciliation query failed (${response.status})`);
-const posthogBody = await response.json();
 if (!Array.isArray(posthogBody.results)) fail("PostHog returned no reconciliation rows");
 
-const d1Sent = new Map();
-const d1Pending = new Map();
-for (const row of d1Rows) {
-  const target = row.posthog_state === "sent" ? d1Sent : d1Pending;
-  target.set(row.event_name, (target.get(row.event_name) ?? 0) + Number(row.event_count));
-}
-const posthog = new Map(
-  posthogBody.results.map(([eventName, eventCount]) => [String(eventName), Number(eventCount)]),
+const report = comparePipeline(d1Rows, posthogBody.results, deletionBacklog);
+console.log(`${queries.source}: [${queries.from}, ${queries.to}) — event-ID counts`);
+console.table(report.rows);
+console.log(`Result: ${report.status}. Outstanding deletions: ${report.deletionBacklog}.`);
+console.log(
+  "Identity-link events are intentionally excluded. No data does not mean the pipeline is verified.",
 );
-const eventNames = [...new Set([...d1Sent.keys(), ...d1Pending.keys(), ...posthog.keys()])].sort();
-let mismatches = 0;
-
-console.log("event | d1 sent | d1 pending | posthog | status");
-for (const eventName of eventNames) {
-  const sent = d1Sent.get(eventName) ?? 0;
-  const pending = d1Pending.get(eventName) ?? 0;
-  const delivered = posthog.get(eventName) ?? 0;
-  const status = sent === delivered ? "MATCH" : "MISMATCH";
-  if (status === "MISMATCH") mismatches += 1;
-  console.log(`${eventName} | ${sent} | ${pending} | ${delivered} | ${status}`);
-}
-
-if (mismatches > 0) {
-  console.error(`\n${mismatches} event count mismatch(es) require investigation.`);
-  process.exitCode = 2;
-} else {
-  console.log("\nD1 sent counts and PostHog counts match exactly.");
-}
+if (report.status !== "matched") process.exitCode = 2;
