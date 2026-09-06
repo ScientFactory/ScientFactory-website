@@ -3,7 +3,7 @@
 Status: Active
 Owner: Yaacov
 Created: 2026-08-28
-Last updated: 2026-08-28
+Last updated: 2026-09-06
 Purpose: Defines the website-owned transport, provenance, failure, correction, and rollback contract for publishing canonical Scient Desktop Help.
 Doc type: Architecture decision
 
@@ -80,12 +80,12 @@ deployment history.
 
 ## Current corpus and deferred scope
 
-The preview manifest selects all 31 desktop-first Help pages qualified at the
-exact desktop source revision. It deliberately excludes the retained mobile
-page because Scient has no public mobile release. Directory membership still
-does not imply publication, and future Help owners require factual
-qualification before entering the manifest.
+The stable manifest selects all 36 desktop-first Help pages from the
+Scient Desktop v0.6.10 release's exact source revision. Scient
+has no public mobile-specific Help corpus. Directory membership still does not
+imply publication, and future Help owners require factual qualification before
+entering the manifest.
 
-Stable release publication, a documentation MCP, and any larger metadata
-schema remain separate decisions. Evaluate MCP only after stable HTML, raw
-Markdown, the index, and search reveal a concrete agent-retrieval gap.
+A documentation MCP and any larger metadata schema remain separate decisions.
+Evaluate MCP only after stable HTML, raw Markdown, the index, and search reveal
+a concrete agent-retrieval gap.
