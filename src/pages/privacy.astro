@@ -64,18 +64,18 @@ import Layout from "../layouts/Layout.astro";
     <section class="content-section" aria-labelledby="privacy-app">
       <p class="content-section__label">Scient desktop</p>
       <div class="content-section__body">
-        <h2 id="privacy-app">Desktop measurement is controlled separately inside Scient.</h2>
+        <h2 id="privacy-app">You control analytics in Scient.</h2>
         <p>
-          Scient runs as a workspace layer on your computer. In release builds with analytics available, usage and reliability sharing is on by default unless a different preference is saved. In Settings → General → Privacy and analytics, you can turn “Share usage and reliability” off or on and read “What’s shared?”. Existing Off and narrower sharing preferences are preserved; explicitly turning sharing off and back on enables feature usage, reliability and analytics-delivery counters. Desktop events use a random installation identifier and never derive identity from a connected AI-provider account.
+          Scient shares feature usage, failures and basic performance information to help improve the app. Sharing is on by default in supported releases; saved preferences are preserved. Turn it off or read “What’s shared?” in Settings → General → Privacy and analytics. Turning it back on includes usage, reliability and delivery counters.
         </p>
         <p>
-          Normal product analytics exclude prompts, assistant responses, research documents, filenames, file paths, URLs, source text, generated scientific content, credentials, provider account identities, and raw error messages. Scient does not use desktop autocapture or session replay. When you use a connected AI provider, that provider receives the prompts and supporting context needed for the session under its own terms and privacy policy. This website notice does not replace those terms.
+          Analytics never collects conversations, file contents or names, paths, URLs, research results, credentials, provider account identities, or raw errors. There is no automatic click capture or session recording. Events use random installation identifiers. Your AI provider separately receives the content needed for your requests under its own privacy policy.
         </p>
         <p>
-          Shared desktop events go to ScientFactory's central Cloudflare storage. Diagnostic-only events stay there, with scheduled removal after 30 days; other raw events are scheduled for removal after 180 days. Product and reliability events may also be processed in our EU-hosted PostHog project under PostHog-managed retention. We do not promise those downstream copies are physically deleted within the same periods. Local unsent events are filtered by age before delivery, and cleanup runs while the app is running.
+          We store events centrally in Cloudflare, with scheduled removal after 180 days, or 30 days for delivery diagnostics. Usage and reliability copies may also go to our EU-hosted PostHog project under its retention rules; those copies do not share the same deletion deadlines.
         </p>
         <p>
-          An enabled build lets you request deletion for the current installation. Scient clears its local analytics state after the first-party gateway accepts the request and replaces the random analytics identifier. Downstream removal of the matching PostHog profile and events is processed separately; acceptance does not mean every copy is already gone. A minimal deletion receipt and identifier-verification record remain to prevent delayed retries from recreating deleted history. They contain no usage events or research content.
+          “Delete data” requests removal for this installation and resets its identifier after acceptance. PostHog deletion is processed separately, not instantly. We retain a minimal verification record, without usage or research content, to prevent delayed uploads from restoring deleted data.
         </p>
       </div>
     </section>
