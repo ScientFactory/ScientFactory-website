@@ -1,3 +1,5 @@
+import { providerUsageInsights, featureUsageInsights } from "./product-insights-hogql.mjs";
+
 const event = (name, customName = name, math = "total") => ({
   kind: "EventsNode",
   event: name,
@@ -331,6 +333,7 @@ GROUP BY current.week ORDER BY current.week`,
     name: "03 — Scient providers and agent runtime",
     phase: "planned",
     requiredEvents: [
+      "provider.turn.usage",
       "provider.session.started",
       "provider.session.recovered",
       "provider.turn.completed",
@@ -344,6 +347,7 @@ GROUP BY current.week ORDER BY current.week`,
       "Runtime-mode distribution",
     ],
     insights: [
+      ...providerUsageInsights,
       preparedInsight(
         "Provider terminal outcomes",
         "Completed, failed and stopped turns for the same Product-consenting population, by provider. Stopped turns are not failures.",
@@ -377,6 +381,9 @@ GROUP BY provider, failure_class ORDER BY failures DESC`,
     phase: "planned",
     requiredEvents: [
       "surface.opened",
+      "panel.viewed",
+      "settings.viewed",
+      "usage.viewed",
       "project.initialization.completed",
       "thread.fork.completed",
       "voice.transcription.completed",
@@ -390,6 +397,7 @@ GROUP BY provider, failure_class ORDER BY failures DESC`,
       "Fork and voice completion",
     ],
     insights: [
+      ...featureUsageInsights,
       preparedInsight(
         "Feature completion by installation",
         "Unique installations completing bounded Scient feature outcomes.",

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { EVENT_DEFINITIONS, eventContractViolation } from "./eventContract";
 
 describe("desktop event contract", () => {
-  it("keeps the revision-two registry deliberately bounded", () => {
-    expect(Object.keys(EVENT_DEFINITIONS)).toHaveLength(45);
+  it("keeps the revision-three registry deliberately bounded", () => {
+    expect(Object.keys(EVENT_DEFINITIONS)).toHaveLength(52);
   });
 
   it("accepts the no-op outcome only with sufficient consent and bounded properties", () => {

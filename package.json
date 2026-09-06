@@ -17,6 +17,7 @@
     "test": "vitest run",
     "db:migrate": "wrangler d1 migrations apply scientfactory-downloads --remote",
     "analytics:report": "node scripts/analytics-report.mjs",
+    "analytics:insights": "node scripts/product-insights.mjs",
     "analytics:dashboards": "node scripts/manage-posthog-dashboards.mjs",
     "analytics:reconcile": "node scripts/reconcile-analytics-pipeline.mjs",
     "identity:link": "node scripts/link-analytics-identity.mjs",

@@ -94,9 +94,9 @@ registered event name, its exact allowlisted property set, the event's declared
 privacy level, and sufficient explicit consent. Unknown events, extra
 properties, raw text, and mismatched consent or privacy classifications are
 rejected before storage. The versioned registry and its focused tests live in
-`workers/events/src/eventContract.ts`. Revision 2 is generated from
+`workers/events/src/eventContract.ts`. Revision 3 is generated from
 `scient-desktop/packages/scient-analytics/src/wireContract.ts`, with a shared
-90-case conformance fixture for all 45 registered events. Do not edit that copy
+conformance fixture for every registered event, plus revision-2 compatibility tests. Do not edit that copy
 independently; the desktop analytics document owns regeneration instructions.
 New events add an optional bounded `contractRevision`; legacy revision-1
 payloads remain supported. Deploy this validator before releasing new producers.
@@ -228,6 +228,22 @@ SCIENT_IDENTITY_LINK_TOKEN=... bun run identity:link \
 This command is an operational bridge, not a substitute for account authentication. The eventual account service should call the endpoint server-to-server after sign-in; no link token belongs in a client bundle.
 
 ## PostHog dashboards
+
+`bun run analytics:insights` reads an aggregate-only product report from D1:
+feature observations/repeat days, provider/model terminal usage, reported token
+counts and coverage, providers observed ready, and terminal outcomes. It uses
+revision-3 Product/Diagnostic participants and the previous 30 complete UTC days.
+Unknown token totals remain null; cache/reasoning subsets are not added again.
+Ready observations are not a current sign-in inventory, installations are not
+people, and observed population is not feature eligibility. See the desktop
+analytics document for producer meanings and omissions. Existing delivery and
+erasure diagnostics remain in `analytics:report`.
+
+The companion PostHog query definitions remain prepared, not installed or
+live-qualified. Qualify their execution and project timezone before publishing;
+match UTC to the D1 report when reconciling periods. Deploy the generated
+revision-3 validator before releasing new desktop producers. No database
+migration, collection-gate change or dashboard mutation is part of this extension.
 
 The managed dashboard manifest is `scripts/posthog-dashboard-manifest.mjs`.
 It records all planned product dashboards, their source-backed queries, and the
