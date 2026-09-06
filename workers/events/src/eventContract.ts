@@ -5,6 +5,7 @@ export const PRIVACY_LEVELS = ["essential", "product", "diagnostic", "contributi
 export type PrivacyLevel = (typeof PRIVACY_LEVELS)[number];
 
 type PropertyRule =
+  | { readonly kind: "integer"; readonly max: number; readonly optional?: boolean }
   | { readonly kind: "boolean"; readonly optional?: boolean }
   | { readonly kind: "enum"; readonly values: ReadonlyArray<string>; readonly optional?: boolean }
   | { readonly kind: "pattern"; readonly pattern: RegExp; readonly optional?: boolean };
@@ -69,6 +70,10 @@ const modelKey = {
     "gpt-5.6-sol",
     "gpt-5.6-terra",
     "grok-build",
+    "gemini-3.1-pro",
+    "gemini-3.7-flash",
+    "gemini-3.7-pro",
+    "gemini-3.8-flash",
     "openai/gpt-5",
     "other",
     "unknown",
@@ -482,6 +487,90 @@ export const EVENT_DEFINITIONS = {
       },
     },
   },
+  "panel.viewed": {
+    privacyLevel: "product",
+    properties: {
+      category: {
+        kind: "enum",
+        values: [
+          "browser",
+          "terminal",
+          "files",
+          "file-preview",
+          "diff",
+          "pull-request",
+          "agents",
+          "sources",
+          "compute",
+          "source-pdf",
+          "generated-pdf",
+          "artifact",
+          "other",
+        ],
+      },
+    },
+  },
+  "settings.viewed": {
+    privacyLevel: "product",
+    properties: {
+      section: {
+        kind: "enum",
+        values: [
+          "general",
+          "appearance",
+          "projects",
+          "keybindings",
+          "providers",
+          "custom-models",
+          "voice",
+          "skills",
+          "integrations",
+          "scientific-computing",
+          "source-control",
+          "connections",
+          "archived",
+          "other",
+        ],
+      },
+    },
+  },
+  "usage.viewed": {
+    privacyLevel: "product",
+    properties: {
+      metric: { kind: "enum", values: ["tokens", "cost", "limits", "other"] },
+      window: { kind: "enum", values: ["1", "7", "30", "90", "other"] },
+      breakdown: { kind: "enum", values: ["model", "time", "other"] },
+    },
+  },
+  "usage.refresh.requested": { privacyLevel: "product", properties: {} },
+  "feature.viewed": {
+    privacyLevel: "product",
+    properties: {
+      feature: { kind: "enum", values: ["search", "project-picker", "new-thread", "other"] },
+    },
+  },
+  "usage.availability": {
+    privacyLevel: "product",
+    properties: {
+      state: { kind: "enum", values: ["available", "partial", "unavailable", "other"] },
+    },
+  },
+  "provider.turn.usage": {
+    privacyLevel: "product",
+    properties: {
+      provider,
+      modelKey,
+      terminalStatus: { kind: "enum", values: ["completed", "failed", "stopped", "other"] },
+      usageStatus: { kind: "enum", values: ["complete", "partial", "unavailable"] },
+      usageScope: { kind: "enum", values: ["main_agent"] },
+      hasSubagents: { kind: "boolean", optional: true },
+      inputTokens: { kind: "integer", max: 1_000_000_000, optional: true },
+      outputTokens: { kind: "integer", max: 1_000_000_000, optional: true },
+      cachedInputTokens: { kind: "integer", max: 1_000_000_000, optional: true },
+      cacheCreationTokens: { kind: "integer", max: 1_000_000_000, optional: true },
+      reasoningTokens: { kind: "integer", max: 1_000_000_000, optional: true },
+    },
+  },
   "setting.changed": {
     privacyLevel: "product",
     properties: {
@@ -528,6 +617,14 @@ const PRIVACY_RANK: Readonly<Record<PrivacyLevel, number>> = {
 };
 
 function propertyViolation(key: string, value: unknown, rule: PropertyRule): string | null {
+  if (rule.kind === "integer") {
+    return typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value >= 0 &&
+      value <= rule.max
+      ? null
+      : `Invalid event property '${key}'`;
+  }
   if (rule.kind === "boolean") {
     return typeof value === "boolean" ? null : `Invalid event property '${key}'`;
   }
@@ -561,7 +658,7 @@ export function eventContractViolation(input: {
   const rules: Readonly<Record<string, PropertyRule>> = {
     appVersion,
     buildChannel,
-    contractRevision: { kind: "enum", values: ["1", "2"], optional: true },
+    contractRevision: { kind: "enum", values: ["1", "2", "3"], optional: true },
     ...definition.properties,
   };
   for (const key of Object.keys(input.properties)) {
@@ -577,6 +674,37 @@ export function eventContractViolation(input: {
     }
     const violation = propertyViolation(key, value, rule);
     if (violation) return violation;
+  }
+  if (input.name === "provider.turn.usage") {
+    const p = input.properties;
+    const counts = [
+      "inputTokens",
+      "outputTokens",
+      "cachedInputTokens",
+      "cacheCreationTokens",
+      "reasoningTokens",
+    ];
+    if (
+      p.usageStatus === "complete" &&
+      (p.inputTokens === undefined || p.outputTokens === undefined)
+    )
+      return "Incomplete token totals";
+    if (p.usageStatus === "unavailable" && counts.some((key) => p[key] !== undefined))
+      return "Unavailable usage includes counts";
+    for (const [subset, total] of [
+      ["cachedInputTokens", "inputTokens"],
+      ["cacheCreationTokens", "inputTokens"],
+      ["reasoningTokens", "outputTokens"],
+    ] as const) {
+      const subsetValue = p[subset];
+      const totalValue = p[total];
+      if (
+        typeof subsetValue === "number" &&
+        typeof totalValue === "number" &&
+        subsetValue > totalValue
+      )
+        return "Token subset exceeds total";
+    }
   }
   return null;
 }

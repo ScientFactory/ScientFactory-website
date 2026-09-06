@@ -87,9 +87,18 @@ it.skipIf(!desktopRoot)(
         trigger: "user",
         title: "PRIVATE-SOURCE",
       });
-      expect(await runtime.flush()).toBe(4);
+      runtime.record("provider.turn.usage", {
+        provider: "codex",
+        model: "PRIVATE-MODEL",
+        terminalStatus: "completed",
+        usageStatus: "complete",
+        inputTokens: 12345,
+        outputTokens: 678,
+        cachedInputTokens: 200,
+      });
+      expect(await runtime.flush()).toBe(5);
       expect(await runtime.pendingCount()).toBe(0);
-      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(4);
+      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(5);
       expect(uploads[0]!.body).not.toContain("PRIVATE");
       const exportRequest = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
       vi.stubGlobal("fetch", exportRequest);
@@ -99,10 +108,21 @@ it.skipIf(!desktopRoot)(
           DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
           POSTHOG_PROJECT_TOKEN: "synthetic",
         }),
-      ).toBe(4);
+      ).toBe(5);
       expect(exportRequest).toHaveBeenCalledOnce();
       expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("PRIVATE");
       const exported = JSON.parse(String(exportRequest.mock.calls[0]![1].body));
+      expect(
+        exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
+          .properties,
+      ).toMatchObject({
+        provider: "codex",
+        modelKey: "other",
+        usageStatus: "complete",
+        inputTokens: 12345,
+        outputTokens: 678,
+        cachedInputTokens: 200,
+      });
       expect(
         exported.batch.find(
           (event: { event: string }) => event.event === "provider.lifecycle.completed",

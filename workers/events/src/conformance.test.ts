@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
-import fixture from "../fixtures/contract-v2.json";
+import fixture from "../fixtures/contract-v3.json";
+import legacy from "../fixtures/contract-v2.json";
 import { eventContractViolation, EVENT_DEFINITIONS, type PrivacyLevel } from "./eventContract";
 
-describe("desktop contract v2 conformance", () => {
+describe("desktop contract v3 conformance", () => {
+  it("continues accepting the complete revision 2 corpus", () => {
+    for (const entry of legacy.cases)
+      expect(
+        eventContractViolation({
+          ...entry,
+          privacyLevel: entry.privacyLevel as PrivacyLevel,
+          consentLevel: entry.consentLevel as PrivacyLevel,
+        }),
+      ).toBeNull();
+  });
   it("accepts every generated desktop event including unknown-value fallbacks", () => {
-    expect(fixture.contractRevision).toBe("2");
+    expect(fixture.contractRevision).toBe("3");
     expect(new Set(fixture.cases.map((entry) => entry.name))).toEqual(
       new Set(Object.keys(EVENT_DEFINITIONS)),
     );

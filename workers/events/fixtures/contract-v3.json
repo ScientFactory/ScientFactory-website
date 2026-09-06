@@ -1,0 +1,1455 @@
+{
+  "schemaVersion": 1,
+  "contractRevision": "3",
+  "cases": [
+    {
+      "case": "app.session.started:fallbacks",
+      "name": "app.session.started",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "platform": "other",
+        "architecture": "other",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "app.session.started:representative",
+      "name": "app.session.started",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "platform": "macos",
+        "architecture": "arm64",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "app.session.ended:fallbacks",
+      "name": "app.session.ended",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "durationBucket": "unknown",
+        "shutdownClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "app.session.ended:representative",
+      "name": "app.session.ended",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "durationBucket": "5-15s",
+        "shutdownClass": "graceful",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "app.health:fallbacks",
+      "name": "app.health",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "component": "unknown",
+        "operation": "unknown",
+        "outcome": "unknown",
+        "failureClass": "unknown",
+        "durationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "app.health:representative",
+      "name": "app.health",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "component": "server",
+        "operation": "startup",
+        "outcome": "completed",
+        "failureClass": "permission",
+        "durationBucket": "5-15s",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "app.diagnostics:fallbacks",
+      "name": "app.diagnostics",
+      "privacyLevel": "diagnostic",
+      "consentLevel": "diagnostic",
+      "properties": {
+        "queuedCountBucket": "unknown",
+        "droppedCountBucket": "unknown",
+        "retryCountBucket": "unknown",
+        "deliveryClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "app.diagnostics:representative",
+      "name": "app.diagnostics",
+      "privacyLevel": "diagnostic",
+      "consentLevel": "diagnostic",
+      "properties": {
+        "queuedCountBucket": "4-10",
+        "droppedCountBucket": "2-3",
+        "retryCountBucket": "1",
+        "deliveryClass": "network",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "server.boot.heartbeat:fallbacks",
+      "name": "server.boot.heartbeat",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "server.boot.heartbeat:representative",
+      "name": "server.boot.heartbeat",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.session.started:fallbacks",
+      "name": "provider.session.started",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "runtimeMode": "other",
+        "hasResumeCursor": false,
+        "hasCwd": false,
+        "hasModel": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.session.started:representative",
+      "name": "provider.session.started",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "runtimeMode": "full-access",
+        "hasResumeCursor": true,
+        "hasCwd": true,
+        "hasModel": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.session.recovered:fallbacks",
+      "name": "provider.session.recovered",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "strategy": "resume-thread",
+        "hasResumeCursor": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.session.recovered:representative",
+      "name": "provider.session.recovered",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "strategy": "adopt-existing",
+        "hasResumeCursor": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.session.stopped:fallbacks",
+      "name": "provider.session.stopped",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.session.stopped:representative",
+      "name": "provider.session.stopped",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.sessions.stopped_all:fallbacks",
+      "name": "provider.sessions.stopped_all",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "sessionCountBucket": "unknown",
+        "shutdownClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.sessions.stopped_all:representative",
+      "name": "provider.sessions.stopped_all",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "sessionCountBucket": "4-10",
+        "shutdownClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.runtime_mode.changed:fallbacks",
+      "name": "provider.runtime_mode.changed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "from": "other",
+        "to": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.runtime_mode.changed:representative",
+      "name": "provider.runtime_mode.changed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "from": "other",
+        "to": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.sent:fallbacks",
+      "name": "provider.turn.sent",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "modelFamily": "unknown",
+        "modelKey": "unknown",
+        "interactionMode": "unknown",
+        "runtimeMode": "other",
+        "attachmentCountBucket": "unknown",
+        "hasInput": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.sent:representative",
+      "name": "provider.turn.sent",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "modelFamily": "openai",
+        "modelKey": "gpt-5.6-sol",
+        "interactionMode": "plan",
+        "runtimeMode": "full-access",
+        "attachmentCountBucket": "1",
+        "hasInput": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.completed:fallbacks",
+      "name": "provider.turn.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "modelKey": "unknown",
+        "durationBucket": "unknown",
+        "usedTools": false,
+        "hasAttachment": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.completed:representative",
+      "name": "provider.turn.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "modelKey": "gpt-5.6-sol",
+        "durationBucket": "5-15s",
+        "usedTools": true,
+        "hasAttachment": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.failed:fallbacks",
+      "name": "provider.turn.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "provider": "other",
+        "modelKey": "unknown",
+        "failureClass": "unknown",
+        "durationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.failed:representative",
+      "name": "provider.turn.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "provider": "antigravity",
+        "modelKey": "gpt-5.6-sol",
+        "failureClass": "unknown",
+        "durationBucket": "5-15s",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.stopped:fallbacks",
+      "name": "provider.turn.stopped",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "modelKey": "unknown",
+        "durationBucket": "unknown",
+        "stopClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.stopped:representative",
+      "name": "provider.turn.stopped",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "modelKey": "gpt-5.6-sol",
+        "durationBucket": "5-15s",
+        "stopClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.interrupted:fallbacks",
+      "name": "provider.turn.interrupted",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "initiator": "user",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.interrupted:representative",
+      "name": "provider.turn.interrupted",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "initiator": "user",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.request.responded:fallbacks",
+      "name": "provider.request.responded",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "requestKind": "approval",
+        "decision": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.request.responded:representative",
+      "name": "provider.request.responded",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "requestKind": "approval",
+        "decision": "approved",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.conversation.rolled_back:fallbacks",
+      "name": "provider.conversation.rolled_back",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "turnCountBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.conversation.rolled_back:representative",
+      "name": "provider.conversation.rolled_back",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "turnCountBucket": "2-3",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.discovered:fallbacks",
+      "name": "provider.discovered",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "runtimeSource": "unknown",
+        "state": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.discovered:representative",
+      "name": "provider.discovered",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "runtimeSource": "scient_managed",
+        "state": "ready",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.readiness.changed:fallbacks",
+      "name": "provider.readiness.changed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "from": "unknown",
+        "to": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.readiness.changed:representative",
+      "name": "provider.readiness.changed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "from": "unknown",
+        "to": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.runtime.source.changed:fallbacks",
+      "name": "provider.runtime.source.changed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "from": "unknown",
+        "to": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.runtime.source.changed:representative",
+      "name": "provider.runtime.source.changed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "from": "unknown",
+        "to": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.lifecycle.started:fallbacks",
+      "name": "provider.lifecycle.started",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "action": "unknown",
+        "runtimeSource": "unknown",
+        "stage": "unknown",
+        "failureClass": "unknown",
+        "durationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.lifecycle.started:representative",
+      "name": "provider.lifecycle.started",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "action": "repair",
+        "runtimeSource": "scient_managed",
+        "stage": "downloading",
+        "failureClass": "permission",
+        "durationBucket": "5-15s",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.lifecycle.completed:fallbacks",
+      "name": "provider.lifecycle.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "action": "unknown",
+        "runtimeSource": "unknown",
+        "stage": "unknown",
+        "failureClass": "unknown",
+        "durationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.lifecycle.completed:representative",
+      "name": "provider.lifecycle.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "action": "repair",
+        "runtimeSource": "scient_managed",
+        "stage": "downloading",
+        "failureClass": "permission",
+        "durationBucket": "5-15s",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.lifecycle.failed:fallbacks",
+      "name": "provider.lifecycle.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "provider": "other",
+        "action": "unknown",
+        "runtimeSource": "unknown",
+        "stage": "unknown",
+        "failureClass": "unknown",
+        "durationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.lifecycle.failed:representative",
+      "name": "provider.lifecycle.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "provider": "antigravity",
+        "action": "repair",
+        "runtimeSource": "scient_managed",
+        "stage": "downloading",
+        "failureClass": "permission",
+        "durationBucket": "5-15s",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.lifecycle.cancelled:fallbacks",
+      "name": "provider.lifecycle.cancelled",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "action": "unknown",
+        "runtimeSource": "unknown",
+        "stage": "unknown",
+        "failureClass": "unknown",
+        "durationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.lifecycle.cancelled:representative",
+      "name": "provider.lifecycle.cancelled",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "action": "repair",
+        "runtimeSource": "scient_managed",
+        "stage": "downloading",
+        "failureClass": "permission",
+        "durationBucket": "5-15s",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.added:fallbacks",
+      "name": "project.added",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "method": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.added:representative",
+      "name": "project.added",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "method": "picker",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.add.failed:fallbacks",
+      "name": "project.add.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "stage": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.add.failed:representative",
+      "name": "project.add.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "stage": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.opened:fallbacks",
+      "name": "project.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "projectState": "unknown",
+        "initializationState": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.opened:representative",
+      "name": "project.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "projectState": "existing",
+        "initializationState": "initialized",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.initialization.completed:fallbacks",
+      "name": "project.initialization.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "unknown",
+        "filesCreatedBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.initialization.completed:representative",
+      "name": "project.initialization.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "unknown",
+        "filesCreatedBucket": "2-3",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.initialization.failed:fallbacks",
+      "name": "project.initialization.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "failureClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "project.initialization.failed:representative",
+      "name": "project.initialization.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "failureClass": "permission",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.created:fallbacks",
+      "name": "thread.created",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "creationSource": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.created:representative",
+      "name": "thread.created",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "creationSource": "new",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.fork.completed:fallbacks",
+      "name": "thread.fork.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "workspaceMode": "unknown",
+        "boundaryClass": "unknown",
+        "refork": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.fork.completed:representative",
+      "name": "thread.fork.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "workspaceMode": "local",
+        "boundaryClass": "checkpoint",
+        "refork": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.fork.failed:fallbacks",
+      "name": "thread.fork.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "workspaceMode": "unknown",
+        "failureClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.fork.failed:representative",
+      "name": "thread.fork.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "workspaceMode": "local",
+        "failureClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.revert.completed:fallbacks",
+      "name": "thread.revert.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "boundaryClass": "checkpoint",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.revert.completed:representative",
+      "name": "thread.revert.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "boundaryClass": "checkpoint",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.revert.failed:fallbacks",
+      "name": "thread.revert.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "failureClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "thread.revert.failed:representative",
+      "name": "thread.revert.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "failureClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "voice.transcription.started:fallbacks",
+      "name": "voice.transcription.started",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "engineClass": "other",
+        "languageMode": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "voice.transcription.started:representative",
+      "name": "voice.transcription.started",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "engineClass": "local-whisper",
+        "languageMode": "automatic",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "voice.transcription.completed:fallbacks",
+      "name": "voice.transcription.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "engineClass": "other",
+        "durationBucket": "unknown",
+        "audioDurationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "voice.transcription.completed:representative",
+      "name": "voice.transcription.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "engineClass": "local-whisper",
+        "durationBucket": "5-15s",
+        "audioDurationBucket": "5-15s",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "voice.transcription.failed:fallbacks",
+      "name": "voice.transcription.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "engineClass": "other",
+        "failureClass": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "voice.transcription.failed:representative",
+      "name": "voice.transcription.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "engineClass": "local-whisper",
+        "failureClass": "permission",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "voice.transcription.cancelled:fallbacks",
+      "name": "voice.transcription.cancelled",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "stage": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "voice.transcription.cancelled:representative",
+      "name": "voice.transcription.cancelled",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "stage": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "surface.opened:fallbacks",
+      "name": "surface.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "surface": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "surface.opened:representative",
+      "name": "surface.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "surface": "preview",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "panel.viewed:fallbacks",
+      "name": "panel.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "category": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "panel.viewed:representative",
+      "name": "panel.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "category": "browser",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "settings.viewed:fallbacks",
+      "name": "settings.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "section": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "settings.viewed:representative",
+      "name": "settings.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "section": "providers",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "usage.viewed:fallbacks",
+      "name": "usage.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "metric": "other",
+        "window": "other",
+        "breakdown": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "usage.viewed:representative",
+      "name": "usage.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "metric": "tokens",
+        "window": "7",
+        "breakdown": "model",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "usage.refresh.requested:fallbacks",
+      "name": "usage.refresh.requested",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "usage.refresh.requested:representative",
+      "name": "usage.refresh.requested",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "usage.availability:fallbacks",
+      "name": "usage.availability",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "state": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "usage.availability:representative",
+      "name": "usage.availability",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "state": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "feature.viewed:fallbacks",
+      "name": "feature.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "feature": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "feature.viewed:representative",
+      "name": "feature.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "feature": "search",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.usage:fallbacks",
+      "name": "provider.turn.usage",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "modelKey": "unknown",
+        "terminalStatus": "other",
+        "usageStatus": "unavailable",
+        "usageScope": "main_agent",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "provider.turn.usage:representative",
+      "name": "provider.turn.usage",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "modelKey": "gpt-5.6-sol",
+        "terminalStatus": "other",
+        "usageStatus": "complete",
+        "usageScope": "main_agent",
+        "hasSubagents": false,
+        "inputTokens": 1500,
+        "outputTokens": 100,
+        "cachedInputTokens": 500,
+        "reasoningTokens": 50,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "setting.changed:fallbacks",
+      "name": "setting.changed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "setting": "unknown",
+        "value": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "setting.changed:representative",
+      "name": "setting.changed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "setting": "direction",
+        "value": "rtl",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.started:fallbacks",
+      "name": "scient.operation.started",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "operationKind": "other",
+        "trigger": "other",
+        "durationBucket": "unknown",
+        "failureClass": "unknown",
+        "reviewRequired": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.started:representative",
+      "name": "scient.operation.started",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "operationKind": "latex-build",
+        "trigger": "agent",
+        "durationBucket": "5-15s",
+        "failureClass": "permission",
+        "reviewRequired": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.completed:fallbacks",
+      "name": "scient.operation.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "operationKind": "other",
+        "trigger": "other",
+        "durationBucket": "unknown",
+        "failureClass": "unknown",
+        "reviewRequired": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.completed:representative",
+      "name": "scient.operation.completed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "operationKind": "latex-build",
+        "trigger": "agent",
+        "durationBucket": "5-15s",
+        "failureClass": "permission",
+        "reviewRequired": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.failed:fallbacks",
+      "name": "scient.operation.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "operationKind": "other",
+        "trigger": "other",
+        "durationBucket": "unknown",
+        "failureClass": "unknown",
+        "reviewRequired": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.failed:representative",
+      "name": "scient.operation.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "operationKind": "latex-build",
+        "trigger": "agent",
+        "durationBucket": "5-15s",
+        "failureClass": "permission",
+        "reviewRequired": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.cancelled:fallbacks",
+      "name": "scient.operation.cancelled",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "operationKind": "other",
+        "trigger": "other",
+        "durationBucket": "unknown",
+        "failureClass": "unknown",
+        "reviewRequired": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.cancelled:representative",
+      "name": "scient.operation.cancelled",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "operationKind": "latex-build",
+        "trigger": "agent",
+        "durationBucket": "5-15s",
+        "failureClass": "permission",
+        "reviewRequired": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.skipped:fallbacks",
+      "name": "scient.operation.skipped",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "operationKind": "other",
+        "trigger": "other",
+        "durationBucket": "unknown",
+        "failureClass": "unknown",
+        "reviewRequired": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    },
+    {
+      "case": "scient.operation.skipped:representative",
+      "name": "scient.operation.skipped",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "operationKind": "latex-build",
+        "trigger": "agent",
+        "durationBucket": "5-15s",
+        "failureClass": "permission",
+        "reviewRequired": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "3"
+      }
+    }
+  ]
+}
