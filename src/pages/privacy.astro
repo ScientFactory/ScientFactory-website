@@ -9,7 +9,7 @@ import Layout from "../layouts/Layout.astro";
   description="A plain-language explanation of how the ScientFactory website handles visitor information."
 >
   <Prose
-    eyebrow="Last updated 9 August 2026"
+    eyebrow="Last updated 6 September 2026"
     title="Privacy, plainly stated."
     intro="This notice covers the ScientFactory website at scientfactory.com. It describes the website as it operates today."
   >
@@ -64,15 +64,18 @@ import Layout from "../layouts/Layout.astro";
     <section class="content-section" aria-labelledby="privacy-app">
       <p class="content-section__label">Scient desktop</p>
       <div class="content-section__body">
-        <h2 id="privacy-app">Desktop measurement is controlled separately inside Scient.</h2>
+        <h2 id="privacy-app">You control analytics in Scient.</h2>
         <p>
-          Scient runs as a workspace layer on your computer. Desktop analytics remain off unless a Scient build deliberately enables the feature. In an enabled build, the Privacy and analytics setting lets you choose Off, Essential reliability, Product improvement, or Diagnostics. Desktop events use a random installation identifier and never derive identity from a connected AI-provider account.
+          Scient shares feature usage, failures and basic performance information to help improve the app. Sharing is on by default in supported releases; saved preferences are preserved. Turn it off or read “What’s shared?” in Settings → General → Privacy and analytics. Turning it back on includes usage, reliability and delivery counters.
         </p>
         <p>
-          Normal product analytics exclude prompts, assistant responses, research documents, filenames, file paths, URLs, source text, generated scientific content, credentials, provider account identities, and raw error messages. Scient does not use desktop autocapture or session replay. When you use a connected AI provider, that provider receives the prompts and supporting context needed for the session under its own terms and privacy policy. This website notice does not replace those terms.
+          Analytics never collects conversations, file contents or names, paths, URLs, research results, credentials, provider account identities, or raw errors. There is no automatic click capture or session recording. Events use random installation identifiers. Your AI provider separately receives the content needed for your requests under its own privacy policy.
         </p>
         <p>
-          An enabled build lets you request deletion for the current anonymous installation. Scient clears its local analytics state only after the first-party deletion gateway accepts the request, queues removal of the matching PostHog profile and historical events, and then replaces the anonymous installation identifier.
+          We store events centrally in Cloudflare, with scheduled removal after 180 days, or 30 days for delivery diagnostics. Usage and reliability copies may also go to our EU-hosted PostHog project under its retention rules; those copies do not share the same deletion deadlines.
+        </p>
+        <p>
+          “Delete data” requests removal for this installation and resets its identifier after acceptance. PostHog deletion is processed separately, not instantly. We retain a minimal verification record, without usage or research content, to prevent delayed uploads from restoring deleted data.
         </p>
       </div>
     </section>

@@ -7,6 +7,14 @@ import worker, {
   validateIdentityLinkPayload,
   validateIngestionPayload,
 } from "./index";
+import { testDatabase } from "./sqlite.testSupport";
+
+const realDatabases: ReturnType<typeof testDatabase>[] = [];
+function realDatabase() {
+  const database = testDatabase();
+  realDatabases.push(database);
+  return database;
+}
 
 const INSTALLATION_TOKEN = "a".repeat(64);
 
@@ -75,6 +83,7 @@ function incoming(request: Request): Request<unknown, IncomingRequestCfPropertie
 }
 
 afterEach(() => {
+  for (const database of realDatabases.splice(0)) database.close();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -216,7 +225,7 @@ describe("event gateway routes", () => {
   });
 
   it("acknowledges deletion when the installation has never uploaded data", async () => {
-    const database = createDatabase();
+    const database = realDatabase();
     const response = await worker.fetch!(
       incoming(
         new Request("https://events.scientfactory.com/v1/installations/delete", {
@@ -236,12 +245,15 @@ describe("event gateway routes", () => {
     );
 
     expect(response.status).toBe(202);
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       accepted: true,
-      local_state: "not_found",
-      posthog_state: "not_required",
+      local_state: "deleted",
+      posthog_state: "completed",
+      request_id: expect.any(String),
     });
-    expect(database.batch).not.toHaveBeenCalled();
+    expect(
+      database.sqlite.prepare("SELECT count(*) AS n FROM analytics_deleted_installations").get()!.n,
+    ).toBe(1);
   });
 
   it("rate limits one validated installation without storing its IP address", async () => {
@@ -295,6 +307,7 @@ describe("event gateway routes", () => {
       expect.any(String),
       expect.any(String),
       expect.any(String),
+      expect.any(String),
     );
     expect(database.bind).toHaveBeenCalledWith(
       "8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
@@ -345,7 +358,7 @@ describe("event gateway routes", () => {
   });
 
   it("reports whether optional PostHog forwarding is configured", async () => {
-    const database = createDatabase();
+    const database = realDatabase();
     const response = await worker.fetch!(
       incoming(new Request("https://events.scientfactory.com/health")),
       gatewayEnv(database.database),
@@ -355,6 +368,9 @@ describe("event gateway routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       status: "ready",
+      storage: "ready",
+      retention: "pending_verification",
+      activation_prerequisites_configured: false,
       posthog_forwarding: "pending_configuration",
       identity_linking: "pending_configuration",
     });
@@ -385,11 +401,11 @@ describe("event gateway routes", () => {
     expect(database.batch).not.toHaveBeenCalled();
   });
 
-  it("links installation history to an authenticated account id", async () => {
+  it("links consented visitor history to an authenticated account id", async () => {
     const database = createDatabase();
     const waitUntil = vi.fn();
     const accountId = "account:16ace444-e7c3-4b26-893f-98713188ae52";
-    const installationId = "installation:8e0ee7d5-2c4b-48b6-8209-08f1e536f665";
+    const installationId = "visitor:8e0ee7d5-2c4b-48b6-8209-08f1e536f665";
     const response = await worker.fetch!(
       incoming(
         new Request("https://events.scientfactory.com/v1/identity/link", {
@@ -435,7 +451,7 @@ describe("event gateway routes", () => {
           body: JSON.stringify({
             schema_version: 1,
             account_id: "account:22222222-2222-4222-8222-222222222222",
-            identity_ids: ["installation:8e0ee7d5-2c4b-48b6-8209-08f1e536f665"],
+            identity_ids: ["visitor:8e0ee7d5-2c4b-48b6-8209-08f1e536f665"],
           }),
         }),
       ),
@@ -482,24 +498,21 @@ describe("PostHog forwarding", () => {
       identity_type: "desktop_installation",
       session_id: "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       consent_level: "product",
-      properties_json: JSON.stringify({
-        appVersion: "0.0.32",
-        buildChannel: "development",
-        provider: "codex",
-      }),
+      properties_json: JSON.stringify(validPayload().events[0]!.properties),
     };
-    const run = vi.fn().mockResolvedValue({ success: true });
-    const all = vi.fn().mockResolvedValue({ results: [row] });
-    const bind = vi.fn(() => ({ run, all }));
-    const prepare = vi.fn((_query: string) => ({ bind }));
-    const batch = vi.fn().mockResolvedValue([]);
-    const database = { prepare, batch } as unknown as D1Database;
+    const { database, sqlite } = realDatabase();
+    sqlite
+      .prepare(`INSERT INTO analytics_events
+      (event_id, event_name, source, privacy_level, occurred_at, distinct_id, canonical_id, identity_type, session_id, consent_level, properties_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(...Object.values(row));
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const forwarded = await flushPendingEvents({
       ANALYTICS_DB: database,
       POSTHOG_PROJECT_TOKEN: "phc_scientfactory_test",
+      DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
     });
 
     expect(forwarded).toBe(1);
@@ -524,77 +537,112 @@ describe("PostHog forwarding", () => {
       $session_id: row.session_id,
       $process_person_profile: true,
     });
-    expect(batch).toHaveBeenCalledOnce();
+    expect(sqlite.prepare("SELECT posthog_state FROM analytics_events").get()!.posthog_state).toBe(
+      "sent",
+    );
   });
 
-  it("submits queued installation erasure through PostHog's distinct-id API", async () => {
+  it("resolves the person before submitting an erasure and keeps it pending verification", async () => {
     const row = {
       request_id: "delete-1",
       posthog_distinct_id: "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       posthog_attempts: 0,
     };
-    const run = vi.fn().mockResolvedValue({ success: true });
-    const all = vi.fn().mockResolvedValue({ results: [row] });
-    const bind = vi.fn(() => ({ run, all }));
-    const prepare = vi.fn((_query: string) => ({ bind }));
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          persons_found: 1,
-          persons_deleted: 1,
-          events_queued_for_deletion: true,
-          recordings_queued_for_deletion: false,
-          deletion_errors: [],
-        }),
-        { status: 202, headers: { "Content-Type": "application/json" } },
-      ),
-    );
+    const { database, sqlite } = realDatabase();
+    sqlite
+      .prepare(`INSERT INTO analytics_deletion_requests
+      (request_id, installation_id, posthog_distinct_id, requested_at) VALUES (?, ?, ?, ?)`)
+      .run(
+        row.request_id,
+        row.posthog_distinct_id,
+        row.posthog_distinct_id,
+        new Date().toISOString(),
+      );
+    const personUuid = "11111111-1111-4111-8111-111111111111";
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ results: [{ uuid: personUuid, distinct_ids: [row.posthog_distinct_id] }] }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            persons_found: 1,
+            persons_deleted: 1,
+            events_queued_for_deletion: true,
+            recordings_queued_for_deletion: false,
+            deletion_errors: [],
+          }),
+          { status: 202, headers: { "Content-Type": "application/json" } },
+        ),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const submitted = await flushPendingDeletions({
-      ANALYTICS_DB: { prepare, batch: vi.fn() } as unknown as D1Database,
+      ANALYTICS_DB: database,
       POSTHOG_PERSONAL_API_KEY: "phx_person_write_test",
       POSTHOG_PROJECT_ID: "228610",
     });
 
-    expect(submitted).toBe(1);
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, request] = fetchMock.mock.calls[0] ?? [];
+    expect(submitted).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url, request] = fetchMock.mock.calls[1] ?? [];
     expect(url).toBe("https://eu.posthog.com/api/projects/228610/persons/bulk_delete/");
     expect(new Headers(request?.headers).get("Authorization")).toBe("Bearer phx_person_write_test");
     expect(JSON.parse(String(request?.body))).toEqual({
-      distinct_ids: [row.posthog_distinct_id],
+      ids: [personUuid],
       delete_events: true,
       delete_recordings: false,
       keep_person: false,
     });
-    expect(run).toHaveBeenCalledOnce();
+    expect(
+      sqlite
+        .prepare("SELECT posthog_state, posthog_submitted_at FROM analytics_deletion_requests")
+        .get(),
+    ).toMatchObject({ posthog_state: "pending", posthog_submitted_at: expect.any(String) });
   });
 
   it("forwards anonymous-to-account identity events from the first-party link queue", async () => {
     const row = {
       link_id: "link-1",
-      source_identity_id: "installation:16ace444-e7c3-4b26-893f-98713188ae52",
+      source_identity_id: "visitor:16ace444-e7c3-4b26-893f-98713188ae52",
       canonical_id: "account:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       linked_at: new Date().toISOString(),
     };
-    const run = vi.fn().mockResolvedValue({ success: true });
-    const all = vi.fn().mockResolvedValue({ results: [row] });
-    const bind = vi.fn(() => ({ run, all }));
-    const prepare = vi.fn((_query: string) => ({ bind }));
-    const batch = vi.fn().mockResolvedValue([]);
+    const { database, sqlite } = realDatabase();
+    const addIdentity = sqlite.prepare(`INSERT INTO analytics_identities
+      (identity_id, identity_type, canonical_id, consent_level, first_seen_at, last_seen_at)
+      VALUES (?, ?, ?, 'essential', ?, ?)`);
+    addIdentity.run(row.canonical_id, "account", row.canonical_id, row.linked_at, row.linked_at);
+    addIdentity.run(
+      row.source_identity_id,
+      "web_visitor",
+      row.canonical_id,
+      row.linked_at,
+      row.linked_at,
+    );
+    sqlite
+      .prepare(`INSERT INTO analytics_identity_links (link_id, source_identity_id, canonical_id, linked_at)
+      VALUES (?, ?, ?, ?)`)
+      .run(...Object.values(row));
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const forwarded = await flushPendingIdentityLinks({
-      ANALYTICS_DB: { prepare, batch } as unknown as D1Database,
+    const env = {
+      ANALYTICS_DB: database,
       POSTHOG_PROJECT_TOKEN: "phc_scientfactory_test",
-    });
+    };
+    expect(await flushPendingIdentityLinks(env)).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    sqlite
+      .prepare("UPDATE analytics_identities SET consent_level = 'product' WHERE identity_id = ?")
+      .run(row.source_identity_id);
+    const forwarded = await flushPendingIdentityLinks(env);
 
     expect(forwarded).toBe(1);
-    expect(prepare.mock.calls[0]?.[0]).toContain(
-      "identities.consent_level IN ('product', 'diagnostic', 'contribution')",
-    );
+    expect(
+      sqlite.prepare("SELECT posthog_state FROM analytics_identity_links").get()!.posthog_state,
+    ).toBe("sent");
     const [, request] = fetchMock.mock.calls[0] ?? [];
     const payload = JSON.parse(String(request?.body)) as {
       batch: ReadonlyArray<{
