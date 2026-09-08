@@ -1,8 +1,22 @@
 import { expect, it } from "vitest";
-import { analyticsReportQuery } from "./analytics-report.mjs";
+import { analyticsReportQueries, analyticsReportQuery } from "./analytics-report.mjs";
 import { testDatabase } from "../workers/events/src/sqlite.testSupport.ts";
 
 const fixedQuery = analyticsReportQuery.replaceAll("'now'", "'2026-08-31T12:00:00.000Z'");
+
+it("keeps remote report chunks within the D1 compound SELECT limit", () => {
+  const store = testDatabase();
+  try {
+    const queries = analyticsReportQueries();
+    expect(queries.length).toBeGreaterThan(1);
+    for (const query of queries) {
+      expect(query.match(/\bSELECT\b/g)?.length).toBeLessThanOrEqual(4);
+      expect(() => store.sqlite.prepare(query).all()).not.toThrow();
+    }
+  } finally {
+    store.close();
+  }
+});
 
 it("reports centrally retained diagnostics separately from PostHog delivery", () => {
   const store = testDatabase();
