@@ -5,8 +5,8 @@
   "compatibility_date": "2026-07-20",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "DESKTOP_INGESTION_ENABLED": "false",
-    "DESKTOP_POSTHOG_EXPORT_ENABLED": "false",
+    "DESKTOP_INGESTION_ENABLED": "true",
+    "DESKTOP_POSTHOG_EXPORT_ENABLED": "true",
     "POSTHOG_PROJECT_ID": "228610",
   },
   "secrets": {

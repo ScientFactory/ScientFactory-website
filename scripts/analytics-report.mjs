@@ -188,17 +188,41 @@ export const analyticsReportQuery = `
   ORDER BY report_section, event_count DESC, item
 `;
 
+/** Cloudflare D1 limits compound SELECT terms more tightly than local SQLite. */
+export function analyticsReportQueries(maxTerms = 4) {
+  if (!Number.isInteger(maxTerms) || maxTerms < 2) {
+    throw new Error("Analytics report chunks require at least two SELECT terms");
+  }
+  const body = analyticsReportQuery
+    .replace(/\n\s*ORDER BY report_section, event_count DESC, item\s*$/, "")
+    .trim();
+  const terms = body.split(/\n\s*UNION ALL\s*\n/);
+  const first = terms.shift();
+  const maintenance = terms.pop();
+  if (!first || !maintenance || !maintenance.includes("analytics_maintenance_status")) {
+    throw new Error("Analytics report query structure is invalid");
+  }
+
+  const chunks = [[first, maintenance]];
+  while (terms.length > 0) chunks.push(terms.splice(0, maxTerms));
+  return chunks.map(
+    (chunk) =>
+      `${chunk.join("\n\n  UNION ALL\n\n")}\n\n  ORDER BY report_section, event_count DESC, item`,
+  );
+}
+
 // Importing the query for local fixture tests must never contact production.
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = spawnSync(
-    "wrangler",
-    ["d1", "execute", "scientfactory-downloads", "--remote", "--command", analyticsReportQuery],
-    { stdio: "inherit", timeout: 60_000 },
-  );
-  if (result.error) {
-    console.error("Analytics aggregate report failed or timed out");
-    process.exitCode = 1;
-  } else {
-    process.exitCode = result.status ?? 1;
+  for (const query of analyticsReportQueries()) {
+    const result = spawnSync(
+      "wrangler",
+      ["d1", "execute", "scientfactory-downloads", "--remote", "--command", query],
+      { stdio: "inherit", timeout: 60_000 },
+    );
+    if (result.error || result.status !== 0) {
+      console.error("Analytics aggregate report failed or timed out");
+      process.exitCode = result.status ?? 1;
+      break;
+    }
   }
 }
