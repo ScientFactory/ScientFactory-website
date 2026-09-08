@@ -7,6 +7,13 @@
   "vars": {
     "DESKTOP_INGESTION_ENABLED": "false",
     "DESKTOP_POSTHOG_EXPORT_ENABLED": "false",
+    "POSTHOG_PROJECT_ID": "228610",
+  },
+  "secrets": {
+    "required": ["POSTHOG_PROJECT_TOKEN", "POSTHOG_PERSONAL_API_KEY"],
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
   },
   "routes": [
     {
