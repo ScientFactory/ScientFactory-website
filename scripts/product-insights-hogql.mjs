@@ -1,6 +1,6 @@
 // Same Product population and complete-day window as product-insights.mjs.
 const population = `properties.source = 'desktop' AND properties.consent_level IN ('product', 'diagnostic')
-AND properties.contractRevision = '3' AND timestamp >= toStartOfDay(now()) - INTERVAL 30 DAY AND timestamp < toStartOfDay(now())`;
+AND properties.contractRevision IN ('3', '4') AND timestamp >= toStartOfDay(now()) - INTERVAL 30 DAY AND timestamp < toStartOfDay(now())`;
 const insight = (name, description, query) => ({
   name,
   description,
@@ -33,11 +33,18 @@ AND event = 'provider.turn.usage' GROUP BY id)
 GROUP BY provider ORDER BY reported_turns DESC`,
   ),
   insight(
-    "Providers observed ready",
-    "Installations with a provider observed ready during the window. Not signed-in people, current connection inventory, or proof the provider was used.",
-    `SELECT properties.provider AS provider, uniqExact(distinct_id) AS installations
-FROM events WHERE ${population} AND ((event = 'provider.discovered' AND properties.state = 'ready')
-OR (event = 'provider.readiness.changed' AND properties.to = 'ready')) GROUP BY provider ORDER BY installations DESC`,
+    "Latest observed provider installations",
+    "Latest explicit installed state per pseudonymous installation and provider. Bundled-but-missing providers and historical readiness are not counted as installed.",
+    `SELECT provider, countIf(installed = true) AS installations
+FROM (
+  SELECT distinct_id, properties.provider AS provider,
+    argMax(if(event = 'provider.installation.observed', properties.installed, properties.toInstalled),
+      tuple(timestamp, properties.event_id)) AS installed
+  FROM events WHERE ${population} AND properties.contractRevision = '4'
+    AND event IN ('provider.installation.observed', 'provider.installation.changed')
+  GROUP BY distinct_id, provider
+)
+GROUP BY provider HAVING installations > 0 ORDER BY installations DESC`,
   ),
 ];
 

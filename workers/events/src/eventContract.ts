@@ -215,6 +215,18 @@ export const EVENT_DEFINITIONS = {
     privacyLevel: "product",
     properties: { provider, runtimeSource, state: providerState },
   },
+  "provider.installation.observed": {
+    privacyLevel: "product",
+    properties: { provider, installed: { kind: "boolean" } },
+  },
+  "provider.installation.changed": {
+    privacyLevel: "product",
+    properties: {
+      provider,
+      fromInstalled: { kind: "boolean" },
+      toInstalled: { kind: "boolean" },
+    },
+  },
   "provider.readiness.changed": {
     privacyLevel: "product",
     properties: { provider, from: providerState, to: providerState },
@@ -658,7 +670,7 @@ export function eventContractViolation(input: {
   const rules: Readonly<Record<string, PropertyRule>> = {
     appVersion,
     buildChannel,
-    contractRevision: { kind: "enum", values: ["1", "2", "3"], optional: true },
+    contractRevision: { kind: "enum", values: ["1", "2", "3", "4"], optional: true },
     ...definition.properties,
   };
   for (const key of Object.keys(input.properties)) {

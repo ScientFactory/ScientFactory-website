@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { testDatabase } from "../workers/events/src/sqlite.testSupport.ts";
 import { productInsightsQuery } from "./product-insights.mjs";
 
-it("separates adoption, repeat days, readiness, unknown tokens and failure populations", () => {
+it("separates adoption, latest installation state, unknown tokens and failure populations", () => {
   const store = testDatabase();
   try {
     const insert = store.sqlite.prepare(
@@ -28,8 +28,28 @@ it("separates adoption, repeat days, readiness, unknown tokens and failure popul
     add("panel.viewed", { category: "browser" }, { consent: "essential" });
     add("panel.viewed", { category: "browser" }, { revision: "2" });
     add("panel.viewed", { category: "browser" }, { day: "2026-09-06" });
-    add("provider.discovered", { provider: "codex", state: "ready" });
-    add("provider.discovered", { provider: "pi", state: "unavailable" });
+    add(
+      "provider.installation.observed",
+      { provider: "codex", installed: true },
+      { revision: "4", day: "2026-09-05T09:00:00Z" },
+    );
+    add(
+      "provider.installation.changed",
+      { provider: "codex", fromInstalled: true, toInstalled: false },
+      { revision: "4", day: "2026-09-05T10:00:00Z" },
+    );
+    add(
+      "provider.installation.observed",
+      { provider: "pi", installed: false },
+      { revision: "4", installation: "PRIVATE-2", day: "2026-09-05T09:00:00Z" },
+    );
+    add(
+      "provider.installation.changed",
+      { provider: "pi", fromInstalled: false, toInstalled: true },
+      { revision: "4", installation: "PRIVATE-2", day: "2026-09-05T10:00:00Z" },
+    );
+    // Legacy readiness is not treated as an explicit current installation.
+    add("provider.discovered", { provider: "grok", state: "ready" });
     add("provider.turn.usage", {
       provider: "codex",
       modelKey: "gpt-5.6-sol",
@@ -59,7 +79,9 @@ it("separates adoption, repeat days, readiness, unknown tokens and failure popul
     expect(
       rows.find((r) => r.metric === "reported_input_tokens" && r.category === "pi"),
     ).toMatchObject({ observations: 0, value: null });
-    expect(rows.filter((r) => r.metric === "provider_observed_ready")).toHaveLength(1);
+    expect(rows.filter((r) => r.metric === "provider_latest_observed_installed")).toEqual([
+      expect.objectContaining({ category: "pi", installations: 1, observations: 1 }),
+    ]);
     expect(rows.find((r) => r.metric === "provider_terminal_outcomes")).toMatchObject({
       observations: 1,
     });
