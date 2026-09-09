@@ -1,4 +1,9 @@
-import { eventContractViolation, PRIVACY_LEVELS, type PrivacyLevel } from "./eventContract";
+import {
+  ANALYTICS_CONTRACT_REVISION,
+  eventContractViolation,
+  PRIVACY_LEVELS,
+  type PrivacyLevel,
+} from "./eventContract";
 import { posthogEventUuid, posthogRequest, readBoundedJson, TransportFailure } from "./transport";
 import { withExportLease } from "./exportLease";
 
@@ -1166,7 +1171,7 @@ const worker: ExportedHandler<AnalyticsEnv> = {
       return jsonResponse(
         {
           status: storageReady ? "ready" : "degraded",
-          contract_revision: "3",
+          contract_revision: ANALYTICS_CONTRACT_REVISION,
           worker_version: env.CF_VERSION_METADATA?.id ?? "unavailable",
           worker_version_tag: env.CF_VERSION_METADATA?.tag ?? null,
           worker_version_created_at: env.CF_VERSION_METADATA?.timestamp ?? null,
