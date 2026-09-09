@@ -1,5 +1,6 @@
 // Generated from scient-desktop/packages/scient-analytics/src/wireContract.ts. Do not edit here.
 // Scient desktop wire contract. The website gateway consumes a generated copy.
+export const ANALYTICS_CONTRACT_REVISION = "4" as const;
 export const PRIVACY_LEVELS = ["essential", "product", "diagnostic", "contribution"] as const;
 
 export type PrivacyLevel = (typeof PRIVACY_LEVELS)[number];
