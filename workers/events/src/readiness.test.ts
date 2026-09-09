@@ -5,7 +5,7 @@ import worker, {
   pruneExpiredAnalyticsEvents,
 } from "./index";
 import { testDatabase } from "./sqlite.testSupport";
-import { posthogEventUuid, readBoundedJson } from "./transport";
+import { posthogEventUuid, posthogRequest, readBoundedJson } from "./transport";
 import { withExportLease } from "./exportLease";
 
 const installation = "installation:10000000-0000-4000-8000-000000000001";
@@ -71,6 +71,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   for (const db of databases.splice(0)) db.close();
+});
+
+it("does not follow PostHog redirects or turn them into network failures", async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 302 }));
+  vi.stubGlobal("fetch", fetcher);
+
+  await expect(
+    posthogRequest("https://eu.i.posthog.com/batch", { method: "POST" }),
+  ).rejects.toThrow("http");
+  expect(fetcher.mock.calls[0]![1].redirect).toBe("manual");
 });
 
 describe("inactive gateway readiness with real SQL", () => {
@@ -423,7 +433,7 @@ describe("inactive gateway readiness with real SQL", () => {
     expect(first.uuid).toMatch(
       /^[a-f0-9]{8}-[a-f0-9]{4}-8[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/,
     );
-    expect(fetcher.mock.calls[0]![1].redirect).toBe("error");
+    expect(fetcher.mock.calls[0]![1].redirect).toBe("manual");
     expect(fetcher.mock.calls[0]![1].signal).toBeInstanceOf(AbortSignal);
   });
 

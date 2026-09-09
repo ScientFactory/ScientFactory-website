@@ -45,7 +45,11 @@ export async function posthogRequest(url: string, init: RequestInit): Promise<Re
   try {
     const response = await fetch(url, {
       ...init,
-      redirect: "error",
+      // A manual redirect response is never followed, so credentials remain
+      // scoped to the configured PostHog origin. Cloudflare's runtime rejects
+      // `redirect: "error"` as a failed subrequest before a response is
+      // available, which prevents otherwise valid exports.
+      redirect: "manual",
       signal: AbortSignal.timeout(5_000),
     });
     if (!response.ok) {

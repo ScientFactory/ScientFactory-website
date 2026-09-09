@@ -94,9 +94,10 @@ registered event name, its exact allowlisted property set, the event's declared
 privacy level, and sufficient explicit consent. Unknown events, extra
 properties, raw text, and mismatched consent or privacy classifications are
 rejected before storage. The versioned registry and its focused tests live in
-`workers/events/src/eventContract.ts`. Revision 3 is generated from
+`workers/events/src/eventContract.ts`. Revision 4 is generated from
 `scient-desktop/packages/scient-analytics/src/wireContract.ts`, with a shared
-conformance fixture for every registered event, plus revision-2 compatibility tests. Do not edit that copy
+conformance fixture for every registered event, plus revision-2 and revision-3
+compatibility tests. Do not edit that copy
 independently; the desktop analytics document owns regeneration instructions.
 New events add an optional bounded `contractRevision`; legacy revision-1
 payloads remain supported. Deploy this validator before releasing new producers.
@@ -182,7 +183,8 @@ bun run events:deploy
 are Cloudflare Worker secrets and must never be committed. The personal key is
 used only for queued deletion and needs the reviewed person read/write scopes
 for lookup, submission, and verification (qualify the exact provider permissions);
-`POSTHOG_PROJECT_ID` selects the project. If the project token is absent,
+`POSTHOG_PROJECT_ID` selects the project and is committed as non-secret Worker
+configuration. If the project token is absent,
 ingestion continues and events remain queued in D1 for later delivery. If the
 deletion key or project ID is absent, accepted erasures remain queued in D1. If
 the identity-link token is absent, account linking returns `503` while ordinary
@@ -193,8 +195,9 @@ Before activating an owner-approved rollout:
 1. Apply the approved migrations and deploy the reviewed Worker with **both
    desktop gates false**. Website Pages deployment is not Worker deployment.
 2. Verify `/health` against the exact deployed revision: required schema and a
-   recent successful retention pass are checked, but configured secrets are not
-   proof of valid permissions.
+   recent successful retention pass are checked, and the Worker version ID, tag,
+   and creation time identify the deployed artifact. Configured secrets are not
+   proof of valid permissions. Tag production uploads with the reviewed Git commit.
 3. Confirm the approved first-party-only diagnostic routing and truthful
    PostHog-managed retention wording. Verify asynchronous provider erasure with
    synthetic identifiers; an arbitrary delay or repeat-delete loop is not proof.

@@ -1,4 +1,9 @@
-import { eventContractViolation, PRIVACY_LEVELS, type PrivacyLevel } from "./eventContract";
+import {
+  ANALYTICS_CONTRACT_REVISION,
+  eventContractViolation,
+  PRIVACY_LEVELS,
+  type PrivacyLevel,
+} from "./eventContract";
 import { posthogEventUuid, posthogRequest, readBoundedJson, TransportFailure } from "./transport";
 import { withExportLease } from "./exportLease";
 
@@ -25,9 +30,14 @@ const RETENTION_BATCH_SIZE = 5_000;
 type AnalyticsEnv = Omit<
   AnalyticsWorkerBindings,
   | "ANALYTICS_INGESTION_RATE_LIMITER"
+  | "CF_VERSION_METADATA"
   | "DESKTOP_INGESTION_ENABLED"
   | "DESKTOP_POSTHOG_EXPORT_ENABLED"
+  | "POSTHOG_PERSONAL_API_KEY"
+  | "POSTHOG_PROJECT_ID"
+  | "POSTHOG_PROJECT_TOKEN"
 > & {
+  readonly CF_VERSION_METADATA?: WorkerVersionMetadata;
   readonly POSTHOG_PROJECT_TOKEN?: string;
   readonly POSTHOG_PERSONAL_API_KEY?: string;
   readonly POSTHOG_PROJECT_ID?: string;
@@ -1161,7 +1171,10 @@ const worker: ExportedHandler<AnalyticsEnv> = {
       return jsonResponse(
         {
           status: storageReady ? "ready" : "degraded",
-          contract_revision: "2",
+          contract_revision: ANALYTICS_CONTRACT_REVISION,
+          worker_version: env.CF_VERSION_METADATA?.id ?? "unavailable",
+          worker_version_tag: env.CF_VERSION_METADATA?.tag ?? null,
+          worker_version_created_at: env.CF_VERSION_METADATA?.timestamp ?? null,
           storage: storageReady ? "ready" : "unavailable_or_unmigrated",
           retention: retentionReady ? "recent_success" : "pending_verification",
           activation_prerequisites_configured: Boolean(
