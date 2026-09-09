@@ -94,9 +94,10 @@ registered event name, its exact allowlisted property set, the event's declared
 privacy level, and sufficient explicit consent. Unknown events, extra
 properties, raw text, and mismatched consent or privacy classifications are
 rejected before storage. The versioned registry and its focused tests live in
-`workers/events/src/eventContract.ts`. Revision 3 is generated from
+`workers/events/src/eventContract.ts`. Revision 4 is generated from
 `scient-desktop/packages/scient-analytics/src/wireContract.ts`, with a shared
-conformance fixture for every registered event, plus revision-2 compatibility tests. Do not edit that copy
+conformance fixture for every registered event, plus revision-2 and revision-3
+compatibility tests. Do not edit that copy
 independently; the desktop analytics document owns regeneration instructions.
 New events add an optional bounded `contractRevision`; legacy revision-1
 payloads remain supported. Deploy this validator before releasing new producers.

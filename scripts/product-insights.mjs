@@ -6,12 +6,13 @@ import { fileURLToPath } from "node:url";
 // Full UTC days avoid comparing today's partial activity with complete days.
 export const productInsightsQuery = `
 WITH eligible AS (
-  SELECT event_name, distinct_id, date(occurred_at) AS day, properties_json AS p
+  SELECT event_id, event_name, distinct_id, occurred_at, date(occurred_at) AS day,
+    properties_json AS p
   FROM analytics_events
   WHERE source = 'desktop' AND consent_level IN ('product', 'diagnostic')
     AND julianday(occurred_at) >= julianday(date('now', '-30 days'))
     AND julianday(occurred_at) < julianday(date('now'))
-    AND json_extract(properties_json, '$.contractRevision') = '3'
+    AND json_extract(properties_json, '$.contractRevision') IN ('3', '4')
 ), views AS (
   SELECT event_name, distinct_id, day,
     CASE event_name
@@ -34,6 +35,24 @@ WITH eligible AS (
     json_extract(p, '$.inputTokens') AS input_tokens,
     json_extract(p, '$.outputTokens') AS output_tokens
   FROM eligible WHERE event_name = 'provider.turn.usage'
+), provider_installation_events AS (
+  SELECT event_id, distinct_id, occurred_at, json_extract(p, '$.provider') AS provider,
+    CASE event_name
+      WHEN 'provider.installation.observed' THEN json_extract(p, '$.installed')
+      ELSE json_extract(p, '$.toInstalled') END AS installed
+  FROM eligible
+  WHERE json_extract(p, '$.contractRevision') = '4'
+    AND event_name IN ('provider.installation.observed', 'provider.installation.changed')
+), latest_provider_installations AS (
+  SELECT distinct_id, provider, installed
+  FROM (
+    SELECT distinct_id, provider, installed,
+      row_number() OVER (
+        PARTITION BY distinct_id, provider ORDER BY occurred_at DESC, event_id DESC
+      ) AS recency
+    FROM provider_installation_events
+  )
+  WHERE recency = 1
 )
 SELECT 'feature_observations' AS metric, event_name || ':' || category AS category,
   count(*) AS installations, sum(observations) AS observations,
@@ -52,18 +71,16 @@ UNION ALL
 SELECT 'reported_output_tokens', provider, count(DISTINCT distinct_id), count(output_tokens), NULL, sum(output_tokens)
 FROM tokens GROUP BY provider
 UNION ALL
-SELECT 'provider_observed_ready', json_extract(p, '$.provider'), count(DISTINCT distinct_id), count(*), NULL, NULL
-FROM eligible
-WHERE event_name = 'provider.discovered' AND json_extract(p, '$.state') = 'ready'
-   OR event_name = 'provider.readiness.changed' AND json_extract(p, '$.to') = 'ready'
-GROUP BY json_extract(p, '$.provider')
+SELECT 'provider_latest_observed_installed', provider, count(DISTINCT distinct_id), count(*), NULL, NULL
+FROM latest_provider_installations WHERE installed = 1
+GROUP BY provider
 UNION ALL
 SELECT 'provider_terminal_outcomes', json_extract(p, '$.provider') || ':' || event_name,
   count(DISTINCT distinct_id), count(*), NULL, NULL
 FROM eligible WHERE event_name IN ('provider.turn.completed', 'provider.turn.failed', 'provider.turn.stopped')
 GROUP BY json_extract(p, '$.provider'), event_name
 UNION ALL
-SELECT 'observed_product_population', 'revision-3', count(DISTINCT distinct_id), count(*), NULL, NULL
+SELECT 'observed_product_population', 'revision-3-or-4', count(DISTINCT distinct_id), count(*), NULL, NULL
 FROM eligible
 ORDER BY metric, observations DESC, category
 `;
