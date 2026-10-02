@@ -53,15 +53,20 @@ the far side, and a full loop in which the color travels once around the whole s
 the full loop is 54% on the left side of the symbol and 65% on the right, changing smoothly between.
 
 SVG has no gradient that follows a curve, so the strip is painted as thin quads along its length,
-360 to a turn in the master and 120 in the small drawings, inside clip paths made from the exact
+360 to a turn in the master and 120 in the small drawings, inside masks made from the exact
 outlines:
 
 - The quads are painted in order and without anti-aliasing. Each shows for one pitch, so the result
   is an even staircase of colors about one 8-bit level apart, with no joints showing.
-- A base coat of wider quads reaches past the outline, so every edge pixel is fully painted.
-- At the twist the strip folds over itself. The part in front is a separate layer with its own
-  outline, so the fold has a clean edge.
-- The clip paths alone anti-alias the edges, exactly as in the one-color drawings.
+- A base coat of wider quads reaches past the outline, so every edge pixel is fully painted. The
+  master's base coat allows for use down to 16 px.
+- The whole drawing sits inside one mask of the outline. Its edge has exactly the coverage of the
+  one-color drawings: in Chrome the color and black PNGs have identical alpha at every size. A clip
+  path would be simpler, but Chrome renders a clip path's edge heavier.
+- The PDF uses clip paths in place of the masks, because a PDF stores a mask as a bitmap and a clip
+  path as a vector outline.
+- At the twist the strip folds over itself. The part in front is a separate layer inside its own
+  mask, so the fold has a clean edge.
 
 The blend is a design choice. A Möbius strip has one side, so the two colors do not mean two sides.
 The black, white and `currentColor` drawings are single flat colors.

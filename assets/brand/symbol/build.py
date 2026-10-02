@@ -6,7 +6,7 @@ turned 0.45 rad about z and viewed from 57 degrees.
 A fine mesh of the surface is unioned, then the outline is fitted with a few cubic Beziers whose
 nodes sit on the corners and on the horizontal and vertical extremes.
 
-The color drawing paints the strip as thin slices along its length, clipped by that outline, so the
+The color drawing paints the strip as thin slices along its length, masked by that outline, so the
 color changes along the strip itself. Blue covers the near side and peach the far side; colors are
 mixed in OKLCH, so the transition passes through soft green.
 
@@ -323,10 +323,10 @@ def quads(mapping, t0, t1, count, lap, grow=0.0):
 
 def layer(mapping, span, count, grow):
     """Two coats, both drawn without anti-aliasing: overlapping anti-aliased quads would let a little of
-    whatever lies beneath show at every joint. The base coat is wider quads grown past the clip path,
-    so every pixel the clip path touches is painted. The top coat is the fine quads that give the
-    smooth blend. The clip paths alone anti-alias the edges."""
-    return quads(mapping, *span, 120, 3, grow) + quads(mapping, *span, count, 1.9)
+    whatever lies beneath show at every joint. The base coat is wider quads grown past the outline, so
+    every pixel the outline touches is painted. The top coat is the fine quads that give the smooth
+    blend. The masks alone anti-alias the edges."""
+    return f'<g shape-rendering="crispEdges">{quads(mapping, *span, 120, 3, grow)}{quads(mapping, *span, count, 1.9)}</g>'
 
 
 def drawing(mapping, label, slice_count, grow):
@@ -335,21 +335,31 @@ def drawing(mapping, label, slice_count, grow):
 
 
 # The base coat must reach at least a pixel past the outline at the smallest size a drawing is used at.
-MASTER = drawing(master_map(), "master", SLICES, BOX / 48 * 1.25)
+# The master is also used for app icons of any size, so it allows for 16 px.
+MASTER = drawing(master_map(), "master", SLICES, BOX / 16 * 1.25)
 SMALL = {n: drawing(fitted_map(n), f"{n}px", SMALL_SLICES, BOX / n * 1.25) for n in SMALL_SIZES}
-clip_ids = itertools.count()
+mask_ids = itertools.count()
 
 
-def symbol(fill, size=BOX, d=MASTER, standalone=True):
+def symbol(fill, size=BOX, d=MASTER, standalone=True, for_pdf=False):
     """One SVG. `fill` is a color for the one-color drawings and None for the blue-to-peach drawing.
-    Inline copies get their own clip ids, because each size has its own outline."""
+    Inline copies get their own mask ids, because each size has its own outline. `for_pdf` uses clip
+    paths in place of masks: a PDF stores a mask as a bitmap, and a clip path as a vector outline."""
     head = "<title>Scient</title>" if standalone else ""
     if fill is None:
-        clip = "scient" if standalone else f"scient{next(clip_ids)}"
-        body = (f'<clipPath id="{clip}-strip"><path d="{d["strip"]}"/></clipPath>'
-                f'<clipPath id="{clip}-front"><path d="{d["front"]}"/></clipPath>'
-                f'<g clip-path="url(#{clip}-strip)"><g shape-rendering="crispEdges">{d["back_layer"]}</g></g>'
-                f'<g clip-path="url(#{clip}-front)"><g shape-rendering="crispEdges">{d["front_layer"]}</g></g>')
+        name = "scient" if standalone else f"scient{next(mask_ids)}"
+        if for_pdf:
+            mask = lambda part: f'<clipPath id="{name}-{part}"><path d="{d[part]}"/></clipPath>'
+        else:
+            mask = lambda part: (f'<mask id="{name}-{part}" maskUnits="userSpaceOnUse" x="0" y="0" width="{BOX}" height="{BOX}">'
+                                 f'<path fill="#fff" d="{d[part]}"/></mask>')
+        by = "clip-path" if for_pdf else "mask"
+        # Everything sits inside one mask of the outline, so the edge has exactly the coverage of the
+        # one-color drawings. (A clip path would do the same job, but Chrome renders its edge heavier.)
+        # The front layer is painted twice: first unmasked beneath the back layer, so the pixels along
+        # its outer edge are already opaque, then inside its own mask on top, which draws the fold.
+        body = (f'{mask("strip")}{mask("front")}<g {by}="url(#{name}-strip)">{d["front_layer"]}{d["back_layer"]}'
+                f'<g {by}="url(#{name}-front)">{d["front_layer"]}</g></g>')
     else:
         body = f'<path fill="{fill}" d="{d["strip"]}"/>'
     return f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {BOX} {BOX}">{head}{body}</svg>'
@@ -388,7 +398,7 @@ for slug, fill in COLORINGS + [("mono", "currentColor")]:
         subprocess.run(["magick", str(sprite), "-crop", f"{n}x{n}+{left}+0", "+repage", "-strip",
                         str(OUT / "png" / f"scient-symbol-{slug}-{n}.png")], check=True)
     sprite.unlink()
-    tmp.write_text(f'<style>@page{{size:{BOX}px {BOX}px;margin:0}}body{{margin:0}}svg{{display:block}}</style>{symbol(fill)}')
+    tmp.write_text(f'<style>@page{{size:{BOX}px {BOX}px;margin:0}}body{{margin:0}}svg{{display:block}}</style>{symbol(fill, for_pdf=True)}')
     chrome("--no-pdf-header-footer", f"--print-to-pdf={OUT / 'pdf' / f'scient-symbol-{slug}.pdf'}", f"file://{tmp}")
 tmp.unlink()
 subprocess.run(["magick", *[str(OUT / "png" / f"scient-symbol-color-{n}.png") for n in (16, 32, 48)], str(OUT / "favicon.ico")], check=True)
