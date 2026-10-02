@@ -8,7 +8,7 @@ nodes sit on the corners and on the horizontal and vertical extremes.
 
 The color drawing paints the strip as thin slices along its length, masked by that outline, so the
 color changes along the strip itself. Blue covers the near side and peach the far side; colors are
-mixed in OKLCH, so the transition passes through soft green.
+mixed in OKLCH, and the transition passes through a soft grey-blue.
 
 Needs shapely, Google Chrome and ImageMagick:
     python3 -m venv .venv && .venv/bin/pip install shapely && .venv/bin/python build.py
@@ -30,6 +30,8 @@ BOX, STEPS, TOLERANCE = 512, 4096, 0.02
 BLUE, PEACH, INK, WHITE = "#5BA2C2", "#F8AC8B", "#252B32", "#FFFFFF"
 # Share of the full-loop blend mixed into the soft blend, on the left and right sides of the symbol.
 LOOP_SHARE_LEFT, LOOP_SHARE_RIGHT = 0.54, 0.65
+# How much further the peach reaches before the blend begins, on each side of the symbol.
+PEACH_REACH_LEFT, PEACH_REACH_RIGHT = m.radians(4), m.radians(12)
 SLICES, SMALL_SLICES = 360, 120
 COLORINGS = [("color", None), ("black", INK), ("white", WHITE)]
 SMALL_SIZES = (16, 20, 24, 32)
@@ -78,11 +80,13 @@ def from_oklch(lightness, chroma, hue):
 
 
 def mix(a, b, f):
-    """Blend two hex colors in OKLCH, always turning the hue downward. From blue to peach that passes
-    through green; the two colors are almost opposite, so the shorter arc is not a stable choice."""
+    """Blend two hex colors in OKLCH, midway between the path that turns the hue through green and the
+    path that turns it through purple. Blue and peach are almost opposite, so the two paths are almost
+    mirror images and their midpoint keeps a steady hue while the chroma follows cos(pi f): the blend
+    passes through a soft grey-blue instead of either green or purple."""
     (l1, c1, h1), (l2, c2, h2) = to_oklch(a), to_oklch(b)
-    dh = (h2 - h1) % (2 * m.pi) - 2 * m.pi
-    return from_oklch(l1 + (l2 - l1) * f, c1 + (c2 - c1) * f, h1 + dh * f)
+    through_green = (h2 - h1) % (2 * m.pi) - 2 * m.pi
+    return from_oklch(l1 + (l2 - l1) * f, (c1 + (c2 - c1) * f) * m.cos(m.pi * f), h1 + (through_green + m.pi) * f)
 
 
 def peach_amount(t):
@@ -91,7 +95,12 @@ def peach_amount(t):
     Two blends are mixed. The soft blend keeps the peach on the far side and fades it out over about
     74 degrees of the strip on each side. The full loop is a cosine around the whole strip. The share of
     full loop is larger on the right side of the symbol than on the left and changes smoothly between.
+
+    The blend is read from a point nearer the far side, by up to PEACH_REACH_* in the middle of each
+    side, so the peach reaches further before it fades. The shift is zero at the top and the bottom.
     """
+    s = (t - FAR_SIDE + m.pi) % (2 * m.pi) - m.pi  # negative on the right of the symbol
+    t += (PEACH_REACH_RIGHT if s < 0 else -PEACH_REACH_LEFT) * m.sin(s) ** 2
     away = abs(t - FAR_SIDE) % (2 * m.pi)
     away = min(away, 2 * m.pi - away)
     f = min(1.0, max(0.0, (away - 0.35 * FAR_SIDE) / (1.5 * FAR_SIDE)))

@@ -46,12 +46,14 @@ The silhouette is 31 segments and stays within 0.02 units of the 512-unit box (0
 ## Color blend
 
 In the color drawing the color changes along the strip itself. The near side is blue, the far side
-is warm peach, and the two are mixed in OKLCH with the hue turning through green, so the transition
-passes through soft green and not grey.
+is warm peach. They are mixed in OKLCH midway between the path that turns the hue through green and
+the path that turns it through purple, so the transition passes through a soft grey-blue.
 
 The amount of peach at each point is a mix of two blends: a soft blend that keeps the peach on
 the far side, and a full loop in which the color travels once around the whole strip. The share of
 the full loop is 54% on the left side of the symbol and 65% on the right, changing smoothly between.
+The peach also reaches further before the blend begins: 12° further along the strip on the right
+and 4° on the left, fading to nothing at the top and the bottom.
 
 SVG has no gradient that follows a curve, so the strip is painted as thin quads along its length,
 360 to a turn in the master and 120 in the small drawings, inside masks made from the exact
