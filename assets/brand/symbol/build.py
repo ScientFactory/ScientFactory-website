@@ -3,28 +3,35 @@
 The shape is the orthographic projection of the standard Möbius strip
     x = (1 + v cos(t/2)) cos t,  y = (1 + v cos(t/2)) sin t,  z = v sin(t/2),  |v| <= 0.36
 turned 0.45 rad about z and viewed from 57 degrees.
-A fine mesh of the surface is unioned, then each outline is fitted with a few cubic Beziers whose
+A fine mesh of the surface is unioned, then the outline is fitted with a few cubic Beziers whose
 nodes sit on the corners and on the horizontal and vertical extremes.
+
+The color drawing paints the strip as thin slices along its length, clipped by that outline, so the
+color changes along the strip itself. Azure covers the near side and fuchsia the far side; colors are
+mixed in OKLCH, so the transition passes through violet.
 
 Needs shapely, Google Chrome and ImageMagick:
     python3 -m venv .venv && .venv/bin/pip install shapely && .venv/bin/python build.py
 """
+import itertools
 import math as m
 import subprocess
 from pathlib import Path
 
 import numpy as np
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import LineString, MultiPoint, Polygon
 from shapely.ops import unary_union
 
 OUT = Path(__file__).parent
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 HALF_WIDTH, SPIN, ELEVATION = 0.36, 0.45, m.radians(57)
-ACCENT_END = 35 * 2 * m.pi / 128  # the accent runs along the strip from t = 0 to this ruling
-LAP = 0.23  # how far the body continues behind each straight edge of the accent
+FAR_SIDE = 35 * m.pi / 128  # the value of t at the middle of the far side, where the fuchsia is purest
 BOX, STEPS, TOLERANCE = 512, 4096, 0.02
-BLUE, CORAL, INK, WHITE = "#4D9ABF", "#F09082", "#252B32", "#FFFFFF"
-COLORINGS = [("color", BLUE, CORAL), ("black", INK, INK), ("white", WHITE, WHITE)]
+AZURE, FUCHSIA, INK, WHITE = "#358DBA", "#C95BA4", "#252B32", "#FFFFFF"
+# Share of the full-loop blend mixed into the soft blend, on the left and right sides of the symbol.
+LOOP_SHARE_LEFT, LOOP_SHARE_RIGHT = 0.54, 0.65
+SLICES, SMALL_SLICES = 360, 120
+COLORINGS = [("color", None), ("black", INK), ("white", WHITE)]
 SMALL_SIZES = (16, 20, 24, 32)
 PNG_SIZES = (16, 20, 24, 32, 48, 64, 128, 256, 512, 1024)
 
@@ -34,6 +41,64 @@ def project(t, v):
     x, y, z = r * m.cos(t), r * m.sin(t), v * m.sin(t / 2)
     x, y = x * m.cos(SPIN) - y * m.sin(SPIN), x * m.sin(SPIN) + y * m.cos(SPIN)
     return x, -(y * m.sin(ELEVATION) + z * m.cos(ELEVATION))
+
+
+def depth(t, v):
+    """Distance toward the viewer of the same point."""
+    r = 1 + v * m.cos(t / 2)
+    y = r * m.cos(t) * m.sin(SPIN) + r * m.sin(t) * m.cos(SPIN)
+    return -y * m.cos(ELEVATION) + v * m.sin(t / 2) * m.sin(ELEVATION)
+
+
+def to_oklch(hex_color):
+    r, g, b = (int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    r, g, b = (c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b))
+    l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b) ** (1 / 3)
+    md = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b) ** (1 / 3)
+    s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b) ** (1 / 3)
+    lightness = 0.2104542553 * l + 0.7936177850 * md - 0.0040720468 * s
+    a = 1.9779984951 * l - 2.4285922050 * md + 0.4505937099 * s
+    bb = 0.0259040371 * l + 0.7827717662 * md - 0.8086757660 * s
+    return lightness, m.hypot(a, bb), m.atan2(bb, a)
+
+
+def from_oklch(lightness, chroma, hue):
+    a, bb = chroma * m.cos(hue), chroma * m.sin(hue)
+    l = (lightness + 0.3963377774 * a + 0.2158037573 * bb) ** 3
+    md = (lightness - 0.1055613458 * a - 0.0638541728 * bb) ** 3
+    s = (lightness - 0.0894841775 * a - 1.2914855480 * bb) ** 3
+    rgb = (4.0767416621 * l - 3.3077115913 * md + 0.2309699292 * s,
+           -1.2684380046 * l + 2.6097574011 * md - 0.3413193965 * s,
+           -0.0041960863 * l - 0.7034186147 * md + 1.7076147010 * s)
+    out = "#"
+    for c in rgb:
+        c = min(1.0, max(0.0, c))
+        out += f"{round((12.92 * c if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055) * 255):02X}"
+    return out
+
+
+def mix(a, b, f):
+    """Blend two hex colors in OKLCH along the shorter hue arc."""
+    (l1, c1, h1), (l2, c2, h2) = to_oklch(a), to_oklch(b)
+    dh = (h2 - h1 + m.pi) % (2 * m.pi) - m.pi
+    return from_oklch(l1 + (l2 - l1) * f, c1 + (c2 - c1) * f, h1 + dh * f)
+
+
+def fuchsia_amount(t):
+    """How much fuchsia the strip carries at t, from 0 (azure) to 1.
+
+    Two blends are mixed. The soft blend keeps the fuchsia on the far side and fades it out over about
+    74 degrees of the strip on each side. The full loop is a cosine around the whole strip. The share of
+    full loop is larger on the right side of the symbol than on the left and changes smoothly between.
+    """
+    away = abs(t - FAR_SIDE) % (2 * m.pi)
+    away = min(away, 2 * m.pi - away)
+    f = min(1.0, max(0.0, (away - 0.35 * FAR_SIDE) / (1.5 * FAR_SIDE)))
+    soft = 1 - f * f * (3 - 2 * f)
+    loop = (1 + m.cos(t - FAR_SIDE)) / 2
+    side = m.sin(t - FAR_SIDE)  # +1 on the left of the symbol, -1 on the right
+    share = (LOOP_SHARE_LEFT + LOOP_SHARE_RIGHT) / 2 - (LOOP_SHARE_RIGHT - LOOP_SHARE_LEFT) / 2 * side
+    return soft + share * (loop - soft)
 
 
 def region(t0, t1, steps):
@@ -170,10 +235,7 @@ def path_data(curves):
 
 
 # The strip is meshed slightly past a full turn so its two ends overlap and leave no slit at t = 0.
-strip, accent = region(0, 2 * m.pi + 0.02, STEPS), region(0, ACCENT_END, STEPS // 4)
-# In the two-color drawing the body is cut away under the accent, except for a lap behind each
-# straight edge, so no background shows at the joint and no blue fringes the accent's curved edges.
-body = strip.difference(region(LAP, ACCENT_END - LAP, STEPS // 4))
+strip = region(0, 2 * m.pi + 0.02, STEPS)
 minx, miny, maxx, maxy = strip.bounds
 hx0, hy0, hx1, hy1 = max(strip.convex_hull.difference(strip).geoms, key=lambda g: g.area).bounds
 
@@ -218,25 +280,84 @@ def outline(shape, label, mapping):
     return d
 
 
-def paths(mapping, label):
-    return {k: outline(g, f"{label} {k}", mapping) for k, g in (("strip", strip), ("body", body), ("accent", accent))}
+def edge_on():
+    """The value of t near the twist where the strip is seen exactly edge-on."""
+    def turn(t):
+        (x0, y0), (x1, y1) = project(t - 1e-4, 0), project(t + 1e-4, 0)
+        (ax, ay), (bx, by) = project(t, -HALF_WIDTH), project(t, HALF_WIDTH)
+        return (x1 - x0) * (by - ay) - (y1 - y0) * (bx - ax)
+
+    lo, hi = m.pi - 0.6, m.pi + 0.6
+    assert turn(lo) * turn(hi) < 0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if turn(lo) * turn(mid) > 0 else (lo, mid)
+    return (lo + hi) / 2
 
 
-MASTER = paths(master_map(), "master")
-SMALL = {n: paths(fitted_map(n), f"{n}px") for n in SMALL_SIZES}
+# At the twist the strip folds over itself. The part in front is drawn as its own layer with its own
+# exact outline, so the fold has a clean edge; the rest of the strip lies behind it.
+FOLD, FRONT_SPAN, UNDERLAP = edge_on(), 1.2, 0.1
+if depth(FOLD - 0.35, 0) > depth(FOLD + 0.35, 0):
+    FRONT, BACK = (FOLD - FRONT_SPAN, FOLD), (FOLD, FOLD - FRONT_SPAN + 2 * m.pi + UNDERLAP)
+else:
+    FRONT, BACK = (FOLD, FOLD + FRONT_SPAN), (FOLD + FRONT_SPAN - UNDERLAP, FOLD + 2 * m.pi)
+front = region(*FRONT, STEPS // 4)
 
 
-def symbol(body_color, accent_color, size=BOX, d=MASTER, standalone=True):
-    two = accent_color != body_color
-    accent_path = f'<path fill="{accent_color}" d="{d["accent"]}"/>' if two else ""
-    head = '<title>Scient</title>' if standalone else ""
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {BOX} {BOX}">{head}'
-            f'<path fill="{body_color}" d="{d["body"] if two else d["strip"]}"/>{accent_path}</svg>')
+def quads(mapping, t0, t1, count, lap, grow=0.0):
+    """The strip between t0 and t1 as colored quads in order of t, `count` to a full turn. Each quad
+    covers `lap` pitches and is painted over by the next, so each shows for exactly one pitch. None
+    passes t1, where the fold is. `grow` widens every quad on screen by that many units."""
+    dt, v, out = 2 * m.pi / count, HALF_WIDTH + 0.02, ""
+    for i in range(m.ceil((t1 - t0) / dt)):
+        a = t0 + i * dt
+        b = min(a + lap * dt, t1)
+        pts = [mapping(*project(t, w)) for t, w in ((a, -v), (b, -v), (b, v), (a, v))]
+        if grow:
+            pts = list(MultiPoint(pts).convex_hull.buffer(grow, join_style=2).exterior.coords)[:-1]
+        color = mix(AZURE, FUCHSIA, fuchsia_amount((a + min(a + dt, t1)) / 2))
+        out += '<path fill="{}" d="M{}Z"/>'.format(color, " ".join(f"{x:.1f} {y:.1f}" for x, y in pts))
+    return out
 
 
-def best(body_color, accent_color, size):
+def layer(mapping, span, count, grow):
+    """Two coats, both drawn without anti-aliasing: overlapping anti-aliased quads would let a little of
+    whatever lies beneath show at every joint. The base coat is wider quads grown past the clip path,
+    so every pixel the clip path touches is painted. The top coat is the fine quads that give the
+    smooth blend. The clip paths alone anti-alias the edges."""
+    return quads(mapping, *span, 120, 3, grow) + quads(mapping, *span, count, 1.9)
+
+
+def drawing(mapping, label, slice_count, grow):
+    return {"strip": outline(strip, label, mapping), "front": outline(front, f"{label} front layer", mapping),
+            "back_layer": layer(mapping, BACK, slice_count, grow), "front_layer": layer(mapping, FRONT, slice_count, grow)}
+
+
+# The base coat must reach at least a pixel past the outline at the smallest size a drawing is used at.
+MASTER = drawing(master_map(), "master", SLICES, BOX / 48 * 1.25)
+SMALL = {n: drawing(fitted_map(n), f"{n}px", SMALL_SLICES, BOX / n * 1.25) for n in SMALL_SIZES}
+clip_ids = itertools.count()
+
+
+def symbol(fill, size=BOX, d=MASTER, standalone=True):
+    """One SVG. `fill` is a color for the one-color drawings and None for the azure-to-fuchsia drawing.
+    Inline copies get their own clip ids, because each size has its own outline."""
+    head = "<title>Scient</title>" if standalone else ""
+    if fill is None:
+        clip = "scient" if standalone else f"scient{next(clip_ids)}"
+        body = (f'<clipPath id="{clip}-strip"><path d="{d["strip"]}"/></clipPath>'
+                f'<clipPath id="{clip}-front"><path d="{d["front"]}"/></clipPath>'
+                f'<g clip-path="url(#{clip}-strip)"><g shape-rendering="crispEdges">{d["back_layer"]}</g></g>'
+                f'<g clip-path="url(#{clip}-front)"><g shape-rendering="crispEdges">{d["front_layer"]}</g></g>')
+    else:
+        body = f'<path fill="{fill}" d="{d["strip"]}"/>'
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {BOX} {BOX}">{head}{body}</svg>'
+
+
+def best(fill, size):
     """The pixel-fitted drawing where one exists, the exact master otherwise."""
-    return symbol(body_color, accent_color, size, SMALL.get(size, MASTER), standalone=False)
+    return symbol(fill, size, SMALL.get(size, MASTER), standalone=False)
 
 
 def chrome(*args):
@@ -247,16 +368,16 @@ def chrome(*args):
 for folder in ("small", "png", "pdf"):
     (OUT / folder).mkdir(exist_ok=True)
 tmp = OUT / ".tmp.html"
-for slug, body_color, acc in COLORINGS + [("mono", "currentColor", "currentColor")]:
-    (OUT / f"scient-symbol-{slug}.svg").write_text(symbol(body_color, acc) + "\n")
+for slug, fill in COLORINGS + [("mono", "currentColor")]:
+    (OUT / f"scient-symbol-{slug}.svg").write_text(symbol(fill) + "\n")
     for n in SMALL_SIZES:
-        (OUT / "small" / f"scient-symbol-{slug}-{n}.svg").write_text(symbol(body_color, acc, n, SMALL[n]) + "\n")
+        (OUT / "small" / f"scient-symbol-{slug}-{n}.svg").write_text(symbol(fill, n, SMALL[n]) + "\n")
     if slug == "mono":
         continue
     # PNGs: one transparent sprite at 1x, then cropped, so every size is rendered by the same engine.
     x, cells, boxes = 0, "", []
     for n in PNG_SIZES:
-        cells += f'<div style="position:absolute;left:{x}px;top:0">{best(body_color, acc, n)}</div>'
+        cells += f'<div style="position:absolute;left:{x}px;top:0">{best(fill, n)}</div>'
         boxes.append((n, x))
         x += n + 8
     tmp.write_text(f'<body style="margin:0;background:transparent">{cells}</body>')
@@ -267,7 +388,7 @@ for slug, body_color, acc in COLORINGS + [("mono", "currentColor", "currentColor
         subprocess.run(["magick", str(sprite), "-crop", f"{n}x{n}+{left}+0", "+repage", "-strip",
                         str(OUT / "png" / f"scient-symbol-{slug}-{n}.png")], check=True)
     sprite.unlink()
-    tmp.write_text(f'<style>@page{{size:{BOX}px {BOX}px;margin:0}}body{{margin:0}}svg{{display:block}}</style>{symbol(body_color, acc)}')
+    tmp.write_text(f'<style>@page{{size:{BOX}px {BOX}px;margin:0}}body{{margin:0}}svg{{display:block}}</style>{symbol(fill)}')
     chrome("--no-pdf-header-footer", f"--print-to-pdf={OUT / 'pdf' / f'scient-symbol-{slug}.pdf'}", f"file://{tmp}")
 tmp.unlink()
 subprocess.run(["magick", *[str(OUT / "png" / f"scient-symbol-color-{n}.png") for n in (16, 32, 48)], str(OUT / "favicon.ico")], check=True)
@@ -283,14 +404,13 @@ h2{font-size:13px;margin:0 0 18px;text-transform:uppercase;letter-spacing:.06em;
 .dark .picker{border-color:#343b48}svg{display:block}.big{display:flex;justify-content:center}"""
 
 
-def card(title, body_color, acc, dark):
-    sizes = "".join(f"<div>{best(body_color, acc, n)}<span>{n}</span></div>" for n in (96, 64, 48, 32, 24, 20, 16))
-    return (f'<div class="card{" dark" if dark else ""}"><h2>{title}</h2><div class="big">{best(body_color, acc, 220)}</div>'
-            f'<div class="sizes">{sizes}</div><div class="picker">{best(body_color, acc, 16)}<span>Scient Agent</span></div></div>')
+def card(title, fill, dark):
+    sizes = "".join(f"<div>{best(fill, n)}<span>{n}</span></div>" for n in (96, 64, 48, 32, 24, 20, 16))
+    return (f'<div class="card{" dark" if dark else ""}"><h2>{title}</h2><div class="big">{best(fill, 220)}</div>'
+            f'<div class="sizes">{sizes}</div><div class="picker">{best(fill, 16)}<span>Scient Agent</span></div></div>')
 
 
-cards = (card("Color · on light", BLUE, CORAL, False) + card("Color · on dark", BLUE, CORAL, True)
-         + card("Black", INK, INK, False) + card("White", WHITE, WHITE, True))
+cards = card("Color · on light", None, False) + card("Color · on dark", None, True) + card("Black", INK, False) + card("White", WHITE, True)
 (OUT / "preview.html").write_text(
     '<!doctype html><html lang="en"><meta charset="utf-8"><title>Scient symbol</title>'
     f"<style>{CSS}</style><main><header><h1>Scient symbol</h1>"

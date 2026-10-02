@@ -9,11 +9,11 @@ The three reference symbols are `scient-symbol-color.svg`, `scient-symbol-black.
 
 ## Colors
 
-| Coloring | Values                          | Use                                   |
-| -------- | ------------------------------- | ------------------------------------- |
-| Color    | Blue `#4D9ABF`, coral `#F09082` | Light and dark backgrounds            |
-| Black    | Ink `#252B32`                   | Light backgrounds, one-color printing |
-| White    | `#FFFFFF`                       | Dark backgrounds and photographs      |
+| Coloring | Values                                          | Use                                   |
+| -------- | ----------------------------------------------- | ------------------------------------- |
+| Color    | Azure `#358DBA` blending into fuchsia `#C95BA4` | Light and dark backgrounds            |
+| Black    | Ink `#252B32`                                   | Light backgrounds, one-color printing |
+| White    | `#FFFFFF`                                       | Dark backgrounds and photographs      |
 
 ## Files
 
@@ -41,14 +41,30 @@ turned 0.45 rad about the z axis and viewed from 57°.
 `build.py` unions a 4096-step mesh of the surface and fits each outline with cubic Béziers by
 least squares. Nodes sit on the corners and on the horizontal and vertical extremes.
 
-- The silhouette is 31 segments and stays within 0.02 units of the 512-unit box (0.004%) of the mesh.
-- The two straight edges of the coral region are rulings of the surface, at t = 0 and t = 35·2π/128.
-- In the color drawing the blue path is cut away under the coral, with a lap behind each straight
-  edge, so no background shows at the joint and no blue fringes the coral at small sizes.
-  That path stays within 0.21 units (0.04%).
+The silhouette is 31 segments and stays within 0.02 units of the 512-unit box (0.004%) of the mesh.
 
-The coral region is a design choice. A Möbius strip has one side, so the two colors do not mean
-two sides.
+## Color blend
+
+In the color drawing the color changes along the strip itself. The near side is azure, the far side
+is fuchsia, and the two are mixed in OKLCH, so the transition passes through violet and not grey.
+
+The amount of fuchsia at each point is a mix of two blends: a soft blend that keeps the fuchsia on
+the far side, and a full loop in which the color travels once around the whole strip. The share of
+the full loop is 54% on the left side of the symbol and 65% on the right, changing smoothly between.
+
+SVG has no gradient that follows a curve, so the strip is painted as thin quads along its length,
+360 to a turn in the master and 120 in the small drawings, inside clip paths made from the exact
+outlines:
+
+- The quads are painted in order and without anti-aliasing. Each shows for one pitch, so the result
+  is an even staircase of colors about one 8-bit level apart, with no joints showing.
+- A base coat of wider quads reaches past the outline, so every edge pixel is fully painted.
+- At the twist the strip folds over itself. The part in front is a separate layer with its own
+  outline, so the fold has a clean edge.
+- The clip paths alone anti-alias the edges, exactly as in the one-color drawings.
+
+The blend is a design choice. A Möbius strip has one side, so the two colors do not mean two sides.
+The black, white and `currentColor` drawings are single flat colors.
 
 ## Small sizes
 
