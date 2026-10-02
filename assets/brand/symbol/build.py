@@ -27,7 +27,7 @@ CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 HALF_WIDTH, SPIN, ELEVATION = 0.36, 0.45, m.radians(57)
 FAR_SIDE = 35 * m.pi / 128  # the value of t at the middle of the far side, where the peach is purest
 BOX, STEPS, TOLERANCE = 512, 4096, 0.02
-BLUE, PEACH, INK, WHITE = "#5BA2C2", "#F3B689", "#252B32", "#FFFFFF"
+BLUE, PEACH, INK, WHITE = "#5BA2C2", "#F8AC8B", "#252B32", "#FFFFFF"
 # Share of the full-loop blend mixed into the soft blend, on the left and right sides of the symbol.
 LOOP_SHARE_LEFT, LOOP_SHARE_RIGHT = 0.54, 0.65
 SLICES, SMALL_SLICES = 360, 120
@@ -78,9 +78,10 @@ def from_oklch(lightness, chroma, hue):
 
 
 def mix(a, b, f):
-    """Blend two hex colors in OKLCH along the shorter hue arc."""
+    """Blend two hex colors in OKLCH, always turning the hue downward. From blue to peach that passes
+    through green; the two colors are almost opposite, so the shorter arc is not a stable choice."""
     (l1, c1, h1), (l2, c2, h2) = to_oklch(a), to_oklch(b)
-    dh = (h2 - h1 + m.pi) % (2 * m.pi) - m.pi
+    dh = (h2 - h1) % (2 * m.pi) - 2 * m.pi
     return from_oklch(l1 + (l2 - l1) * f, c1 + (c2 - c1) * f, h1 + dh * f)
 
 
