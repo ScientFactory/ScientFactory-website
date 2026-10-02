@@ -9,11 +9,11 @@ The three reference symbols are `scient-symbol-color.svg`, `scient-symbol-black.
 
 ## Colors
 
-| Coloring | Values                                          | Use                                   |
-| -------- | ----------------------------------------------- | ------------------------------------- |
-| Color    | Azure `#358DBA` blending into fuchsia `#C95BA4` | Light and dark backgrounds            |
-| Black    | Ink `#252B32`                                   | Light backgrounds, one-color printing |
-| White    | `#FFFFFF`                                       | Dark backgrounds and photographs      |
+| Coloring | Values                                       | Use                                   |
+| -------- | -------------------------------------------- | ------------------------------------- |
+| Color    | Blue `#549EC1` blending into coral `#F3A382` | Light and dark backgrounds            |
+| Black    | Ink `#252B32`                                | Light backgrounds, one-color printing |
+| White    | `#FFFFFF`                                    | Dark backgrounds and photographs      |
 
 ## Files
 
@@ -45,10 +45,11 @@ The silhouette is 31 segments and stays within 0.02 units of the 512-unit box (0
 
 ## Color blend
 
-In the color drawing the color changes along the strip itself. The near side is azure, the far side
-is fuchsia, and the two are mixed in OKLCH, so the transition passes through violet and not grey.
+In the color drawing the color changes along the strip itself. The near side is blue, the far side
+is coral, and the two are mixed in OKLCH, so the transition passes through lavender and pink and not
+grey.
 
-The amount of fuchsia at each point is a mix of two blends: a soft blend that keeps the fuchsia on
+The amount of coral at each point is a mix of two blends: a soft blend that keeps the coral on
 the far side, and a full loop in which the color travels once around the whole strip. The share of
 the full loop is 54% on the left side of the symbol and 65% on the right, changing smoothly between.
 

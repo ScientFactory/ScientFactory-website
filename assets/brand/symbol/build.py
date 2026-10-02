@@ -7,8 +7,8 @@ A fine mesh of the surface is unioned, then the outline is fitted with a few cub
 nodes sit on the corners and on the horizontal and vertical extremes.
 
 The color drawing paints the strip as thin slices along its length, clipped by that outline, so the
-color changes along the strip itself. Azure covers the near side and fuchsia the far side; colors are
-mixed in OKLCH, so the transition passes through violet.
+color changes along the strip itself. Blue covers the near side and coral the far side; colors are
+mixed in OKLCH, so the transition passes through lavender and pink.
 
 Needs shapely, Google Chrome and ImageMagick:
     python3 -m venv .venv && .venv/bin/pip install shapely && .venv/bin/python build.py
@@ -25,9 +25,9 @@ from shapely.ops import unary_union
 OUT = Path(__file__).parent
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 HALF_WIDTH, SPIN, ELEVATION = 0.36, 0.45, m.radians(57)
-FAR_SIDE = 35 * m.pi / 128  # the value of t at the middle of the far side, where the fuchsia is purest
+FAR_SIDE = 35 * m.pi / 128  # the value of t at the middle of the far side, where the coral is purest
 BOX, STEPS, TOLERANCE = 512, 4096, 0.02
-AZURE, FUCHSIA, INK, WHITE = "#358DBA", "#C95BA4", "#252B32", "#FFFFFF"
+BLUE, CORAL, INK, WHITE = "#549EC1", "#F3A382", "#252B32", "#FFFFFF"
 # Share of the full-loop blend mixed into the soft blend, on the left and right sides of the symbol.
 LOOP_SHARE_LEFT, LOOP_SHARE_RIGHT = 0.54, 0.65
 SLICES, SMALL_SLICES = 360, 120
@@ -84,10 +84,10 @@ def mix(a, b, f):
     return from_oklch(l1 + (l2 - l1) * f, c1 + (c2 - c1) * f, h1 + dh * f)
 
 
-def fuchsia_amount(t):
-    """How much fuchsia the strip carries at t, from 0 (azure) to 1.
+def coral_amount(t):
+    """How much coral the strip carries at t, from 0 (blue) to 1.
 
-    Two blends are mixed. The soft blend keeps the fuchsia on the far side and fades it out over about
+    Two blends are mixed. The soft blend keeps the coral on the far side and fades it out over about
     74 degrees of the strip on each side. The full loop is a cosine around the whole strip. The share of
     full loop is larger on the right side of the symbol than on the left and changes smoothly between.
     """
@@ -316,7 +316,7 @@ def quads(mapping, t0, t1, count, lap, grow=0.0):
         pts = [mapping(*project(t, w)) for t, w in ((a, -v), (b, -v), (b, v), (a, v))]
         if grow:
             pts = list(MultiPoint(pts).convex_hull.buffer(grow, join_style=2).exterior.coords)[:-1]
-        color = mix(AZURE, FUCHSIA, fuchsia_amount((a + min(a + dt, t1)) / 2))
+        color = mix(BLUE, CORAL, coral_amount((a + min(a + dt, t1)) / 2))
         out += '<path fill="{}" d="M{}Z"/>'.format(color, " ".join(f"{x:.1f} {y:.1f}" for x, y in pts))
     return out
 
@@ -341,7 +341,7 @@ clip_ids = itertools.count()
 
 
 def symbol(fill, size=BOX, d=MASTER, standalone=True):
-    """One SVG. `fill` is a color for the one-color drawings and None for the azure-to-fuchsia drawing.
+    """One SVG. `fill` is a color for the one-color drawings and None for the blue-to-coral drawing.
     Inline copies get their own clip ids, because each size has its own outline."""
     head = "<title>Scient</title>" if standalone else ""
     if fill is None:
