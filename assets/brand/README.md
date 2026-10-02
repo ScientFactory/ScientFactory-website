@@ -8,6 +8,12 @@ assets for reuse; they are kept outside `public/` so adding them does not create
 - `logo/scient-profile-picture-1024x1024.png` — square profile image for social accounts.
 - The editable symbol remains [`public/scient-symbol.svg`](../../public/scient-symbol.svg).
 
+## Next symbol
+
+- [`symbol/`](symbol/README.md) — reference files for the Möbius-strip symbol that will replace the
+  current one: color, black and white SVG masters, with pixel-fitted small sizes, PNG and PDF
+  exports. Nothing on the website uses them yet.
+
 ## Social headers
 
 - `social/scient-x-header-clean-3000x1000.png` — preferred high-resolution X header upload.
