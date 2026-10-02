@@ -11,7 +11,7 @@ The three reference symbols are `scient-symbol-color.svg`, `scient-symbol-black.
 
 | Coloring | Values                                       | Use                                   |
 | -------- | -------------------------------------------- | ------------------------------------- |
-| Color    | Blue `#549EC1` blending into coral `#F3A382` | Light and dark backgrounds            |
+| Color    | Blue `#5BA2C2` blending into peach `#F3B689` | Light and dark backgrounds            |
 | Black    | Ink `#252B32`                                | Light backgrounds, one-color printing |
 | White    | `#FFFFFF`                                    | Dark backgrounds and photographs      |
 
@@ -46,10 +46,9 @@ The silhouette is 31 segments and stays within 0.02 units of the 512-unit box (0
 ## Color blend
 
 In the color drawing the color changes along the strip itself. The near side is blue, the far side
-is coral, and the two are mixed in OKLCH, so the transition passes through lavender and pink and not
-grey.
+is peach, and the two are mixed in OKLCH, so the transition passes through soft green and not grey.
 
-The amount of coral at each point is a mix of two blends: a soft blend that keeps the coral on
+The amount of peach at each point is a mix of two blends: a soft blend that keeps the peach on
 the far side, and a full loop in which the color travels once around the whole strip. The share of
 the full loop is 54% on the left side of the symbol and 65% on the right, changing smoothly between.
 
