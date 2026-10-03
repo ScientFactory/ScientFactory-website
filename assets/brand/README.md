@@ -14,6 +14,12 @@ assets for reuse; they are kept outside `public/` so adding them does not create
   current one: color, black and white SVG masters, with pixel-fitted small sizes, PNG and PDF
   exports. Nothing on the website uses them yet.
 
+## Link preview
+
+- `public/og-image.png` (1200x630) — the image shown when a scientfactory.com link is shared
+  (WhatsApp, Slack, X, LinkedIn). The symbol and wordmark are centred so a square crop keeps both.
+  Bump the `?v=` query in `src/layouts/Layout.astro` whenever the file changes.
+
 ## Social headers
 
 - `social/scient-x-header-clean-3000x1000.png` — preferred high-resolution X header upload.
