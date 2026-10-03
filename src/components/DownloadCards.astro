@@ -1,0 +1,427 @@
+---
+// FILE: DownloadCards.astro
+// Purpose: The home page's per-platform download cards, with a macOS chip switch and a
+//          "For your device" badge on the visitor's platform.
+// Layer: Marketing component
+// Depends on: ../lib/releases for the latest release and its installer assets.
+
+import { faApple, faLinux, faWindows } from "@fortawesome/free-brands-svg-icons";
+
+const iconPath = (icon: typeof faApple) => {
+  const [width, height, , , pathData] = icon.icon;
+  return { viewBox: `0 0 ${width} ${height}`, d: Array.isArray(pathData) ? pathData[0] : pathData };
+};
+
+const platforms = [
+  {
+    id: "macos",
+    name: "macOS",
+    icon: iconPath(faApple),
+    assetKey: "macArm64",
+    href: "/download#macos",
+  },
+  {
+    id: "windows",
+    name: "Windows",
+    icon: iconPath(faWindows),
+    assetKey: "windowsX64",
+    href: "/download#windows",
+  },
+  {
+    id: "linux",
+    name: "Linux",
+    icon: iconPath(faLinux),
+    assetKey: "linuxX64",
+    href: "/download#linux",
+  },
+] as const;
+
+const chips = [
+  { key: "macArm64", label: "Apple silicon" },
+  { key: "macX64", label: "Intel" },
+] as const;
+---
+
+<div class="dl" data-download-cards>
+  <div class="dl__cards">
+    {
+      platforms.map((platform) => (
+        <section class="dl-card" data-platform={platform.id} aria-labelledby={`dl-${platform.id}`}>
+          <p class="dl-card__badge" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m5 12.5 4.5 4.5L19 7.5" />
+            </svg>
+            For your device
+          </p>
+          <h3 class="dl-card__name" id={`dl-${platform.id}`}>
+            <svg class="dl-card__icon" viewBox={platform.icon.viewBox} aria-hidden="true">
+              <path d={platform.icon.d} />
+            </svg>
+            {platform.name}
+          </h3>
+
+          {platform.id === "macos" && (
+            <div class="dl-card__chips" role="group" aria-label="Mac chip" data-selected="macArm64">
+              <span class="dl-card__thumb" aria-hidden="true" />
+              {chips.map((chip, index) => (
+                <button type="button" data-chip={chip.key} aria-pressed={index === 0 ? "true" : "false"}>
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <a
+            class="dl-card__button"
+            href={platform.href}
+            data-download-asset={platform.assetKey}
+            aria-label={
+              platform.id === "macos"
+                ? "Download Scient for Mac with Apple silicon"
+                : `Download Scient for ${platform.name}`
+            }
+          >
+            Download
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 2.5v12.5" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 20h14" />
+            </svg>
+          </a>
+        </section>
+      ))
+    }
+  </div>
+
+  <p class="dl__release">
+    <span data-release-version></span>
+    <a href="/download">All downloads and checksums</a>
+  </p>
+</div>
+
+<script>
+  import { detectPlatform } from "../lib/detect-platform";
+  import { fetchLatestRelease, findDownloadAsset, type DownloadAssetKey } from "../lib/releases";
+
+  const CHIP_LABELS: Record<string, string> = {
+    macArm64: "Mac with Apple silicon",
+    macX64: "Mac with Intel",
+  };
+
+  type NavigatorWithUAData = Navigator & {
+    userAgentData?: {
+      platform?: string;
+      getHighEntropyValues?: (hints: string[]) => Promise<{ architecture?: string }>;
+    };
+  };
+
+  document.querySelectorAll<HTMLElement>("[data-download-cards]").forEach((root) => {
+    const nav = navigator as NavigatorWithUAData;
+    const macButton = root.querySelector<HTMLAnchorElement>('[data-platform="macos"] .dl-card__button');
+    const chipButtons = [...root.querySelectorAll<HTMLButtonElement>("[data-chip]")];
+    const hrefs = new Map<string, string>();
+
+    const selectChip = (key: string) => {
+      chipButtons.forEach((chip) => chip.setAttribute("aria-pressed", String(chip.dataset.chip === key)));
+      chipButtons[0]?.parentElement?.setAttribute("data-selected", key);
+      if (!macButton) return;
+      macButton.dataset.downloadAsset = key;
+      macButton.setAttribute("aria-label", `Download Scient for ${CHIP_LABELS[key]}`);
+      macButton.href = hrefs.get(key) ?? "/download#macos";
+    };
+
+    chipButtons.forEach((chip) => chip.addEventListener("click", () => selectChip(chip.dataset.chip ?? "macArm64")));
+
+    const detected = detectPlatform({
+      userAgent: nav.userAgent,
+      platform: nav.platform,
+      uaDataPlatform: nav.userAgentData?.platform,
+      maxTouchPoints: nav.maxTouchPoints,
+    });
+    if (detected) {
+      const card = root.querySelector<HTMLElement>(`[data-platform="${detected}"]`);
+      card?.setAttribute("data-detected", "");
+      const badge = card?.querySelector<HTMLElement>(".dl-card__badge");
+      if (badge) badge.hidden = false;
+    }
+
+    // Chromium reports the CPU architecture; other browsers keep the Apple silicon default.
+    if (detected === "macos") {
+      void nav.userAgentData
+        ?.getHighEntropyValues?.(["architecture"])
+        .then(({ architecture }) => {
+          if (architecture === "x86") selectChip("macX64");
+        })
+        .catch(() => {});
+    }
+
+    void fetchLatestRelease()
+      .then((release) => {
+        const keys: DownloadAssetKey[] = ["macArm64", "macX64", "windowsX64", "linuxX64"];
+        keys.forEach((key) => {
+          if (findDownloadAsset(release, key)) hrefs.set(key, `/api/download/${encodeURIComponent(key)}`);
+        });
+        root.querySelectorAll<HTMLAnchorElement>("[data-download-asset]").forEach((button) => {
+          const href = hrefs.get(button.dataset.downloadAsset ?? "");
+          if (href) button.href = href;
+        });
+        const version = root.querySelector<HTMLElement>("[data-release-version]");
+        if (version) version.textContent = `Latest release ${release.tag_name}`;
+      })
+      .catch(() => {
+        // The server-rendered /download links remain a reliable fallback.
+      });
+  });
+</script>
+
+<style>
+  .dl {
+    --dl-card: var(--surface);
+    --dl-line: #e6e8eb;
+    --dl-track: #eef0f2;
+    --dl-button: #34353a;
+    --dl-button-hover: #4a4b51;
+    --dl-accent: #a3a7ad;
+    --dl-accent-ink: #d4724b;
+  }
+
+  .dl__cards {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.7rem;
+  }
+
+  .dl-card {
+    position: relative;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.4rem 1rem 1.45rem;
+    border: 1px solid var(--dl-line);
+    border-radius: var(--radius-sm);
+    background: var(--dl-card);
+    text-align: center;
+    transition:
+      transform 260ms var(--ease-out),
+      background-color 220ms ease,
+      border-color 220ms ease,
+      box-shadow 260ms var(--ease-out);
+  }
+
+  .dl-card[data-detected] {
+    padding-top: 1.65rem;
+    border-color: var(--dl-accent);
+  }
+
+  .dl-card__badge {
+    position: absolute;
+    top: -0.62rem;
+    right: 0;
+    left: 0;
+    width: fit-content;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin: 0 auto;
+    padding: 0.12rem 0.5rem;
+    border: 1px solid var(--dl-accent);
+    border-radius: 999px;
+    background: var(--dl-card);
+    color: var(--dl-accent-ink);
+    font-size: 0.66rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .dl-card__badge[hidden] {
+    display: none;
+  }
+
+  .dl-card__badge svg {
+    width: 0.65rem;
+    height: 0.65rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .dl-card__name {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0;
+    color: var(--ink);
+    font-size: 1.06rem;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+
+  .dl-card__icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: currentColor;
+  }
+
+  .dl-card__chips {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 1rem;
+    padding: 2px;
+    border-radius: 999px;
+    background: var(--dl-track);
+  }
+
+  .dl-card__thumb {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    border-radius: 999px;
+    background: var(--dl-button);
+    box-shadow: 0 1px 2px rgba(17, 17, 17, 0.12);
+    transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .dl-card__chips[data-selected="macX64"] .dl-card__thumb {
+    transform: translateX(100%);
+  }
+
+  .dl-card__chips button {
+    position: relative;
+    z-index: 1;
+    min-width: 5.5rem;
+    padding: 0.2rem 0.7rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink-dim);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 200ms ease;
+  }
+
+  .dl-card__chips button[aria-pressed="true"] {
+    color: #ffffff;
+  }
+
+  .dl-card__chips button:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+  }
+
+  .dl-card__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 1rem;
+    padding: 0.38rem 0.95rem;
+    border-radius: 999px;
+    background: var(--dl-button);
+    color: #ffffff;
+    font-size: 0.84rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-decoration: none;
+    transition:
+      background-color 200ms ease,
+      box-shadow 240ms ease,
+      transform 240ms ease;
+  }
+
+  .dl-card__button svg {
+    width: 0.8rem;
+    height: 0.8rem;
+    transition: transform 240ms ease;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .dl-card:hover {
+      border-color: #d3d6db;
+      background: #ffffff;
+      box-shadow: 0 10px 28px rgba(17, 17, 17, 0.07);
+      transform: translateY(-2px);
+    }
+
+    .dl-card[data-detected]:hover {
+      border-color: #7f848b;
+    }
+
+    .dl-card__chips button[aria-pressed="false"]:hover {
+      color: var(--ink);
+    }
+
+    .dl-card__button:hover {
+      background: var(--dl-button-hover);
+      box-shadow: 0 6px 16px rgba(17, 17, 17, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .dl-card__button:hover svg {
+      transform: translateY(1px);
+    }
+  }
+
+  .dl-card__button:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .dl-card__button:focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  .dl__release {
+    margin: 0.9rem 0 0;
+    color: var(--ink-dim);
+    font-size: 0.76rem;
+    text-align: center;
+  }
+
+  .dl__release span:not(:empty) {
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .dl__release a {
+    color: var(--ink-dim);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .dl__release a:hover {
+    color: var(--ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dl-card,
+    .dl-card__thumb,
+    .dl-card__button,
+    .dl-card__button svg,
+    .dl-card__chips button {
+      transition-duration: 0.01ms;
+    }
+
+    .dl-card:hover,
+    .dl-card__button:hover,
+    .dl-card__button:active,
+    .dl-card__button:hover svg {
+      transform: none;
+    }
+  }
+</style>
