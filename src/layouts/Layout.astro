@@ -20,7 +20,6 @@ const {
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, "https://scientfactory.com");
-const brandIcon = theme === "light" ? "/scient-symbol.svg" : "/icon.png";
 const currentPath = Astro.url.pathname;
 
 const primaryLinks = [
@@ -58,7 +57,7 @@ const primaryLinks = [
     <div class="page">
       <nav class="nav" aria-label="Primary navigation">
         <a href="/" class="nav-brand" aria-label="Scient home">
-          <img src={brandIcon} alt="" class="nav-icon" width="42" height="45" />
+          <img src="/scient-symbol.svg" alt="" class="nav-icon" width="40" height="40" />
           <span class="nav-wordmark">ScientFactory</span>
         </a>
         <div class="nav-links">
@@ -85,22 +84,16 @@ const primaryLinks = [
       </footer>
     </div>
 
-    <aside class="analytics-consent" data-analytics-consent hidden aria-labelledby="analytics-consent-title">
-      <div class="analytics-consent-copy">
-        <strong id="analytics-consent-title">Cookies on ScientFactory</strong>
-        <p>
-          We use an essential cookie to remember your choice. With your permission, we also use
-          first-party analytics cookies to understand visits, downloads, and returning sessions so
-          we can improve Scient. We never collect your research content.
-          <a href="/privacy">Learn more</a>
-        </p>
-      </div>
+    <aside class="analytics-consent" data-analytics-consent hidden aria-label="Cookie choice">
+      <p class="analytics-consent-copy">
+        Optional analytics cookies help us improve Scient. <a href="/privacy">Learn more</a>
+      </p>
       <div class="analytics-consent-actions">
         <button type="button" class="analytics-consent-secondary" data-consent-level="essential">
           Essential only
         </button>
         <button type="button" class="analytics-consent-primary" data-consent-level="product">
-          Allow analytics cookies
+          Allow analytics
         </button>
       </div>
     </aside>
@@ -353,7 +346,7 @@ const primaryLinks = [
     }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: none;
     }
   }
 
@@ -409,17 +402,11 @@ const primaryLinks = [
   }
 
   .nav-icon {
-    width: 3rem;
-    height: 3.2rem;
+    width: 2.5rem;
+    height: 2.5rem;
     object-fit: contain;
     flex: 0 0 auto;
     transition: transform 260ms var(--ease-out);
-  }
-
-  html[data-theme="dark"] .nav-icon {
-    width: 2rem;
-    height: 2rem;
-    border-radius: var(--radius-sm);
   }
 
   .nav-wordmark {
@@ -511,18 +498,19 @@ const primaryLinks = [
   .analytics-consent {
     position: fixed;
     z-index: 50;
-    right: clamp(1rem, 3vw, 2rem);
-    bottom: clamp(1rem, 3vw, 2rem);
-    width: min(35rem, calc(100vw - 2rem));
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-    gap: 0.85rem;
-    padding: 1rem 1.1rem;
+    right: max(1rem, min(17vw, 17.5rem, calc(100vw - 26rem)));
+    bottom: clamp(1.25rem, 4vw, 2.75rem);
+    width: min(25rem, calc(100vw - 2rem));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 0.9rem;
+    padding: 0.7rem 0.75rem 0.7rem 1rem;
     border: 1px solid var(--line);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--surface) 96%, transparent);
-    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.12);
+    box-shadow: 0 0.6rem 2rem rgba(0, 0, 0, 0.08);
     backdrop-filter: blur(18px);
   }
 
@@ -530,55 +518,60 @@ const primaryLinks = [
     display: none;
   }
 
-  .analytics-consent-copy strong {
-    display: block;
-    margin-bottom: 0.2rem;
-    font-size: 0.92rem;
-    font-weight: 600;
-  }
-
-  .analytics-consent-copy p {
+  .analytics-consent-copy {
+    flex: 1 1 11rem;
     margin: 0;
     color: var(--ink-muted);
-    font-size: 0.78rem;
-    line-height: 1.45;
+    font-size: 0.76rem;
+    line-height: 1.4;
   }
 
   .analytics-consent-copy a {
+    color: var(--ink-muted);
     text-decoration: underline;
     text-underline-offset: 0.16em;
   }
 
   .analytics-consent-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
+    gap: 0.4rem;
+    margin-left: auto;
   }
 
   .analytics-consent-actions button {
-    min-height: 2.25rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.32rem 0.7rem;
     border: 1px solid var(--line);
-    border-radius: 0.45rem;
+    border-radius: 999px;
     cursor: pointer;
-    font-size: 0.78rem;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 500;
     white-space: nowrap;
-    transition: transform 180ms var(--ease-out), background-color 180ms var(--ease-out);
-  }
-
-  .analytics-consent-actions button:hover:not(:disabled) {
-    transform: translateY(-1px);
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease;
   }
 
   .analytics-consent-secondary {
-    background: var(--surface);
+    background: transparent;
+    color: var(--ink-muted);
+  }
+
+  .analytics-consent-secondary:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--ink) 30%, var(--line));
     color: var(--ink);
   }
 
   .analytics-consent-primary {
-    border-color: var(--burgundy) !important;
-    background: var(--burgundy);
+    border-color: #34353a !important;
+    background: #34353a;
     color: #fff;
+  }
+
+  .analytics-consent-primary:hover:not(:disabled) {
+    border-color: #4a4b51 !important;
+    background: #4a4b51;
   }
 
   .analytics-consent-actions button:disabled {
@@ -623,11 +616,6 @@ const primaryLinks = [
     .footer-links {
       flex-wrap: wrap;
       gap: 0.75rem 1.1rem;
-    }
-
-    .analytics-consent {
-      grid-template-columns: 1fr;
-      gap: 0.85rem;
     }
 
     .analytics-consent-actions {

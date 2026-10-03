@@ -1,7 +1,6 @@
 ---
 import CapabilityCard from "../components/CapabilityCard.astro";
-import MacDownloadMenu from "../components/MacDownloadMenu.astro";
-import PlatformButton from "../components/PlatformButton.astro";
+import DownloadCards from "../components/DownloadCards.astro";
 import Layout from "../layouts/Layout.astro";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 
@@ -12,7 +11,7 @@ const capabilities = [
   {
     kind: "literature",
     label: "Literature review",
-    description: "Find, compare, and synthesize relevant research.",
+    description: "Find, compare, and read papers side by side with the chat.",
   },
   {
     kind: "planning",
@@ -22,22 +21,42 @@ const capabilities = [
   {
     kind: "analysis",
     label: "Data analysis",
-    description: "Explore data and turn results into clear evidence.",
+    description: "Run Python, MATLAB, and more to explore and visualize your results.",
   },
   {
     kind: "figures",
     label: "Figure creation",
-    description: "Create publication-ready scientific visuals.",
+    description: "Make charts, diagrams, and publication-ready figures.",
   },
   {
     kind: "writing",
     label: "Scientific writing",
-    description: "Draft and refine manuscripts with focused assistance.",
+    description: "Write with your AI in the same document, with live math, tables, and diagrams.",
+  },
+  {
+    kind: "latex",
+    label: "LaTeX and PDF",
+    description: "Write, compile, read, and edit your paper as a live PDF, then annotate it or export to Word.",
   },
   {
     kind: "citations",
     label: "Citation management",
-    description: "Organize references and keep every claim connected.",
+    description: "Build a library from Zotero, PDFs, or DOIs, and cite in any style.",
+  },
+  {
+    kind: "review",
+    label: "Pre-submission review",
+    description: "Get rigorous AI feedback on your paper before it goes out.",
+  },
+  {
+    kind: "skills",
+    label: "Research skills",
+    description: "Scient skills guide your AI through every step of your research.",
+  },
+  {
+    kind: "compare",
+    label: "Compare models",
+    description: "Give several models the same task and keep the best result.",
   },
 ] as const;
 ---
@@ -54,8 +73,8 @@ const capabilities = [
       class="hero-geometry"
       src="/scient-symbol.svg"
       alt=""
-      width="376"
-      height="400"
+      width="512"
+      height="512"
       aria-hidden="true"
       decoding="async"
     />
@@ -84,21 +103,7 @@ const capabilities = [
         <p class="download-promise">
           Use Scient for free with the AI subscriptions you already have.
         </p>
-        <div class="download-actions">
-          <MacDownloadMenu />
-          <PlatformButton
-            platform="Windows"
-            tone="slate"
-            href="/download#windows"
-            assetKey="windowsX64"
-          />
-          <PlatformButton
-            platform="Linux"
-            tone="burgundy"
-            href="/download#linux"
-            assetKey="linuxX64"
-          />
-        </div>
+        <DownloadCards />
       </div>
     </aside>
   </section>
@@ -126,9 +131,9 @@ const capabilities = [
           <span class="provider-shot">
             <img
               src="/screenshots/provider-picker.png"
-              alt="Scient provider menu showing Codex, Claude, Cursor, Antigravity, Grok, Droid, Kilo, OpenCode, and Pi"
-              width="1838"
-              height="1094"
+              alt="Scient model picker with favorite models from Scient, Codex, Claude, Droid, Cursor, and Grok"
+              width="1982"
+              height="1364"
               loading="lazy"
               decoding="async"
             />
@@ -159,9 +164,9 @@ const capabilities = [
         <img
           class="provider-lightbox__image"
           src="/screenshots/provider-picker.png"
-          alt="Scient provider menu showing Codex, Claude, Cursor, Antigravity, Grok, Droid, Kilo, OpenCode, and Pi"
-          width="1838"
-          height="1094"
+          alt="Scient model picker with favorite models from Scient, Codex, Claude, Droid, Cursor, and Grok"
+          width="1982"
+          height="1364"
           loading="lazy"
           decoding="async"
         />
@@ -222,7 +227,7 @@ const capabilities = [
     isolation: isolate;
     min-height: calc(100svh - 7rem);
     display: grid;
-    grid-template-columns: minmax(0, 59.1fr) minmax(0, 40.9fr);
+    grid-template-columns: minmax(0, 65.5fr) minmax(0, 34.5fr);
     align-items: start;
   }
 
@@ -232,7 +237,7 @@ const capabilities = [
     top: -7rem;
     right: 0;
     bottom: 0;
-    width: 40.9%;
+    width: 34.5%;
     background: #faf9f6;
     pointer-events: none;
   }
@@ -242,8 +247,8 @@ const capabilities = [
     z-index: 2;
     grid-column: 1;
     justify-self: center;
-    width: min(100%, 50rem);
-    padding: 1rem clamp(1.5rem, 2.25vw, 3rem) clamp(6rem, 11vh, 8rem)
+    width: min(100%, 60rem);
+    padding: 1rem clamp(1.5rem, 2.25vw, 3rem) clamp(4rem, 7.5vh, 5.5rem)
       clamp(3.75rem, calc(5.75vw - 0.75rem), 5rem);
   }
 
@@ -281,7 +286,8 @@ const capabilities = [
   }
 
   .description {
-    max-width: 34.75rem;
+    /* In em so the line breaks stay put as the font scales with the window. */
+    max-width: 34em;
     margin: 2.9rem 0 0;
     color: var(--ink-muted);
     font-size: clamp(1rem, 1.28vw, 1.15rem);
@@ -291,7 +297,7 @@ const capabilities = [
   }
 
   .capabilities {
-    width: min(100%, 40.75rem);
+    width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.3rem 0.45rem;
@@ -305,18 +311,20 @@ const capabilities = [
     z-index: 3;
     grid-column: 2;
     min-width: 0;
-    padding: 2.75rem clamp(3.5rem, 4.4vw, 4.5rem) 6rem clamp(4.5rem, 6vw, 5.75rem);
+    padding: 2.75rem clamp(2rem, 3.5vw, 3.5rem) 6rem;
   }
 
   .downloads-inner {
     position: relative;
     z-index: 2;
-    width: min(100%, 21.25rem);
+    width: min(100%, 18rem);
+    margin-inline: auto;
   }
 
   .download-title {
     margin: 0;
     color: var(--ink);
+    text-align: center;
     font-size: clamp(1.85rem, 2.35vw, 2.2rem);
     font-weight: 500;
     letter-spacing: -0.04em;
@@ -324,18 +332,15 @@ const capabilities = [
   }
 
   .download-promise {
-    max-width: 20rem;
-    margin: 0.95rem 0 2.1rem;
+    /* Sized in em so the line breaks fall in the same place at every window width. */
+    width: 21em;
+    max-width: none;
+    margin: 0.95rem calc((100% - 21em) / 2) 2.7rem;
+    text-align: center;
     color: var(--ink-muted);
     font-size: clamp(1rem, 1.15vw, 1.08rem);
     letter-spacing: -0.018em;
     line-height: 1.48;
-  }
-
-  .download-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.55rem;
   }
 
   .provider-proof {
@@ -423,16 +428,16 @@ const capabilities = [
   .provider-shot {
     position: relative;
     display: block;
-    aspect-ratio: 6 / 5;
+    aspect-ratio: 1000 / 860;
     overflow: hidden;
     background: #ffffff;
   }
 
   .provider-shot img {
     position: absolute;
-    top: -44%;
-    left: -99%;
-    width: 215%;
+    top: -45.9%;
+    left: -17%;
+    width: 198.2%;
     max-width: none;
     height: auto;
   }
@@ -467,8 +472,8 @@ const capabilities = [
 
   .provider-lightbox__frame {
     position: relative;
-    width: min(84vw, calc(78vh * 1.68), 68rem);
-    aspect-ratio: 1838 / 1094;
+    width: min(84vw, calc(78vh * 1.45), 68rem);
+    aspect-ratio: 1982 / 1364;
     max-height: 78vh;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -575,7 +580,7 @@ const capabilities = [
     }
 
     .downloads {
-      padding-inline: clamp(2.75rem, 5vw, 4rem) clamp(2rem, 4vw, 3.5rem);
+      padding-inline: clamp(1.75rem, 3vw, 2.5rem);
     }
 
     .provider-proof-inner {
@@ -630,7 +635,7 @@ const capabilities = [
     }
 
     .downloads-inner {
-      width: min(100%, 31rem);
+      width: min(100%, 24rem);
       margin-inline: auto;
     }
 
@@ -681,13 +686,11 @@ const capabilities = [
     }
 
     .download-promise {
+      width: auto;
+      margin-inline: 0;
       margin-top: 0.8rem;
-      margin-bottom: 1.55rem;
+      margin-bottom: 2rem;
       font-size: 1rem;
-    }
-
-    .download-actions {
-      gap: 0.85rem;
     }
 
     .provider-proof-inner {

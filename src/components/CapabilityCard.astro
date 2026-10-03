@@ -3,13 +3,27 @@ import {
   faBookmark,
   faCalendarCheck,
   faChartBar,
+  faCircleCheck,
+  faClone,
+  faCompass,
   faFileLines,
+  faFilePdf,
   faImage,
   faPenToSquare,
 } from "@fortawesome/free-regular-svg-icons";
 
 interface Props {
-  kind: "literature" | "planning" | "analysis" | "figures" | "writing" | "citations";
+  kind:
+    | "literature"
+    | "planning"
+    | "analysis"
+    | "figures"
+    | "writing"
+    | "latex"
+    | "citations"
+    | "review"
+    | "skills"
+    | "compare";
   label: string;
   description: string;
 }
@@ -21,7 +35,11 @@ const icons = {
   analysis: faChartBar,
   figures: faImage,
   writing: faPenToSquare,
+  latex: faFilePdf,
   citations: faBookmark,
+  review: faCircleCheck,
+  skills: faCompass,
+  compare: faClone,
 };
 const icon = icons[kind];
 const [iconWidth, iconHeight, , , iconPathData] = icon.icon;
