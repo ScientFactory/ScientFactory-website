@@ -98,6 +98,9 @@ const chevronPath = Array.isArray(chevronPathData) ? chevronPathData[0] : chevro
 
 <script>
   const topicStoragePrefix = "scient-docs-topic:v3:";
+  const isGettingStarted = Boolean(
+    document.querySelector('.docs-navigation a[aria-current="page"][href="/docs/getting-started/"]'),
+  );
   const topicDisclosures = [
     ...document.querySelectorAll<HTMLDetailsElement>("[data-docs-navigation-topic]"),
   ];
@@ -122,7 +125,7 @@ const chevronPath = Array.isArray(chevronPathData) ? chevronPathData[0] : chevro
     const topic = disclosure.dataset.docsNavigationTopic;
     const currentTopic = disclosure.dataset.docsNavigationCurrentTopic === "true";
 
-    if (topic && !currentTopic) {
+    if (topic && !currentTopic && !isGettingStarted) {
       const savedState = readTopicState(topic);
       if (savedState === "open" || savedState === "closed") {
         disclosure.open = savedState === "open";
@@ -203,9 +206,9 @@ const chevronPath = Array.isArray(chevronPathData) ? chevronPathData[0] : chevro
 
   .docs-navigation__topic-title {
     margin: 0;
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 750;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.075em;
     text-transform: uppercase;
   }
 

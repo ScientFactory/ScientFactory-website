@@ -5,17 +5,16 @@
 // Depends on: global visual tokens from Layout.astro and the bundled Scient symbol.
 
 interface Props {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   titleLines?: string[];
   intro: string;
-  variant?: "default" | "home";
 }
 
-const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
+const { eyebrow, title, titleLines, intro } = Astro.props;
 ---
 
-<article class:list={["prose-page", { "prose-page--home": variant === "home" }]}>
+<article class="prose-page">
   <img
     class="prose-page__geometry"
     src="/scient-symbol.svg?v=20261003"
@@ -27,9 +26,9 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
   />
 
   <header class="prose-hero">
-    {variant !== "home" && <p class="prose-eyebrow">{eyebrow}</p>}
     <h1>{titleLines ? titleLines.map((line, index) => <>{index > 0 && " "}<span class="prose-title-line">{line}</span></>) : title}</h1>
     <p class="prose-intro">{intro}</p>
+    {eyebrow && <p class="prose-eyebrow">{eyebrow}</p>}
   </header>
 
   <div class="prose-content">
@@ -43,7 +42,7 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
     isolation: isolate;
     overflow: clip;
     min-height: calc(100svh - 12rem);
-    padding: clamp(3.5rem, 8vw, 7.5rem) var(--page-gutter) clamp(5rem, 10vw, 8rem);
+    padding: clamp(0rem, calc(5vw - 30px), 1rem) var(--page-gutter) clamp(5rem, 10vw, 8rem);
   }
 
   .prose-page__geometry {
@@ -70,7 +69,7 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
   }
 
   .prose-eyebrow {
-    margin: 0 0 1.1rem;
+    margin: 1rem 0 0;
     color: var(--ink-dim);
     font-size: 0.76rem;
     font-weight: 600;
@@ -80,23 +79,23 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
   }
 
   .prose-hero h1 {
-    max-width: 54rem;
+    max-width: 16em;
     margin: 0;
     color: var(--ink);
-    font-size: clamp(3.25rem, 7vw, 6.5rem);
+    font-size: clamp(2.8rem, 5vw, 4.55rem);
     font-weight: 500;
-    letter-spacing: -0.06em;
-    line-height: 0.98;
+    letter-spacing: -0.058em;
+    line-height: 1.13;
     text-wrap: balance;
   }
 
   .prose-intro {
-    max-width: 45rem;
-    margin: clamp(2rem, 4vw, 3.25rem) 0 0;
+    max-width: 34em;
+    margin: clamp(1.65rem, 3.625vw, 2.9rem) 0 0;
     color: var(--ink-muted);
-    font-size: clamp(1.12rem, 1.7vw, 1.38rem);
-    letter-spacing: -0.02em;
-    line-height: 1.58;
+    font-size: clamp(1rem, 1.28vw, 1.15rem);
+    letter-spacing: -0.018em;
+    line-height: 1.55;
   }
 
   .prose-content {
@@ -106,8 +105,8 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
 
   :global(.content-section) {
     display: grid;
-    grid-template-columns: minmax(8.5rem, 0.28fr) minmax(0, 0.72fr);
-    gap: clamp(2rem, 7vw, 6rem);
+    grid-template-columns: clamp(9rem, 20%, 13rem) minmax(0, 1fr);
+    gap: clamp(1.5rem, 3vw, 3rem);
     padding: clamp(3.5rem, 7vw, 5.75rem) 0;
     border-bottom: 1px solid var(--line);
   }
@@ -229,7 +228,7 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
     color: var(--ink);
     font-size: 1rem;
     font-weight: 550;
-    letter-spacing: -0.018em;
+    letter-spacing: -0.02em;
   }
 
   :global(.content-steps p) {
@@ -317,10 +316,6 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
   }
 
   @media (max-width: 720px) {
-    .prose-page {
-      padding-top: 2.25rem;
-    }
-
     .prose-page__geometry {
       top: 2rem;
       right: -10rem;
@@ -329,16 +324,6 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
 
     .prose-hero {
       padding-bottom: 3.25rem;
-    }
-
-    .prose-hero h1 {
-      font-size: clamp(2.65rem, 13vw, 4.2rem);
-      line-height: 1;
-    }
-
-    .prose-intro {
-      margin-top: 1.75rem;
-      font-size: 1.04rem;
     }
 
     :global(.content-section) {
@@ -357,11 +342,6 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
       padding-inline: 1.25rem;
     }
 
-    .prose-hero h1 {
-      font-size: clamp(2.45rem, 12.5vw, 3.25rem);
-      letter-spacing: -0.055em;
-    }
-
     :global(.content-actions) {
       display: grid;
       grid-template-columns: 1fr;
@@ -377,44 +357,16 @@ const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
 </style>
 
 <style>
-  .prose-page--home {
-    padding-top: clamp(0rem, calc(5vw - 30px), 1rem);
-  }
-
-  .prose-page--home .prose-hero h1 {
-    max-width: 16em;
-    font-size: clamp(2.8rem, 5vw, 4.55rem);
-    letter-spacing: -0.058em;
-    line-height: 1.13;
-  }
-
-  .prose-page--home .prose-intro {
-    max-width: 34em;
-    margin-top: clamp(1.65rem, 3.625vw, 2.9rem);
-    font-size: clamp(1rem, 1.28vw, 1.15rem);
-    letter-spacing: -0.018em;
-    line-height: 1.55;
-  }
-
   @media (min-width: 601px) {
-    .prose-page--home .prose-title-line {
-      display: block;
-    }
+    .prose-title-line { display: block; }
   }
 
-  .prose-page--home :global(.content-section__body) {
+  :global(.content-section__body) {
     padding-right: clamp(0rem, calc(10vw - 72px), 3rem);
   }
 
   @media (min-width: 721px) {
-    .prose-page--home :global(.content-section) {
-      grid-template-columns: clamp(9rem, 20%, 13rem) minmax(0, 1fr);
-      gap: clamp(1.5rem, 3vw, 3rem);
-    }
-
-    .prose-page--home :global(.content-section__body > p),
-    .prose-page--home :global(.content-section h2) {
-      max-width: none;
-    }
+    :global(.content-section__body > p),
+    :global(.content-section h2) { max-width: none; }
   }
 </style>
