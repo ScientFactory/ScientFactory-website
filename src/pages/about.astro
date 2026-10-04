@@ -1,4 +1,5 @@
 ---
+import DownloadCards from "../components/DownloadCards.astro";
 import Prose from "../components/Prose.astro";
 import Layout from "../layouts/Layout.astro";
 ---
@@ -9,8 +10,10 @@ import Layout from "../layouts/Layout.astro";
   description="ScientFactory is building Scient—an intelligent workspace that brings research tools and AI agents together, with the researcher at the center."
 >
   <Prose
+    variant="home"
     eyebrow="About ScientFactory"
     title="Building a better home for scientific work."
+    titleLines={["Building a better home", "for scientific work."]}
     intro="ScientFactory is building Scient—an intelligent workspace that brings research tools and AI agents together, with the researcher at the center."
   >
     <section class="content-section" aria-labelledby="about-why">
@@ -65,12 +68,18 @@ import Layout from "../layouts/Layout.astro";
           The connected research environment described here is our direction. Its capabilities are still evolving, and the documentation explains how to use what’s available today.
         </p>
         <div class="content-actions about-actions">
-          <a class="content-action about-action about-action--primary" href="/download">Download Scient</a>
           <a class="content-action about-action" href="/docs">Read the docs</a>
         </div>
       </div>
     </section>
   </Prose>
+  <section class="about-downloads" id="downloads" aria-labelledby="about-download-title">
+    <div class="about-downloads__inner">
+      <h2 id="about-download-title">Download Scient</h2>
+      <p>Use Scient for free with the AI subscriptions you already have.</p>
+      <DownloadCards layout="horizontal" />
+    </div>
+  </section>
 </Layout>
 
 <style>
@@ -87,23 +96,40 @@ import Layout from "../layouts/Layout.astro";
     transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
 
-  .about-actions .about-action--primary {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: #fff;
-  }
-
   @media (hover: hover) and (pointer: fine) {
     .about-actions .about-action:hover {
       border-color: #a3a7ad;
       color: var(--ink);
       transform: none;
     }
+  }
+</style>
 
-    .about-actions .about-action--primary:hover {
-      border-color: var(--accent-hover);
-      background: var(--accent-hover);
-      color: #fff;
-    }
+<style>
+  .about-downloads {
+    padding: 4.5rem var(--page-gutter) 5rem;
+    border-top: 1px solid var(--line);
+    background: #faf9f6;
+    scroll-margin-top: 2rem;
+  }
+  .about-downloads__inner {
+    width: min(100%, 66rem);
+    margin-inline: auto;
+  }
+  .about-downloads h2 {
+    margin: 0;
+    text-align: center;
+    font-size: clamp(1.85rem, 2.35vw, 2.2rem);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+  }
+  .about-downloads__inner > p {
+    margin: 0.95rem auto 2.7rem;
+    max-width: 32em;
+    text-align: center;
+    color: var(--ink-muted);
+    font-size: 1.08rem;
+    line-height: 1.48;
   }
 </style>

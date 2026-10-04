@@ -7,13 +7,15 @@
 interface Props {
   eyebrow: string;
   title: string;
+  titleLines?: string[];
   intro: string;
+  variant?: "default" | "home";
 }
 
-const { eyebrow, title, intro } = Astro.props;
+const { eyebrow, title, titleLines, intro, variant = "default" } = Astro.props;
 ---
 
-<article class="prose-page">
+<article class:list={["prose-page", { "prose-page--home": variant === "home" }]}>
   <img
     class="prose-page__geometry"
     src="/scient-symbol.svg?v=20261003"
@@ -25,8 +27,8 @@ const { eyebrow, title, intro } = Astro.props;
   />
 
   <header class="prose-hero">
-    <p class="prose-eyebrow">{eyebrow}</p>
-    <h1>{title}</h1>
+    {variant !== "home" && <p class="prose-eyebrow">{eyebrow}</p>}
+    <h1>{titleLines ? titleLines.map((line, index) => <>{index > 0 && " "}<span class="prose-title-line">{line}</span></>) : title}</h1>
     <p class="prose-intro">{intro}</p>
   </header>
 
@@ -370,6 +372,49 @@ const { eyebrow, title, intro } = Astro.props;
     :global(.content-card),
     :global(.content-action) {
       transition-duration: 0.01ms;
+    }
+  }
+</style>
+
+<style>
+  .prose-page--home {
+    padding-top: clamp(0rem, calc(5vw - 30px), 1rem);
+  }
+
+  .prose-page--home .prose-hero h1 {
+    max-width: 16em;
+    font-size: clamp(2.8rem, 5vw, 4.55rem);
+    letter-spacing: -0.058em;
+    line-height: 1.13;
+  }
+
+  .prose-page--home .prose-intro {
+    max-width: 34em;
+    margin-top: clamp(1.65rem, 3.625vw, 2.9rem);
+    font-size: clamp(1rem, 1.28vw, 1.15rem);
+    letter-spacing: -0.018em;
+    line-height: 1.55;
+  }
+
+  @media (min-width: 601px) {
+    .prose-page--home .prose-title-line {
+      display: block;
+    }
+  }
+
+  .prose-page--home :global(.content-section__body) {
+    padding-right: clamp(0rem, calc(10vw - 72px), 3rem);
+  }
+
+  @media (min-width: 721px) {
+    .prose-page--home :global(.content-section) {
+      grid-template-columns: clamp(9rem, 20%, 13rem) minmax(0, 1fr);
+      gap: clamp(1.5rem, 3vw, 3rem);
+    }
+
+    .prose-page--home :global(.content-section__body > p),
+    .prose-page--home :global(.content-section h2) {
+      max-width: none;
     }
   }
 </style>

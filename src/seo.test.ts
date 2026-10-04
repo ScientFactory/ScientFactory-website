@@ -15,11 +15,16 @@ const publicURLs = [
   "https://scientfactory.com/",
   "https://scientfactory.com/about/",
   "https://scientfactory.com/docs/",
-  "https://scientfactory.com/download/",
   "https://scientfactory.com/privacy/",
 ] as const;
 
 describe("search discovery files", () => {
+  it("redirects retired download URLs to the About download section", () => {
+    const redirects = readFileSync(new URL("_redirects", publicDirectory), "utf8");
+    expect(redirects).toContain("/download /about/#downloads 301");
+    expect(redirects).toContain("/download/ /about/#downloads 301");
+  });
+
   it("allows crawling and advertises the canonical sitemap", () => {
     expect(robots).toBe(
       "User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://scientfactory.com/sitemap.xml\n",
@@ -35,5 +40,6 @@ describe("search discovery files", () => {
 
     expect(sitemap.match(/<url>/g)).toHaveLength(publicURLs.length);
     expect(sitemap).not.toContain("/404");
+    expect(sitemap).not.toContain("/download/");
   });
 });

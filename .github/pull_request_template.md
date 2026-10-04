@@ -11,10 +11,10 @@ Documentation impact:
 ## Validation
 
 - [ ] `bun run check`
-- [ ] A human reviewed the exact Cloudflare preview on desktop when user-visible behavior changed
-- [ ] A human reviewed the exact Cloudflare preview on relevant mobile sizes when UI changed
+- [ ] Desktop and relevant mobile preview evidence recorded, with limitations stated
+- [ ] Product owner authorized merge/auto-merge, or requested manual preview review completed
 
-<!-- Record the candidate, human reviewer, environments, result, and evidence. -->
+<!-- Record the candidate, environments, results, evidence, and owner authorization. Do not claim human review for agent-operated checks. -->
 
 ## Quality Review
 
