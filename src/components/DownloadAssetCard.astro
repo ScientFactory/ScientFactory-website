@@ -8,7 +8,7 @@ interface Props {
   title: string;
   detail: string;
   format: string;
-  tone: "burgundy" | "slate";
+  tone: "charcoal" | "slate";
 }
 
 const { assetKey, title, detail, format, tone } = Astro.props;
@@ -36,8 +36,8 @@ const iconPath = Array.isArray(iconPathData) ? iconPathData[0] : iconPathData;
 
 <style>
   .download-card {
-    --download-accent: var(--burgundy);
-    --download-soft: var(--burgundy-soft);
+    --download-accent: var(--accent);
+    --download-soft: var(--accent-soft);
     min-height: 4.7rem;
     display: flex;
     align-items: center;

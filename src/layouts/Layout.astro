@@ -259,12 +259,13 @@ const primaryLinks = [
     --ink: #111111;
     --ink-muted: #474747;
     --ink-dim: #6c6c70;
-    --burgundy: #541b1d;
-    --burgundy-soft: #fbf6f6;
+    --accent: #34353a;
+    --accent-hover: #4a4b51;
+    --accent-soft: #f6f7f8;
     --slate: #526687;
     --slate-soft: #f5f7fb;
     --line: #dedfe2;
-    --focus-ring: rgba(82, 102, 135, 0.3);
+    --focus-ring: rgba(52, 53, 58, 0.3);
     --radius-sm: 6px;
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --page-gutter: clamp(1.25rem, 5vw, 5.75rem);
@@ -452,7 +453,7 @@ const primaryLinks = [
 
   .nav-link:hover,
   .nav-link[aria-current="page"] {
-    color: var(--burgundy);
+    color: var(--accent);
     border-bottom-color: currentColor;
   }
 
@@ -571,14 +572,14 @@ const primaryLinks = [
   }
 
   .analytics-consent-primary {
-    border-color: #34353a !important;
-    background: #34353a;
+    border-color: var(--accent) !important;
+    background: var(--accent);
     color: #fff;
   }
 
   .analytics-consent-primary:hover:not(:disabled) {
-    border-color: #4a4b51 !important;
-    background: #4a4b51;
+    border-color: var(--accent-hover) !important;
+    background: var(--accent-hover);
   }
 
   .analytics-consent-actions button:disabled {
