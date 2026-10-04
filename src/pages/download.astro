@@ -58,7 +58,7 @@ const linuxIcon = iconData("Linux");
   </section>
 
   <div class="platform-grid" aria-label="Scient downloads by platform">
-    <section class="platform-section platform-section--burgundy" id="macos" aria-labelledby="macos-title">
+    <section class="platform-section platform-section--charcoal" id="macos" aria-labelledby="macos-title">
       <div class="platform-section__header">
         <span class="platform-section__icon" aria-hidden="true">
           <svg viewBox={`0 0 ${macIcon.width} ${macIcon.height}`}><path d={macIcon.path}></path></svg>
@@ -74,14 +74,14 @@ const linuxIcon = iconData("Linux");
           title="Apple Silicon"
           detail="M1, M2, M3, and newer"
           format="DMG"
-          tone="burgundy"
+          tone="charcoal"
         />
         <DownloadAssetCard
           assetKey="macX64"
           title="Intel"
           detail="Intel-based Macs"
           format="DMG"
-          tone="burgundy"
+          tone="charcoal"
         />
       </div>
     </section>
@@ -107,7 +107,7 @@ const linuxIcon = iconData("Linux");
       </div>
     </section>
 
-    <section class="platform-section platform-section--burgundy" id="linux" aria-labelledby="linux-title">
+    <section class="platform-section platform-section--charcoal" id="linux" aria-labelledby="linux-title">
       <div class="platform-section__header">
         <span class="platform-section__icon" aria-hidden="true">
           <svg viewBox={`0 0 ${linuxIcon.width} ${linuxIcon.height}`}><path d={linuxIcon.path}></path></svg>
@@ -123,7 +123,7 @@ const linuxIcon = iconData("Linux");
           title="Linux AppImage"
           detail="Portable x64 application"
           format="APPIMAGE"
-          tone="burgundy"
+          tone="charcoal"
         />
       </div>
     </section>
@@ -320,7 +320,7 @@ const linuxIcon = iconData("Linux");
   .download-kicker,
   .early-access-note__eyebrow {
     margin: 0 0 0.85rem;
-    color: var(--burgundy);
+    color: var(--ink-dim);
     font-size: 0.78rem;
     font-weight: 650;
     letter-spacing: 0.11em;
@@ -379,8 +379,8 @@ const linuxIcon = iconData("Linux");
   }
 
   .release-status[data-release-state="error"] .release-status__dot {
-    background: var(--burgundy);
-    box-shadow: 0 0 0 0.24rem color-mix(in srgb, var(--burgundy) 12%, transparent);
+    background: var(--accent);
+    box-shadow: 0 0 0 0.24rem color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
   .release-status__retry {
@@ -388,7 +388,7 @@ const linuxIcon = iconData("Linux");
     border: 0;
     padding: 0.25rem 0.1rem;
     background: transparent;
-    color: var(--burgundy);
+    color: var(--accent);
     font: inherit;
     font-weight: 650;
     text-decoration: underline;
@@ -407,8 +407,8 @@ const linuxIcon = iconData("Linux");
     gap: clamp(2rem, 6vw, 7rem);
     margin-block: clamp(2.5rem, 5vw, 4rem);
     padding: clamp(1.5rem, 3vw, 2.2rem);
-    border-left: 3px solid var(--burgundy);
-    background: var(--burgundy-soft);
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
   }
 
   .early-access-note h2 {
@@ -455,7 +455,7 @@ const linuxIcon = iconData("Linux");
   }
 
   .platform-section:target {
-    background: color-mix(in srgb, var(--burgundy-soft) 58%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 58%, transparent);
   }
 
   .platform-section__header {
@@ -473,8 +473,8 @@ const linuxIcon = iconData("Linux");
     place-items: center;
     flex: 0 0 auto;
     border-radius: 0.55rem;
-    background: var(--burgundy-soft);
-    color: var(--burgundy);
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
   .platform-section--slate .platform-section__icon {
@@ -538,7 +538,7 @@ const linuxIcon = iconData("Linux");
   .install-help article > span {
     display: block;
     margin-bottom: 1.5rem;
-    color: var(--burgundy);
+    color: var(--accent);
     font-size: 0.75rem;
     font-weight: 650;
     letter-spacing: 0.08em;
@@ -581,7 +581,7 @@ const linuxIcon = iconData("Linux");
   }
 
   .release-links a:hover {
-    color: var(--burgundy);
+    color: var(--accent);
   }
 
   .release-links a:focus-visible {

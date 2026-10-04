@@ -6,22 +6,22 @@ import Layout from "../layouts/Layout.astro";
 <Layout
   theme="light"
   title="About ScientFactory"
-  description="ScientFactory is building Scient, an AI-native workspace where research tools, context, and agents work together."
+  description="ScientFactory is building Scient—an intelligent workspace that brings research tools and AI agents together, with the researcher at the center."
 >
   <Prose
     eyebrow="About ScientFactory"
     title="Building a better home for scientific work."
-    intro="ScientFactory is the team building Scient—an AI-native workspace where research tools, context, and agents work together in one focused environment."
+    intro="ScientFactory is building Scient—an intelligent workspace that brings research tools and AI agents together, with the researcher at the center."
   >
     <section class="content-section" aria-labelledby="about-why">
       <p class="content-section__label">Why Scient</p>
       <div class="content-section__body">
-        <h2 id="about-why">Research should feel connected from beginning to end.</h2>
+        <h2 id="about-why">Research moves forward. Its context should move with it.</h2>
         <p>
-          Scientific work moves between papers, notes, data, figures, and writing tools. General-purpose AI assistants often sit outside that workflow, disconnected from the tools, sources, and context the research depends on.
+          Scientific work moves between papers, notes, data, figures, and manuscripts. Each stage builds on what came before: a source worth following, a method chosen, a result questioned, a decision made.
         </p>
         <p>
-          We are building Scient to bring those stages into one connected workspace, with agents engineered specifically for scientific work—from the first question to final publication—while keeping the researcher in control of every important decision.
+          Moving between tools often means rebuilding that context. We’re building Scient so researchers can carry their sources, work, and decisions through the whole process—from the first question to final publication.
         </p>
       </div>
     </section>
@@ -29,40 +29,81 @@ import Layout from "../layouts/Layout.astro";
     <section class="content-section" aria-labelledby="about-approach">
       <p class="content-section__label">Our approach</p>
       <div class="content-section__body">
-        <h2 id="about-approach">AI assistance should strengthen scientific judgment, not obscure it.</h2>
+        <h2 id="about-approach">Built to support scientific judgment.</h2>
+        <p>
+          AI can help researchers explore ideas, work through analysis, and develop a manuscript. The researcher’s judgment guides that work. Four principles shape how we build Scient.
+        </p>
         <div class="content-grid">
           <article class="content-card">
             <h3>Researcher in control</h3>
-            <p>The researcher decides what to ask, what to accept, and what belongs in the final work.</p>
+            <p>You decide which questions to pursue, which actions to authorize, and what to accept into your work.</p>
           </article>
           <article class="content-card">
             <h3>Connected context</h3>
-            <p>Sources, analysis, writing, and decisions should remain part of the same continuing research context.</p>
+            <p>Papers, notes, analysis, and writing belong to the same research project. We’re building toward a workspace where each can inform the next.</p>
           </article>
           <article class="content-card">
             <h3>Inspectable work</h3>
-            <p>Agent actions and generated work should be visible, reviewable, and open to correction.</p>
+            <p>You should be able to see what an agent did, examine the sources and outputs, and correct the work when needed.</p>
           </article>
           <article class="content-card">
-            <h3>One continuous workflow</h3>
-            <p>Tools should work together across the research process instead of creating another set of disconnected steps.</p>
+            <h3>A continuous workflow</h3>
+            <p>Reading a paper, testing an idea, creating a figure, and writing about the result should feel like connected steps. Scient brings those activities into one place.</p>
           </article>
         </div>
       </div>
     </section>
 
     <section class="content-section" aria-labelledby="about-development">
-      <p class="content-section__label">In development</p>
+      <p class="content-section__label">Where we are today</p>
       <div class="content-section__body">
-        <h2 id="about-development">Scient is early, active, and evolving.</h2>
+        <h2 id="about-development">Growing through real research.</h2>
         <p>
-          Scient is under active development, shaped by real use, and improving one reliable workflow at a time. Download the latest release or start with the basic documentation.
+          Scient is available to download and is under active development. We’re improving it through real use, one reliable workflow at a time.
         </p>
-        <div class="content-actions">
-          <a class="content-action content-action--primary" href="/download">Download Scient</a>
-          <a class="content-action" href="/docs">Read the docs</a>
+        <p>
+          The connected research environment described here is our direction. Its capabilities are still evolving, and the documentation explains how to use what’s available today.
+        </p>
+        <div class="content-actions about-actions">
+          <a class="content-action about-action about-action--primary" href="/download">Download Scient</a>
+          <a class="content-action about-action" href="/docs">Read the docs</a>
         </div>
       </div>
     </section>
   </Prose>
 </Layout>
+
+<style>
+  .about-actions .about-action {
+    min-height: 2.25rem;
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink-muted);
+    font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1.25;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+  }
+
+  .about-actions .about-action--primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .about-actions .about-action:hover {
+      border-color: #a3a7ad;
+      color: var(--ink);
+      transform: none;
+    }
+
+    .about-actions .about-action--primary:hover {
+      border-color: var(--accent-hover);
+      background: var(--accent-hover);
+      color: #fff;
+    }
+  }
+</style>
