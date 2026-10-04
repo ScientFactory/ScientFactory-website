@@ -1,11 +1,18 @@
 ---
 // FILE: DownloadCards.astro
-// Purpose: The home page's per-platform download cards, with a macOS chip switch and a
+// Purpose: Shared per-platform download cards, with a macOS chip switch and a
 //          "For your device" badge on the visitor's platform.
 // Layer: Marketing component
 // Depends on: ../lib/releases for the latest release and its installer assets.
 
 import { faApple, faLinux, faWindows } from "@fortawesome/free-brands-svg-icons";
+import { LATEST_RELEASE_URL } from "../lib/releases";
+
+interface Props {
+  layout?: "vertical" | "horizontal";
+}
+
+const { layout = "vertical" } = Astro.props;
 
 const iconPath = (icon: typeof faApple) => {
   const [width, height, , , pathData] = icon.icon;
@@ -18,21 +25,21 @@ const platforms = [
     name: "macOS",
     icon: iconPath(faApple),
     assetKey: "macArm64",
-    href: "/download#macos",
+    href: "/api/download/macArm64",
   },
   {
     id: "windows",
     name: "Windows",
     icon: iconPath(faWindows),
     assetKey: "windowsX64",
-    href: "/download#windows",
+    href: "/api/download/windowsX64",
   },
   {
     id: "linux",
     name: "Linux",
     icon: iconPath(faLinux),
     assetKey: "linuxX64",
-    href: "/download#linux",
+    href: "/api/download/linuxX64",
   },
 ] as const;
 
@@ -42,7 +49,7 @@ const chips = [
 ] as const;
 ---
 
-<div class="dl" data-download-cards>
+<div class:list={["dl", { "dl--horizontal": layout === "horizontal" }]} data-download-cards>
   <div class="dl__cards">
     {
       platforms.map((platform) => (
@@ -54,18 +61,34 @@ const chips = [
             For your device
           </p>
           <h3 class="dl-card__name" id={`dl-${platform.id}`}>
-            <svg class="dl-card__icon" viewBox={platform.icon.viewBox} aria-hidden="true">
-              <path d={platform.icon.d} />
-            </svg>
+            {(layout !== "horizontal" || platform.id === "macos") && (
+              <svg class="dl-card__icon" viewBox={platform.icon.viewBox} aria-hidden="true">
+                <path d={platform.icon.d} />
+              </svg>
+            )}
             {platform.name}
           </h3>
+
+          {layout === "horizontal" && platform.id !== "macos" && (
+            <svg class="dl-card__platform-icon" viewBox={platform.icon.viewBox} aria-hidden="true">
+              <path d={platform.icon.d} />
+            </svg>
+          )}
 
           {platform.id === "macos" && (
             <div class="dl-card__chips" role="group" aria-label="Mac chip" data-selected="macArm64">
               <span class="dl-card__thumb" aria-hidden="true" />
               {chips.map((chip, index) => (
-                <button type="button" data-chip={chip.key} aria-pressed={index === 0 ? "true" : "false"}>
-                  {chip.label}
+                <button type="button" data-chip={chip.key} aria-label={chip.label} aria-pressed={index === 0 ? "true" : "false"}>
+                  {chip.key === "macArm64" ? (
+                    <>
+                      <span class="dl-chip__full" aria-hidden="true">{chip.label}</span>
+                      <span class="dl-chip__compact" aria-hidden="true">
+                        <svg viewBox={platform.icon.viewBox}><path d={platform.icon.d} /></svg>
+                        Silicon
+                      </span>
+                    </>
+                  ) : chip.label}
                 </button>
               ))}
             </div>
@@ -103,7 +126,7 @@ const chips = [
 
   <p class="dl__release">
     <span data-release-version></span>
-    <a href="/download">All downloads and checksums</a>
+    <a href={LATEST_RELEASE_URL} target="_blank" rel="noopener noreferrer">All downloads and checksums</a>
   </p>
 </div>
 
@@ -135,7 +158,7 @@ const chips = [
       if (!macButton) return;
       macButton.dataset.downloadAsset = key;
       macButton.setAttribute("aria-label", `Download Scient for ${CHIP_LABELS[key]}`);
-      macButton.href = hrefs.get(key) ?? "/download#macos";
+      macButton.href = hrefs.get(key) ?? `/api/download/${encodeURIComponent(key)}`;
     };
 
     chipButtons.forEach((chip) => chip.addEventListener("click", () => selectChip(chip.dataset.chip ?? "macArm64")));
@@ -177,7 +200,7 @@ const chips = [
         if (version) version.textContent = `Latest release ${release.tag_name}`;
       })
       .catch(() => {
-        // The server-rendered /download links remain a reliable fallback.
+        // Server-rendered download API links work without release metadata in the browser.
       });
   });
 </script>
@@ -201,6 +224,7 @@ const chips = [
 
   .dl-card {
     position: relative;
+    container-type: inline-size;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -275,6 +299,7 @@ const chips = [
 
   .dl-card__chips {
     position: relative;
+    width: min(100%, 11.75rem);
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 1rem;
@@ -302,7 +327,11 @@ const chips = [
   .dl-card__chips button {
     position: relative;
     z-index: 1;
-    min-width: 5.5rem;
+    min-width: 0;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 0.2rem 0.7rem;
     border: 0;
     border-radius: 999px;
@@ -422,6 +451,56 @@ const chips = [
     .dl-card__button:active,
     .dl-card__button:hover svg {
       transform: none;
+    }
+  }
+</style>
+
+<style>
+  .dl-chip__compact {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+
+  .dl-chip__compact svg {
+    width: 0.65rem;
+    height: 0.75rem;
+    fill: currentColor;
+  }
+
+  @container (max-width: 12rem) {
+    .dl-chip__full {
+      display: none;
+    }
+    .dl-chip__compact {
+      display: inline-flex;
+    }
+    .dl-card__chips button {
+      padding-inline: 0.4rem;
+    }
+  }
+
+  .dl--horizontal .dl__cards {
+    width: min(100%, 57.4rem);
+    margin-inline: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    align-items: stretch;
+    gap: 1.7rem;
+  }
+
+  .dl-card__platform-icon {
+    width: 2rem;
+    height: 2rem;
+    margin-top: 0.5rem;
+    fill: currentColor;
+  }
+
+  @media (max-width: 720px) {
+    .dl--horizontal .dl__cards {
+      width: min(100%, 24rem);
+      grid-template-columns: 1fr;
     }
   }
 </style>

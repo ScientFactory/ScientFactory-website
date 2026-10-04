@@ -8,11 +8,11 @@ All website work uses short-lived branches and pull requests into `main`.
    help.
 4. Run `bun run check` locally and complete Quality Review before presenting the
    pull request as ready.
-5. For every user-visible change, have a human review the exact Cloudflare
-   preview on desktop and on relevant mobile sizes. Automated screenshots,
-   browser checks, and agent-operated review support but do not replace human
-   product judgment. If a human cannot inspect the required preview, the change
-   is not integration-ready.
+5. For user-visible changes, record local or Cloudflare preview evidence on
+   desktop and relevant mobile sizes. The product owner may explicitly authorize
+   merge or auto-merge without a separate reviewer or manual preview approval.
+   Record that authorization in the pull request. Automated and agent-operated
+   evidence must not be described as human preview review.
 6. Complete Integration Readiness Review against the exact final head. Merge
    only after required checks pass, review conversations are resolved, and the
    candidate is ready to deploy to production.
@@ -56,3 +56,11 @@ pass may satisfy both stages for a small unchanged candidate.
 Peer review is useful when it adds judgment but is not a default non-author
 approval gate. The author, product owner, or another suitable human may perform
 the preview review.
+
+## Owner-authorized auto-merge
+
+When the product owner explicitly requests auto-merge, enable it after local
+checks and Quality Review. Required GitHub CI checks remain mandatory. A
+separate approving reviewer is not required; preview evidence gaps should be
+reported accurately rather than treated as an additional approval gate after
+the owner's explicit authorization.
