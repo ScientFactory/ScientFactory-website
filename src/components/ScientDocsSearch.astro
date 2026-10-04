@@ -1,0 +1,98 @@
+---
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+const inputId = `docs-search-${compact ? "mobile" : "desktop"}`;
+---
+
+<div class="docs-search" data-docs-search-widget>
+  <label class="docs-search__field" for={inputId}>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m15.5 15.5 4.5 4.5" />
+    </svg>
+    <input id={inputId} type="search" placeholder="Search" aria-label="Search Scient Docs" autocomplete="off" aria-controls={`${inputId}-results`} data-docs-search-input />
+  </label>
+  <div class="docs-search__results" id={`${inputId}-results`} hidden data-docs-search-results>
+    <p role="status" data-docs-search-status></p>
+    <ul data-docs-search-list></ul>
+  </div>
+</div>
+
+<script>
+  interface SearchPage {
+    title: string;
+    summary: string;
+    url: string;
+    searchText: string;
+  }
+  const indexElement = document.querySelector("#docs-search-index");
+  const pages: SearchPage[] = JSON.parse(indexElement?.textContent ?? "[]");
+  const normalize = (text: string) => text.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "");
+  const indexedPages = pages.map((page) => ({
+    ...page,
+    titleText: normalize(page.title),
+    text: normalize(`${page.title} ${page.summary} ${page.searchText}`),
+  }));
+
+  for (const widget of document.querySelectorAll<HTMLElement>("[data-docs-search-widget]")) {
+    const input = widget.querySelector<HTMLInputElement>("[data-docs-search-input]")!;
+    const results = widget.querySelector<HTMLElement>("[data-docs-search-results]")!;
+    const list = widget.querySelector<HTMLElement>("[data-docs-search-list]")!;
+    const status = widget.querySelector<HTMLElement>("[data-docs-search-status]")!;
+    input.addEventListener("input", () => {
+      const tokens = normalize(input.value).trim().split(/\s+/).filter(Boolean);
+      list.replaceChildren();
+      results.hidden = tokens.length === 0;
+      if (results.hidden) {
+        status.textContent = "";
+        return;
+      }
+      const matches = indexedPages
+        .filter((page) => tokens.every((token) => page.text.includes(token)))
+        .sort((a, b) =>
+          tokens.filter((token) => b.titleText.includes(token)).length -
+          tokens.filter((token) => a.titleText.includes(token)).length,
+        );
+      status.textContent = matches.length ? `${matches.length} ${matches.length === 1 ? "guide" : "guides"}` : "No matching guides";
+      for (const page of matches) {
+        const item = document.createElement("li");
+        const link = document.createElement("a");
+        link.href = page.url;
+        link.textContent = page.title;
+        item.append(link);
+        list.append(item);
+      }
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        input.value = "";
+        input.dispatchEvent(new Event("input"));
+      }
+      if (event.key === "ArrowDown" && !results.hidden) {
+        const first = list.querySelector<HTMLAnchorElement>("a");
+        if (first) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
+  }
+</script>
+
+<style>
+  .docs-search { margin-top: 1rem; }
+  .docs-search__field { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.7rem; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-dim); }
+  .docs-search__field:focus-within { background: var(--surface); color: var(--ink); }
+  .docs-search__field svg { flex-shrink: 0; }
+  input, input:focus { width: 100%; min-width: 0; padding: 0; border: 0; outline: none; box-shadow: none; appearance: none; background: transparent; color: var(--ink); font: inherit; font-size: 0.85rem; }
+  input::placeholder { color: var(--ink-dim); }
+  .docs-search__results { margin-top: 0.6rem; }
+  .docs-search__results[hidden] { display: none; }
+  .docs-search__results p { margin: 0 0 0.4rem; color: var(--ink-dim); font-size: 0.75rem; }
+  ul { max-height: 18rem; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+  a { display: block; padding: 0.5rem 0.6rem; border-radius: var(--radius-sm); color: var(--ink-muted); font-size: 0.85rem; line-height: 1.4; }
+  a:hover, a:focus-visible { background: var(--surface); color: var(--ink); }
+  a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+</style>

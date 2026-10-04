@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import ScientDocsNavigation from "./ScientDocsNavigation.astro";
+import ScientDocsSearch from "./ScientDocsSearch.astro";
 import { faDownload } from "@fortawesome/free-solid-svg-icons";
 
 interface DocsPage {
@@ -12,6 +13,7 @@ interface DocsPage {
   url: string;
   rawUrl: string;
   sourceUrl: string;
+  searchText: string;
 }
 
 interface Props {
@@ -46,7 +48,7 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
   <div class="docs-shell">
     <aside class="docs-sidebar">
       <div class="docs-sidebar__identity">
-        <a href="/docs" class="docs-home" aria-current={currentSlug === undefined ? "page" : undefined}>
+        <a href="/docs/getting-started/" class="docs-home" aria-current={currentSlug === "getting-started" ? "page" : undefined}>
           <span>Scient Docs</span>
           {
             isPreview && (
@@ -56,6 +58,7 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
             )
           }
         </a>
+        <ScientDocsSearch />
       </div>
 
       <ScientDocsNavigation pages={index.pages} currentSlug={currentSlug} />
@@ -66,6 +69,7 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
         <span>Browse Scient Docs</span>
         <span>{currentPage?.title ?? "All pages"}</span>
       </summary>
+      <div class="docs-mobile-search"><ScientDocsSearch compact /></div>
       <ScientDocsNavigation pages={index.pages} currentSlug={currentSlug} compact />
     </details>
 
@@ -90,6 +94,8 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
       </footer>
     </div>
   </div>
+
+  <script type="application/json" id="docs-search-index" set:html={JSON.stringify(index.pages.map(({ title, summary, url, searchText }) => ({ title, summary, url, searchText }))).replaceAll("<", "\\u003c")} />
 
   <template id="docs-download-icon-template">
     <svg
@@ -150,7 +156,7 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
     position: sticky;
     top: 1.5rem;
     max-height: calc(100svh - 3rem);
-    padding: 1.25rem 0 2rem;
+    padding: 1.25rem 0.375rem 2rem;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
@@ -173,6 +179,10 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
 
   .docs-sidebar::-webkit-scrollbar-thumb:hover {
     background: rgba(67, 72, 80, 0.2);
+  }
+
+  .docs-mobile-search {
+    padding: 0 1rem;
   }
 
   .docs-mobile-navigation {
@@ -256,10 +266,10 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
   :global(.docs-prose h1) {
     margin: 0 0 1.25rem;
     color: var(--ink);
-    font-size: clamp(2.3rem, 5vw, 4.8rem);
+    font-size: clamp(2.8rem, 5vw, 4.55rem);
     font-weight: 520;
-    letter-spacing: -0.055em;
-    line-height: 0.98;
+    letter-spacing: -0.058em;
+    line-height: 1.13;
   }
 
   :global(.docs-prose h2) {
@@ -527,6 +537,7 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
       max-height: min(70svh, 36rem);
       margin: 0 1rem 1rem;
       padding-top: 1rem;
+      padding-inline: 0.375rem;
       border-top: 1px solid var(--line);
       overflow-y: auto;
       overscroll-behavior: contain;
@@ -535,9 +546,4 @@ const sourceRevisionUrl = `https://github.com/${index.source.repository}/tree/${
 
   }
 
-  @media (max-width: 560px) {
-    :global(.docs-prose h1) {
-      font-size: clamp(2.25rem, 12vw, 3.5rem);
-    }
-  }
 </style>

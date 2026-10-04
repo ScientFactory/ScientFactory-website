@@ -14,7 +14,7 @@ const sitemap = readFileSync(new URL("sitemap.xml", publicDirectory), "utf8");
 const publicURLs = [
   "https://scientfactory.com/",
   "https://scientfactory.com/about/",
-  "https://scientfactory.com/docs/",
+  "https://scientfactory.com/docs/getting-started/",
   "https://scientfactory.com/privacy/",
 ] as const;
 
@@ -23,6 +23,13 @@ describe("search discovery files", () => {
     const redirects = readFileSync(new URL("_redirects", publicDirectory), "utf8");
     expect(redirects).toContain("/download /about/#downloads 301");
     expect(redirects).toContain("/download/ /about/#downloads 301");
+  });
+
+  it("redirects the Docs landing page to Getting started", () => {
+    const redirects = readFileSync(new URL("_redirects", publicDirectory), "utf8");
+    expect(redirects).toContain("/docs /docs/getting-started/ 301");
+    expect(redirects).toContain("/docs/ /docs/getting-started/ 301");
+    expect(sitemap).not.toContain("<loc>https://scientfactory.com/docs/</loc>");
   });
 
   it("allows crawling and advertises the canonical sitemap", () => {
