@@ -62,7 +62,11 @@ it("separates adoption, latest installation state, unknown tokens and failure po
       modelKey: "unknown",
       usageStatus: "unavailable",
     });
-    add("provider.turn.usage", { provider: "pi", modelKey: "other", usageStatus: "unavailable" });
+    add("provider.turn.usage", {
+      provider: "pi",
+      modelKey: "other",
+      usageStatus: "unavailable",
+    });
     add("provider.turn.failed", { provider: "codex" });
     add("provider.turn.failed", { provider: "codex" }, { consent: "essential" });
     const rows = store.sqlite
@@ -80,12 +84,68 @@ it("separates adoption, latest installation state, unknown tokens and failure po
       rows.find((r) => r.metric === "reported_input_tokens" && r.category === "pi"),
     ).toMatchObject({ observations: 0, value: null });
     expect(rows.filter((r) => r.metric === "provider_latest_observed_installed")).toEqual([
-      expect.objectContaining({ category: "pi", installations: 1, observations: 1 }),
+      expect.objectContaining({
+        category: "pi",
+        installations: 1,
+        observations: 1,
+      }),
     ]);
     expect(rows.find((r) => r.metric === "provider_terminal_outcomes")).toMatchObject({
       observations: 1,
     });
     expect(JSON.stringify(rows)).not.toContain("PRIVATE");
+  } finally {
+    store.close();
+  }
+});
+
+it("counts revision 5 events, which name every settings page", () => {
+  const store = testDatabase();
+  try {
+    const insert = store.sqlite.prepare(
+      `INSERT INTO analytics_events (event_id, event_name, source, privacy_level, consent_level, occurred_at, distinct_id, properties_json) VALUES (?, ?, 'desktop', 'product', 'product', ?, 'PRIVATE', ?)`,
+    );
+    insert.run(
+      "1",
+      "settings.viewed",
+      "2026-09-04",
+      JSON.stringify({ contractRevision: "5", section: "documents" }),
+    );
+    insert.run(
+      "2",
+      "settings.viewed",
+      "2026-09-05",
+      JSON.stringify({ contractRevision: "5", section: "documents" }),
+    );
+    insert.run(
+      "3",
+      "provider.installation.observed",
+      "2026-09-05T09:00:00Z",
+      JSON.stringify({
+        contractRevision: "5",
+        provider: "codex",
+        installed: true,
+      }),
+    );
+    const rows = store.sqlite
+      .prepare(productInsightsQuery.replaceAll("'now'", "'2026-09-06'"))
+      .all();
+    expect(
+      rows.find(
+        (r) => r.metric === "feature_observations" && r.category === "settings.viewed:documents",
+      ),
+    ).toMatchObject({
+      installations: 1,
+      observations: 2,
+      repeat_installations: 1,
+    });
+    expect(rows.filter((r) => r.metric === "provider_latest_observed_installed")).toEqual([
+      expect.objectContaining({ category: "codex", installations: 1 }),
+    ]);
+    expect(rows.find((r) => r.metric === "observed_product_population")).toMatchObject({
+      category: "revision-3-to-5",
+      installations: 1,
+    });
   } finally {
     store.close();
   }
