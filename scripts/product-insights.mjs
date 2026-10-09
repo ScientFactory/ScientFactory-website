@@ -12,7 +12,7 @@ WITH eligible AS (
   WHERE source = 'desktop' AND consent_level IN ('product', 'diagnostic')
     AND julianday(occurred_at) >= julianday(date('now', '-30 days'))
     AND julianday(occurred_at) < julianday(date('now'))
-    AND json_extract(properties_json, '$.contractRevision') IN ('3', '4')
+    AND json_extract(properties_json, '$.contractRevision') IN ('3', '4', '5')
 ), views AS (
   SELECT event_name, distinct_id, day,
     CASE event_name
@@ -41,7 +41,7 @@ WITH eligible AS (
       WHEN 'provider.installation.observed' THEN json_extract(p, '$.installed')
       ELSE json_extract(p, '$.toInstalled') END AS installed
   FROM eligible
-  WHERE json_extract(p, '$.contractRevision') = '4'
+  WHERE json_extract(p, '$.contractRevision') IN ('4', '5')
     AND event_name IN ('provider.installation.observed', 'provider.installation.changed')
 ), latest_provider_installations AS (
   SELECT distinct_id, provider, installed
