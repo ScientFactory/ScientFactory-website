@@ -80,7 +80,7 @@ SELECT 'provider_terminal_outcomes', json_extract(p, '$.provider') || ':' || eve
 FROM eligible WHERE event_name IN ('provider.turn.completed', 'provider.turn.failed', 'provider.turn.stopped')
 GROUP BY json_extract(p, '$.provider'), event_name
 UNION ALL
-SELECT 'observed_product_population', 'revision-3-or-4', count(DISTINCT distinct_id), count(*), NULL, NULL
+SELECT 'observed_product_population', 'revision-3-to-5', count(DISTINCT distinct_id), count(*), NULL, NULL
 FROM eligible
 ORDER BY metric, observations DESC, category
 `;

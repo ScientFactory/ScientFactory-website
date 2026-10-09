@@ -142,6 +142,10 @@ it("counts revision 5 events, which name every settings page", () => {
     expect(rows.filter((r) => r.metric === "provider_latest_observed_installed")).toEqual([
       expect.objectContaining({ category: "codex", installations: 1 }),
     ]);
+    expect(rows.find((r) => r.metric === "observed_product_population")).toMatchObject({
+      category: "revision-3-to-5",
+      installations: 1,
+    });
   } finally {
     store.close();
   }
