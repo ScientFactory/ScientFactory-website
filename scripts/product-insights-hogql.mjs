@@ -1,6 +1,6 @@
 // Same Product population and complete-day window as product-insights.mjs.
 const population = `properties.source = 'desktop' AND properties.consent_level IN ('product', 'diagnostic')
-AND properties.contractRevision IN ('3', '4') AND timestamp >= toStartOfDay(now()) - INTERVAL 30 DAY AND timestamp < toStartOfDay(now())`;
+AND properties.contractRevision IN ('3', '4', '5') AND timestamp >= toStartOfDay(now()) - INTERVAL 30 DAY AND timestamp < toStartOfDay(now())`;
 const insight = (name, description, query) => ({
   name,
   description,
@@ -40,7 +40,7 @@ FROM (
   SELECT distinct_id, properties.provider AS provider,
     argMax(if(event = 'provider.installation.observed', properties.installed, properties.toInstalled),
       tuple(timestamp, properties.event_id)) AS installed
-  FROM events WHERE ${population} AND properties.contractRevision = '4'
+  FROM events WHERE ${population} AND properties.contractRevision IN ('4', '5')
     AND event IN ('provider.installation.observed', 'provider.installation.changed')
   GROUP BY distinct_id, provider
 )
