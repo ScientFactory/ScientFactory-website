@@ -96,9 +96,22 @@ it.skipIf(!desktopRoot)(
         outputTokens: 678,
         cachedInputTokens: 200,
       });
-      expect(await runtime.flush()).toBe(5);
+      runtime.record("feature.viewed", { feature: "latex-visual", path: "PRIVATE-DOCUMENT" });
+      for (const outcome of ["started", "completed", "failed"] as const) {
+        runtime.record(`scient.operation.${outcome}`, {
+          operationKind: "latex-visual-edit",
+          trigger: "user",
+          durationMs: 1234,
+          failureClass: "unknown",
+          source: "PRIVATE-CONTENT",
+          documentId: "PRIVATE-DOCUMENT",
+          revision: "PRIVATE-REVISION",
+          error: "PRIVATE-ERROR",
+        });
+      }
+      expect(await runtime.flush()).toBe(9);
       expect(await runtime.pendingCount()).toBe(0);
-      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(5);
+      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(9);
       expect(uploads[0]!.body).not.toContain("PRIVATE");
       const exportRequest = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
       vi.stubGlobal("fetch", exportRequest);
@@ -108,10 +121,26 @@ it.skipIf(!desktopRoot)(
           DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
           POSTHOG_PROJECT_TOKEN: "synthetic",
         }),
-      ).toBe(5);
+      ).toBe(9);
       expect(exportRequest).toHaveBeenCalledOnce();
       expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("PRIVATE");
       const exported = JSON.parse(String(exportRequest.mock.calls[0]![1].body));
+      expect(
+        exported.batch.find((event: { event: string }) => event.event === "feature.viewed")
+          .properties,
+      ).toMatchObject({ feature: "latex-visual", contractRevision: "6" });
+      const visualOutcomes = exported.batch.filter(
+        (event: { properties: { operationKind?: string } }) =>
+          event.properties.operationKind === "latex-visual-edit",
+      );
+      expect(visualOutcomes).toHaveLength(3);
+      for (const event of visualOutcomes)
+        expect(event.properties).toMatchObject({
+          trigger: "user",
+          durationBucket: "1-5s",
+          failureClass: "unknown",
+          contractRevision: "6",
+        });
       expect(
         exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
           .properties,

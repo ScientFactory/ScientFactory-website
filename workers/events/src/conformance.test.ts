@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import legacyV2 from "../fixtures/contract-v2.json";
 import legacyV3 from "../fixtures/contract-v3.json";
 import legacyV4 from "../fixtures/contract-v4.json";
-import fixture from "../fixtures/contract-v5.json";
+import legacyV5 from "../fixtures/contract-v5.json";
+import fixture from "../fixtures/contract-v6.json";
 import { eventContractViolation, EVENT_DEFINITIONS, type PrivacyLevel } from "./eventContract";
 
-describe("desktop contract v5 conformance", () => {
-  it("continues accepting the complete revision 2, 3 and 4 corpora", () => {
-    for (const legacy of [legacyV2, legacyV3, legacyV4]) {
+describe("desktop contract v6 conformance", () => {
+  it("continues accepting the complete revision 2, 3, 4 and 5 corpora", () => {
+    for (const legacy of [legacyV2, legacyV3, legacyV4, legacyV5]) {
       for (const entry of legacy.cases)
         expect(
           eventContractViolation({
@@ -20,7 +21,7 @@ describe("desktop contract v5 conformance", () => {
     }
   });
   it("accepts every generated desktop event including unknown-value fallbacks", () => {
-    expect(fixture.contractRevision).toBe("5");
+    expect(fixture.contractRevision).toBe("6");
     expect(new Set(fixture.cases.map((entry) => entry.name))).toEqual(
       new Set(Object.keys(EVENT_DEFINITIONS)),
     );

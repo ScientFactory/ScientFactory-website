@@ -188,6 +188,76 @@ describe("event gateway validation", () => {
 });
 
 describe("event gateway routes", () => {
+  it("stores Visual LaTeX views and outcomes with revision 6 and rejects document content before storage", async () => {
+    const database = realDatabase();
+    const base = validPayload().events[0]!;
+    const common = { appVersion: "0.6.25", buildChannel: "stable", contractRevision: "6" };
+    const events = [
+      {
+        ...base,
+        id: "8e0ee7d5-2c4b-48b6-8209-08f1e536f660",
+        name: "feature.viewed",
+        properties: { ...common, feature: "latex-visual" },
+      },
+      {
+        ...base,
+        id: "8e0ee7d5-2c4b-48b6-8209-08f1e536f661",
+        name: "scient.operation.completed",
+        properties: {
+          ...common,
+          operationKind: "latex-visual-edit",
+          trigger: "user",
+          durationBucket: "under-1s",
+        },
+      },
+      {
+        ...base,
+        id: "8e0ee7d5-2c4b-48b6-8209-08f1e536f662",
+        name: "scient.operation.failed",
+        privacy_level: "essential",
+        consent_level: "essential",
+        properties: {
+          ...common,
+          operationKind: "latex-visual-edit",
+          failureClass: "unknown",
+        },
+      },
+    ];
+    const submit = (batch: unknown[]) =>
+      worker.fetch!(
+        incoming(
+          new Request("https://events.scientfactory.com/v1/events", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Scient-Installation-Token": INSTALLATION_TOKEN,
+            },
+            body: JSON.stringify({ ...validPayload(), events: batch }),
+          }),
+        ),
+        gatewayEnv(database.database),
+        { waitUntil: vi.fn() } as unknown as ExecutionContext,
+      );
+    const response = await submit(events);
+    expect(await response.json()).toEqual({ accepted: 3 });
+    expect(response.status).toBe(202);
+    const stored = database.sqlite
+      .prepare("SELECT event_name, properties_json FROM analytics_events ORDER BY event_id")
+      .all();
+    expect(
+      stored.map((row) => ({
+        name: row.event_name,
+        properties: JSON.parse(String(row.properties_json)),
+      })),
+    ).toEqual(events.map((event) => ({ name: event.name, properties: event.properties })));
+    for (const key of ["source", "path", "documentId", "revision", "error"]) {
+      const rejected = await submit([
+        { ...events[0], properties: { ...events[0]!.properties, [key]: "PRIVATE document" } },
+      ]);
+      expect(rejected.status).toBe(400);
+    }
+    expect(database.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(3);
+  });
   it("keeps desktop ingestion off until explicitly enabled", async () => {
     const database = createDatabase();
     const response = await worker.fetch!(
@@ -368,7 +438,7 @@ describe("event gateway routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       status: "ready",
-      contract_revision: "5",
+      contract_revision: "6",
       worker_version: "unavailable",
       worker_version_tag: null,
       worker_version_created_at: null,
