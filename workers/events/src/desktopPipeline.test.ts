@@ -73,6 +73,10 @@ it.skipIf(!desktopRoot)(
         model: "PRIVATE-MODEL",
         prompt: "PRIVATE-CONTENT",
       });
+      for (const provider of ["scient", "omp", "muse", "acpRegistry"]) {
+        runtime.record("provider.turn.sent", { provider, prompt: "PRIVATE-CONTENT" });
+        runtime.record("provider.installation.observed", { provider, installed: true });
+      }
       runtime.record("scient.operation.completed", {
         operationKind: "pdf-export",
         durationMs: 1234,
@@ -109,9 +113,9 @@ it.skipIf(!desktopRoot)(
           error: "PRIVATE-ERROR",
         });
       }
-      expect(await runtime.flush()).toBe(9);
+      expect(await runtime.flush()).toBe(17);
       expect(await runtime.pendingCount()).toBe(0);
-      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(9);
+      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(17);
       expect(uploads[0]!.body).not.toContain("PRIVATE");
       const exportRequest = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
       vi.stubGlobal("fetch", exportRequest);
@@ -121,14 +125,24 @@ it.skipIf(!desktopRoot)(
           DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
           POSTHOG_PROJECT_TOKEN: "synthetic",
         }),
-      ).toBe(9);
+      ).toBe(17);
       expect(exportRequest).toHaveBeenCalledOnce();
       expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("PRIVATE");
       const exported = JSON.parse(String(exportRequest.mock.calls[0]![1].body));
+      for (const provider of ["scient", "omp", "muse", "acpRegistry"]) {
+        const events = exported.batch.filter(
+          (event: { properties: { provider?: string } }) => event.properties.provider === provider,
+        );
+        expect(events.map((event: { event: string }) => event.event).sort()).toEqual([
+          "provider.installation.observed",
+          "provider.turn.sent",
+        ]);
+        expect(events[0].properties.contractRevision).toBe("7");
+      }
       expect(
         exported.batch.find((event: { event: string }) => event.event === "feature.viewed")
           .properties,
-      ).toMatchObject({ feature: "latex-visual", contractRevision: "6" });
+      ).toMatchObject({ feature: "latex-visual", contractRevision: "7" });
       const visualOutcomes = exported.batch.filter(
         (event: { properties: { operationKind?: string } }) =>
           event.properties.operationKind === "latex-visual-edit",
@@ -139,7 +153,7 @@ it.skipIf(!desktopRoot)(
           trigger: "user",
           durationBucket: "1-5s",
           failureClass: "unknown",
-          contractRevision: "6",
+          contractRevision: "7",
         });
       expect(
         exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")

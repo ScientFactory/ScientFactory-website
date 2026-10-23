@@ -438,7 +438,7 @@ describe("event gateway routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       status: "ready",
-      contract_revision: "6",
+      contract_revision: "7",
       worker_version: "unavailable",
       worker_version_tag: null,
       worker_version_created_at: null,
