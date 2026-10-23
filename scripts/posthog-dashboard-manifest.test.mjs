@@ -67,12 +67,18 @@ const runQuery = (name, rows) => {
         JSON.stringify({
           source: "desktop",
           consent_level: "product",
+          contractRevision: "7",
+          buildChannel: "stable",
           event_id: `event-${index}`,
           ...row.properties,
         }),
       ),
     );
     database.function("now", () => NOW);
+    database.function("toStartOfDay", (timestamp) => Math.floor(timestamp / DAY) * DAY);
+    database.function("toDate", (timestamp) =>
+      new Date(timestamp * 1000).toISOString().slice(0, 10),
+    );
     database.function("parseDateTimeBestEffort", (value) => Date.parse(value) / 1000);
     database.function("toStartOfWeek", startOfWeek);
     database.function("greatest", (left, right) => Math.max(left, right));
@@ -120,6 +126,41 @@ const runQuery = (name, rows) => {
     database.close();
   }
 };
+
+it("deduplicates named-agent prompts and installs while excluding dev traffic and terminal outcomes", () => {
+  const records = [
+    { event: "provider.turn.sent", properties: { provider: "scient", event_id: "same" } },
+    { event: "provider.turn.sent", properties: { provider: "scient", event_id: "same" } },
+    {
+      event: "provider.turn.sent",
+      id: "two",
+      properties: { provider: "scient", buildChannel: "beta" },
+    },
+    {
+      event: "provider.turn.sent",
+      properties: { provider: "scient", buildChannel: "development" },
+    },
+    { event: "provider.turn.sent", properties: { provider: "scient", contractRevision: "2" } },
+    { event: "provider.turn.sent", properties: { provider: "scient" }, timestamp: NOW },
+    { event: "provider.turn.completed", properties: { provider: "scient" } },
+    { event: "provider.turn.usage", properties: { provider: "scient" } },
+    {
+      event: "provider.lifecycle.completed",
+      properties: { provider: "scient", action: "install", event_id: "install" },
+    },
+    {
+      event: "provider.lifecycle.completed",
+      properties: { provider: "scient", action: "install", event_id: "install" },
+    },
+    { event: "provider.lifecycle.completed", properties: { provider: "scient", action: "repair" } },
+  ];
+  expect(runQuery("Daily submitted prompts by provider", records)).toEqual([
+    { day: "2026-08-30", provider: "scient", installations: 2, submitted_prompts: 2 },
+  ]);
+  expect(runQuery("Successful provider install operations", records)).toEqual([
+    { provider: "scient", installations: 1, install_completions: 1 },
+  ]);
+});
 
 it("finds a valid ordered activation even after earlier out-of-order attempts", () => {
   const firstSeen = NOW - 14 * DAY;

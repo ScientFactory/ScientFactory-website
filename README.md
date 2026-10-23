@@ -94,11 +94,13 @@ registered event name, its exact allowlisted property set, the event's declared
 privacy level, and sufficient explicit consent. Unknown events, extra
 properties, raw text, and mismatched consent or privacy classifications are
 rejected before storage. The versioned registry and its focused tests live in
-`workers/events/src/eventContract.ts`. Revision 6 is generated from
+`workers/events/src/eventContract.ts`. Revision 7 is generated from
 `scient-desktop/packages/scient-analytics/src/wireContract.ts`, with a shared
-conformance fixture for every registered event, plus revision-2 through revision-5
-compatibility tests. Revision 6 adds bounded Visual LaTeX view and visual-edit
-outcomes without document content or identifiers. Do not edit that copy
+conformance fixture for every registered event, plus revision-2 through revision-6
+compatibility tests. Revision 7 preserves Scient Agent (`scient`), Oh My Pi
+(`omp`), Muse and ACP Registry as distinct bounded provider categories. Revision 6's
+Visual LaTeX view and visual-edit outcomes remain supported. No document content
+or custom provider/instance labels are accepted. Do not edit that copy
 independently; the desktop analytics document owns regeneration instructions.
 New events add an optional bounded `contractRevision`; legacy revision-1
 payloads remain supported. Deploy this validator before releasing new producers.
@@ -235,9 +237,18 @@ This command is an operational bridge, not a substitute for account authenticati
 
 `bun run analytics:insights` reads an aggregate-only product report from D1:
 feature observations/repeat days, provider/model terminal usage, reported token
-counts and coverage, providers observed ready, and terminal outcomes. It uses
-revision-3 Product/Diagnostic participants and the previous 30 complete UTC days.
+counts and coverage, latest observed installation state, successful install
+operations, submitted prompts (total and per UTC day), and terminal outcomes. It uses
+revision-3 through revision-7 Product/Diagnostic participants on stable, beta and
+nightly channels and the previous 30 complete UTC days.
 Unknown token totals remain null; cache/reasoning subsets are not added again.
+Submitted prompts count accepted V2 run admissions (including queued work) and
+distinct accepted steering messages on an active run, not
+provider acknowledgements or completed answers. Restart continuations and
+legacy queue hydration and queued-to-steer promotions do not create new submissions. Submission tracking absent
+in older releases cannot be reconstructed from terminal events. Installation
+state is the latest observation in the reporting window; an install operation
+count is a separate measure. Historical `other` cannot be attributed to Scient Agent.
 Ready observations are not a current sign-in inventory, installations are not
 people, and observed population is not feature eligibility. See the desktop
 analytics document for producer meanings and omissions. Existing delivery and

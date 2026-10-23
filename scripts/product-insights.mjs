@@ -12,7 +12,8 @@ WITH eligible AS (
   WHERE source = 'desktop' AND consent_level IN ('product', 'diagnostic')
     AND julianday(occurred_at) >= julianday(date('now', '-30 days'))
     AND julianday(occurred_at) < julianday(date('now'))
-    AND json_extract(properties_json, '$.contractRevision') IN ('3', '4', '5')
+    AND json_extract(properties_json, '$.contractRevision') IN ('3', '4', '5', '6', '7')
+    AND json_extract(properties_json, '$.buildChannel') IN ('stable', 'beta', 'nightly')
 ), views AS (
   SELECT event_name, distinct_id, day,
     CASE event_name
@@ -41,7 +42,7 @@ WITH eligible AS (
       WHEN 'provider.installation.observed' THEN json_extract(p, '$.installed')
       ELSE json_extract(p, '$.toInstalled') END AS installed
   FROM eligible
-  WHERE json_extract(p, '$.contractRevision') IN ('4', '5')
+  WHERE json_extract(p, '$.contractRevision') IN ('4', '5', '6', '7')
     AND event_name IN ('provider.installation.observed', 'provider.installation.changed')
 ), latest_provider_installations AS (
   SELECT distinct_id, provider, installed
@@ -75,22 +76,60 @@ SELECT 'provider_latest_observed_installed', provider, count(DISTINCT distinct_i
 FROM latest_provider_installations WHERE installed = 1
 GROUP BY provider
 UNION ALL
+SELECT 'provider_submitted_prompts', json_extract(p, '$.provider'),
+  count(DISTINCT distinct_id), count(*), NULL, NULL
+FROM eligible WHERE event_name = 'provider.turn.sent'
+GROUP BY json_extract(p, '$.provider')
+UNION ALL
+SELECT 'provider_daily_submitted_prompts', json_extract(p, '$.provider') || ':' || day,
+  count(DISTINCT distinct_id), count(*), NULL, NULL
+FROM eligible WHERE event_name = 'provider.turn.sent'
+GROUP BY json_extract(p, '$.provider'), day
+UNION ALL
+SELECT 'provider_install_completions', json_extract(p, '$.provider'),
+  count(DISTINCT distinct_id), count(*), NULL, NULL
+FROM eligible WHERE event_name = 'provider.lifecycle.completed' AND json_extract(p, '$.action') = 'install'
+GROUP BY json_extract(p, '$.provider')
+UNION ALL
 SELECT 'provider_terminal_outcomes', json_extract(p, '$.provider') || ':' || event_name,
   count(DISTINCT distinct_id), count(*), NULL, NULL
 FROM eligible WHERE event_name IN ('provider.turn.completed', 'provider.turn.failed', 'provider.turn.stopped')
 GROUP BY json_extract(p, '$.provider'), event_name
 UNION ALL
-SELECT 'observed_product_population', 'revision-3-to-5', count(DISTINCT distinct_id), count(*), NULL, NULL
+SELECT 'observed_product_population', 'revision-3-to-7', count(DISTINCT distinct_id), count(*), NULL, NULL
 FROM eligible
 ORDER BY metric, observations DESC, category
 `;
 
+/** D1 limits compound SELECT terms; retain the same population in each batch. */
+export function productInsightsQueries(maxTerms = 4) {
+  if (!Number.isInteger(maxTerms) || maxTerms < 1 || maxTerms > 4) {
+    throw new Error("Product insight batches require one to four SELECT terms");
+  }
+  const boundary = productInsightsQuery.indexOf("\nSELECT 'feature_observations'");
+  if (boundary < 0) throw new Error("Product insight query structure is invalid");
+  const population = productInsightsQuery.slice(0, boundary);
+  const terms = productInsightsQuery
+    .slice(boundary + 1)
+    .replace(/\nORDER BY metric, observations DESC, category\s*$/, "")
+    .split("\nUNION ALL\n");
+  const queries = [];
+  while (terms.length > 0)
+    queries.push(
+      `${population}, report(metric, category, installations, observations, repeat_installations, value) AS (\n${terms.splice(0, maxTerms).join("\nUNION ALL\n")}\n)\nSELECT * FROM report ORDER BY metric, observations DESC, category`,
+    );
+  return queries;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = spawnSync(
-    "wrangler",
-    ["d1", "execute", "scientfactory-downloads", "--remote", "--command", productInsightsQuery],
-    { stdio: "inherit", timeout: 60_000 },
-  );
-  if (result.error) console.error("Product insights report failed or timed out");
-  process.exitCode = result.error ? 1 : (result.status ?? 1);
+  for (const query of productInsightsQueries()) {
+    const result = spawnSync(
+      "wrangler",
+      ["d1", "execute", "scientfactory-downloads", "--remote", "--command", query],
+      { stdio: "inherit", timeout: 60_000 },
+    );
+    if (result.error) console.error("Product insights report failed or timed out");
+    process.exitCode = result.error ? 1 : (result.status ?? 1);
+    if (process.exitCode !== 0) break;
+  }
 }

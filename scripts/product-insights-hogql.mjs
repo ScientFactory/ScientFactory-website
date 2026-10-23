@@ -1,6 +1,8 @@
 // Same Product population and complete-day window as product-insights.mjs.
 const population = `properties.source = 'desktop' AND properties.consent_level IN ('product', 'diagnostic')
-AND properties.contractRevision IN ('3', '4', '5') AND timestamp >= toStartOfDay(now()) - INTERVAL 30 DAY AND timestamp < toStartOfDay(now())`;
+AND properties.contractRevision IN ('3', '4', '5', '6', '7')
+AND properties.buildChannel IN ('stable', 'beta', 'nightly')
+AND timestamp >= toStartOfDay(now()) - INTERVAL 30 DAY AND timestamp < toStartOfDay(now())`;
 const insight = (name, description, query) => ({
   name,
   description,
@@ -9,6 +11,22 @@ const insight = (name, description, query) => ({
 });
 
 export const providerUsageInsights = [
+  insight(
+    "Daily submitted prompts by provider",
+    "Accepted run admissions and distinct accepted steering messages per day and provider, including queued work. Progress, queued-to-steer promotions, retries, restart continuations and legacy queue hydration do not add submissions. Older releases with missing submissions cannot be reconstructed. Installations are profiles, not people.",
+    `SELECT toDate(timestamp) AS day, properties.provider AS provider,
+uniqExact(distinct_id) AS installations, uniqExact(properties.event_id) AS submitted_prompts
+FROM events WHERE ${population} AND event = 'provider.turn.sent'
+GROUP BY day, provider ORDER BY day, provider`,
+  ),
+  insight(
+    "Successful provider install operations",
+    "Observed successful install operations and participating installation profiles by provider. Repairs and updates are separate; this is not the latest installed inventory or a count of people.",
+    `SELECT properties.provider AS provider,
+uniqExact(distinct_id) AS installations, uniqExact(properties.event_id) AS install_completions
+FROM events WHERE ${population} AND event = 'provider.lifecycle.completed' AND properties.action = 'install'
+GROUP BY provider ORDER BY install_completions DESC`,
+  ),
   insight(
     "Provider and model usage",
     "Deduplicated live terminal usage reports, not model-picker clicks. Missing models are unknown; private and mixed-model labels use other. Counts include failed and stopped turns.",
@@ -40,7 +58,7 @@ FROM (
   SELECT distinct_id, properties.provider AS provider,
     argMax(if(event = 'provider.installation.observed', properties.installed, properties.toInstalled),
       tuple(timestamp, properties.event_id)) AS installed
-  FROM events WHERE ${population} AND properties.contractRevision IN ('4', '5')
+  FROM events WHERE ${population} AND properties.contractRevision IN ('4', '5', '6', '7')
     AND event IN ('provider.installation.observed', 'provider.installation.changed')
   GROUP BY distinct_id, provider
 )
