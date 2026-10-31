@@ -1,6 +1,6 @@
 // Generated from scient-desktop/packages/scient-analytics/src/wireContract.ts. Do not edit here.
 // Scient desktop wire contract. The website gateway consumes a generated copy.
-export const ANALYTICS_CONTRACT_REVISION = "8" as const;
+export const ANALYTICS_CONTRACT_REVISION = "9" as const;
 export const PRIVACY_LEVELS = ["essential", "product", "diagnostic", "contribution"] as const;
 
 export type PrivacyLevel = (typeof PRIVACY_LEVELS)[number];
@@ -46,6 +46,25 @@ const countBucket = {
   kind: "enum",
   values: ["0", "1", "2-3", "4-10", "11-50", "over-50", "unknown"],
 } as const satisfies PropertyRule;
+const count = {
+  kind: "integer",
+  max: 1_000_000_000,
+  optional: true,
+} as const satisfies PropertyRule;
+// Closed names from server code. A pattern keeps upstream's new names flowing without a revision.
+const identifier = {
+  kind: "pattern",
+  pattern: /^[A-Za-z0-9_.-]{1,64}$/,
+} as const satisfies PropertyRule;
+const clientProperties = {
+  surface: { kind: "enum", values: ["web", "desktop", "mobile", "cli", "unknown"] },
+  clientDeviceType: { kind: "enum", values: ["desktop", "phone", "tablet", "unknown"] },
+  clientOs: {
+    kind: "enum",
+    values: ["macOS", "Windows", "Linux", "iOS", "Android", "ChromeOS", "other", "unknown"],
+  },
+  connectionMethod: { kind: "enum", values: ["direct", "ssh", "relay", "unknown"] },
+} as const satisfies Readonly<Record<string, PropertyRule>>;
 const buildChannel = {
   kind: "enum",
   values: ["stable", "beta", "nightly", "development", "unknown"],
@@ -263,7 +282,78 @@ export const EVENT_DEFINITIONS = {
   },
   "server.boot.heartbeat": {
     privacyLevel: "essential",
-    properties: { appVersion, buildChannel },
+    properties: { appVersion, buildChannel, threadCount: count, projectCount: count },
+  },
+  "install.owner_observed": {
+    privacyLevel: "product",
+    properties: {
+      ownerSource: { kind: "enum", values: ["connect", "openai", "claude", "device"] },
+      ownerId: { kind: "pattern", pattern: /^[0-9a-f]{64}$/ },
+      observedBy: { kind: "enum", values: ["server", "client"] },
+    },
+  },
+  "client.turn.requested": { privacyLevel: "product", properties: clientProperties },
+  "client.thread.started": {
+    privacyLevel: "product",
+    properties: { ...clientProperties, workspaceStrategy: identifier },
+  },
+  "feature.used": {
+    privacyLevel: "product",
+    properties: {
+      feature: identifier,
+      variant: { ...identifier, optional: true },
+      surface: clientProperties.surface,
+    },
+  },
+  "mcp.tool.invoked": {
+    privacyLevel: "product",
+    properties: {
+      tool: identifier,
+      callerProvider: provider,
+      callerModel: { ...modelKey, optional: true },
+      callerOrigin: {
+        kind: "enum",
+        values: ["user", "agent", "system", "scheduler"],
+        optional: true,
+      },
+      callerDepth: count,
+      durationMs: count,
+      outcome: { kind: "enum", values: ["ok", "error"] },
+      errorCode: { ...identifier, optional: true },
+      targetProvider: { ...provider, optional: true },
+      targetModel: { ...modelKey, optional: true },
+      targetRuntimeMode: { ...runtimeMode, optional: true },
+      targetInteractionMode: {
+        kind: "enum",
+        values: ["default", "plan", "unknown"],
+        optional: true,
+      },
+      crossProvider: { kind: "boolean", optional: true },
+      targetChosen: { kind: "boolean", optional: true },
+      mode: { kind: "enum", values: ["async", "wait"], optional: true },
+      waitTimedOut: { kind: "boolean", optional: true },
+      batchSize: count,
+      workspace: {
+        kind: "enum",
+        values: ["scratch", "root", "worktree", "existing_worktree"],
+        optional: true,
+      },
+      delivery: { ...identifier, optional: true },
+      bindToCurrentThread: { kind: "boolean", optional: true },
+    },
+  },
+  "mcp.delegated_task.finished": {
+    privacyLevel: "product",
+    properties: {
+      status: { kind: "enum", values: ["completed", "failed", "cancelled", "interrupted"] },
+      callerProvider: provider,
+      callerModel: { ...modelKey, optional: true },
+      targetProvider: provider,
+      targetModel: { ...modelKey, optional: true },
+      crossProvider: { kind: "boolean", optional: true },
+      completionWake: { kind: "enum", values: ["always", "settled_only"], optional: true },
+      durationSeconds: count,
+    },
   },
   "project.added": {
     privacyLevel: "product",
@@ -594,11 +684,19 @@ export const EVENT_DEFINITIONS = {
       usageStatus: { kind: "enum", values: ["complete", "partial", "unavailable"] },
       usageScope: { kind: "enum", values: ["main_agent"] },
       hasSubagents: { kind: "boolean", optional: true },
-      inputTokens: { kind: "integer", max: 1_000_000_000, optional: true },
-      outputTokens: { kind: "integer", max: 1_000_000_000, optional: true },
-      cachedInputTokens: { kind: "integer", max: 1_000_000_000, optional: true },
-      cacheCreationTokens: { kind: "integer", max: 1_000_000_000, optional: true },
-      reasoningTokens: { kind: "integer", max: 1_000_000_000, optional: true },
+      inputTokens: count,
+      outputTokens: count,
+      cachedInputTokens: count,
+      cacheCreationTokens: count,
+      reasoningTokens: count,
+      createdBy: { kind: "enum", values: ["user", "agent", "system"], optional: true },
+      creationSource: {
+        kind: "enum",
+        values: ["web", "mobile", "mcp", "provider", "server"],
+        optional: true,
+      },
+      scheduled: { kind: "boolean", optional: true },
+      subagent: { kind: "boolean", optional: true },
     },
   },
   "setting.changed": {
@@ -690,7 +788,7 @@ export function eventContractViolation(input: {
     buildChannel,
     contractRevision: {
       kind: "enum",
-      values: ["1", "2", "3", "4", "5", "6", "7", "8"],
+      values: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
       optional: true,
     },
     ...definition.properties,
