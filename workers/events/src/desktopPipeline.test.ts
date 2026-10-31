@@ -99,8 +99,47 @@ it.skipIf(!desktopRoot)(
         inputTokens: 12345,
         outputTokens: 678,
         cachedInputTokens: 200,
+        createdBy: "user",
+        creationSource: "web",
+        scheduled: false,
+        subagent: false,
       });
       runtime.record("feature.viewed", { feature: "latex-visual", path: "PRIVATE-DOCUMENT" });
+      const ownerId = "a".repeat(64);
+      runtime.record("server.boot.heartbeat", { threadCount: 84, projectCount: 6 });
+      runtime.record("install.owner_observed", {
+        ownerSource: "openai",
+        ownerId,
+        observedBy: "server",
+      });
+      runtime.record("install.owner_observed", {
+        ownerSource: "openai",
+        ownerId: "user-PRIVATE-ACCOUNT",
+        observedBy: "server",
+      });
+      runtime.record("client.turn.requested", {
+        surface: "desktop",
+        clientOs: "macOS",
+        clientBrowser: "PRIVATE-BROWSER",
+      });
+      runtime.record("feature.used", {
+        feature: "checkpoint.rollback",
+        variant: "with_files",
+        surface: "desktop",
+      });
+      runtime.record("mcp.tool.invoked", {
+        tool: "delegate_task",
+        callerProvider: "codex",
+        outcome: "ok",
+        durationMs: 40,
+        prompt: "PRIVATE-CONTENT",
+      });
+      runtime.record("mcp.delegated_task.finished", {
+        status: "completed",
+        callerProvider: "codex",
+        targetProvider: "claudeAgent",
+        durationSeconds: 90,
+      });
       for (const outcome of ["started", "completed", "failed"] as const) {
         runtime.record(`scient.operation.${outcome}`, {
           operationKind: "latex-visual-edit",
@@ -113,9 +152,9 @@ it.skipIf(!desktopRoot)(
           error: "PRIVATE-ERROR",
         });
       }
-      expect(await runtime.flush()).toBe(17);
+      expect(await runtime.flush()).toBe(23);
       expect(await runtime.pendingCount()).toBe(0);
-      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(17);
+      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(23);
       expect(uploads[0]!.body).not.toContain("PRIVATE");
       const exportRequest = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
       vi.stubGlobal("fetch", exportRequest);
@@ -125,10 +164,18 @@ it.skipIf(!desktopRoot)(
           DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
           POSTHOG_PROJECT_TOKEN: "synthetic",
         }),
-      ).toBe(17);
+      ).toBe(23);
       expect(exportRequest).toHaveBeenCalledOnce();
       expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("PRIVATE");
       const exported = JSON.parse(String(exportRequest.mock.calls[0]![1].body));
+      expect(
+        exported.batch.find((event: { event: string }) => event.event === "install.owner_observed")
+          .properties,
+      ).toMatchObject({ ownerSource: "openai", ownerId, observedBy: "server" });
+      expect(
+        exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
+          .properties,
+      ).toMatchObject({ createdBy: "user", creationSource: "web", scheduled: false });
       for (const provider of ["scient", "omp", "muse", "acpRegistry"]) {
         const events = exported.batch.filter(
           (event: { properties: { provider?: string } }) => event.properties.provider === provider,
@@ -137,12 +184,12 @@ it.skipIf(!desktopRoot)(
           "provider.installation.observed",
           "provider.turn.sent",
         ]);
-        expect(events[0].properties.contractRevision).toBe("8");
+        expect(events[0].properties.contractRevision).toBe("9");
       }
       expect(
         exported.batch.find((event: { event: string }) => event.event === "feature.viewed")
           .properties,
-      ).toMatchObject({ feature: "latex-visual", contractRevision: "8" });
+      ).toMatchObject({ feature: "latex-visual", contractRevision: "9" });
       const visualOutcomes = exported.batch.filter(
         (event: { properties: { operationKind?: string } }) =>
           event.properties.operationKind === "latex-visual-edit",
@@ -153,7 +200,7 @@ it.skipIf(!desktopRoot)(
           trigger: "user",
           durationBucket: "1-5s",
           failureClass: "unknown",
-          contractRevision: "8",
+          contractRevision: "9",
         });
       expect(
         exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
