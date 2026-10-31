@@ -94,10 +94,11 @@ registered event name, its exact allowlisted property set, the event's declared
 privacy level, and sufficient explicit consent. Unknown events, extra
 properties, raw text, and mismatched consent or privacy classifications are
 rejected before storage. The versioned registry and its focused tests live in
-`workers/events/src/eventContract.ts`. Revision 7 is generated from
+`workers/events/src/eventContract.ts`. Revision 8 is generated from
 `scient-desktop/packages/scient-analytics/src/wireContract.ts`, with a shared
-conformance fixture for every registered event, plus revision-2 through revision-6
-compatibility tests. Revision 7 preserves Scient Agent (`scient`), Oh My Pi
+conformance fixture for every registered event, plus revision-2 through revision-7
+compatibility tests. Revision 8 names the fixed `accounts`, `synced-folders` and
+`beta` settings pages. Revision 7 preserves Scient Agent (`scient`), Oh My Pi
 (`omp`), Muse and ACP Registry as distinct bounded provider categories. Revision 6's
 Visual LaTeX view and visual-edit outcomes remain supported. No document content
 or custom provider/instance labels are accepted. Do not edit that copy

@@ -1,6 +1,6 @@
 // Generated from scient-desktop/packages/scient-analytics/src/wireContract.ts. Do not edit here.
 // Scient desktop wire contract. The website gateway consumes a generated copy.
-export const ANALYTICS_CONTRACT_REVISION = "7" as const;
+export const ANALYTICS_CONTRACT_REVISION = "8" as const;
 export const PRIVACY_LEVELS = ["essential", "product", "diagnostic", "contribution"] as const;
 
 export type PrivacyLevel = (typeof PRIVACY_LEVELS)[number];
@@ -543,16 +543,19 @@ export const EVENT_DEFINITIONS = {
           "voice",
           "skills",
           "extensions",
+          "accounts",
           "integrations",
           "scheduled-tasks",
           "snap-shot",
           "scientific-computing",
           "documents",
           "source-control",
+          "synced-folders",
           "storage",
           "diagnostics",
           "connections",
           "archived",
+          "beta",
           "other",
         ],
       },
@@ -685,7 +688,11 @@ export function eventContractViolation(input: {
   const rules: Readonly<Record<string, PropertyRule>> = {
     appVersion,
     buildChannel,
-    contractRevision: { kind: "enum", values: ["1", "2", "3", "4", "5", "6", "7"], optional: true },
+    contractRevision: {
+      kind: "enum",
+      values: ["1", "2", "3", "4", "5", "6", "7", "8"],
+      optional: true,
+    },
     ...definition.properties,
   };
   for (const key of Object.keys(input.properties)) {
