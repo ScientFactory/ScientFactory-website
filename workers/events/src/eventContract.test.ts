@@ -4,7 +4,7 @@ import { EVENT_DEFINITIONS, eventContractViolation } from "./eventContract";
 
 describe("desktop event contract", () => {
   it("keeps the revision-four registry deliberately bounded", () => {
-    expect(Object.keys(EVENT_DEFINITIONS)).toHaveLength(54);
+    expect(Object.keys(EVENT_DEFINITIONS)).toHaveLength(60);
   });
 
   it("accepts the no-op outcome only with sufficient consent and bounded properties", () => {
