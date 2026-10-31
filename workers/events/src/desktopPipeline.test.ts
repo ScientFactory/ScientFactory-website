@@ -137,12 +137,12 @@ it.skipIf(!desktopRoot)(
           "provider.installation.observed",
           "provider.turn.sent",
         ]);
-        expect(events[0].properties.contractRevision).toBe("7");
+        expect(events[0].properties.contractRevision).toBe("8");
       }
       expect(
         exported.batch.find((event: { event: string }) => event.event === "feature.viewed")
           .properties,
-      ).toMatchObject({ feature: "latex-visual", contractRevision: "7" });
+      ).toMatchObject({ feature: "latex-visual", contractRevision: "8" });
       const visualOutcomes = exported.batch.filter(
         (event: { properties: { operationKind?: string } }) =>
           event.properties.operationKind === "latex-visual-edit",
@@ -153,7 +153,7 @@ it.skipIf(!desktopRoot)(
           trigger: "user",
           durationBucket: "1-5s",
           failureClass: "unknown",
-          contractRevision: "7",
+          contractRevision: "8",
         });
       expect(
         exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
