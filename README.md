@@ -210,8 +210,9 @@ Before activating an owner-approved rollout:
    rejection, erasure, retry, retention and aggregate reconciliation. Never use
    live researchers' records for a test or expose credentials in logs.
 5. Complete human privacy-copy/consent/cohort review. Enable the approved
-   ingress/export gates only after qualification. Packaged desktop availability
-   does not override a user's Off choice; a desktop release is still needed.
+   ingress/export gates only after qualification. A desktop release is still needed;
+   packaged apps are on by default, and `SCIENT_ANALYTICS_ENABLED=false` is the
+   only off switch.
 
 Export uses stable capture UUIDs and bounded retries, with a database lease
 renewed before each outbound call. This prevents concurrent local exporters;
