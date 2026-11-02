@@ -70,7 +70,7 @@ it.skipIf(!desktopRoot)(
     try {
       runtime.record("provider.turn.sent", {
         provider: "codex",
-        model: "PRIVATE-MODEL",
+        model: "a PRIVATE model name",
         prompt: "PRIVATE-CONTENT",
       });
       for (const provider of ["scient", "omp", "muse", "acpRegistry"]) {
@@ -93,7 +93,7 @@ it.skipIf(!desktopRoot)(
       });
       runtime.record("provider.turn.usage", {
         provider: "codex",
-        model: "PRIVATE-MODEL",
+        model: "a PRIVATE model name",
         terminalStatus: "completed",
         usageStatus: "complete",
         inputTokens: 12345,
@@ -120,7 +120,7 @@ it.skipIf(!desktopRoot)(
       runtime.record("client.turn.requested", {
         surface: "desktop",
         clientOs: "macOS",
-        clientBrowser: "PRIVATE-BROWSER",
+        clientBrowser: "https://PRIVATE-BROWSER.example",
       });
       runtime.record("feature.used", {
         feature: "checkpoint.rollback",
@@ -147,15 +147,34 @@ it.skipIf(!desktopRoot)(
           durationMs: 1234,
           failureClass: "unknown",
           source: "PRIVATE-CONTENT",
-          documentId: "PRIVATE-DOCUMENT",
-          revision: "PRIVATE-REVISION",
+          documentId: "/Users/someone/PRIVATE-DOCUMENT.tex",
+          revision: "C:\\Users\\someone\\PRIVATE-REVISION",
           error: "PRIVATE-ERROR",
         });
       }
-      expect(await runtime.flush()).toBe(23);
+      // Like T3, events and fields without a Scient normalizer arrive as recorded.
+      runtime.record("provider.request.completed", {
+        provider: "codex",
+        serviceTier: "fast",
+        inputTokens: 900,
+        prompt: "PRIVATE-CONTENT",
+      });
+      runtime.record("feature.used", { feature: "overleaf.sync", outcome: "ok", durationMs: 900 });
+      expect(await runtime.flush()).toBe(25);
       expect(await runtime.pendingCount()).toBe(0);
-      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(23);
+      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(25);
       expect(uploads[0]!.body).not.toContain("PRIVATE");
+      expect(
+        JSON.parse(
+          String(
+            store.sqlite
+              .prepare(
+                "SELECT properties_json FROM analytics_events WHERE event_name = 'provider.request.completed'",
+              )
+              .get()!.properties_json,
+          ),
+        ),
+      ).toMatchObject({ provider: "codex", serviceTier: "fast", inputTokens: 900 });
       const exportRequest = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
       vi.stubGlobal("fetch", exportRequest);
       expect(
@@ -164,7 +183,7 @@ it.skipIf(!desktopRoot)(
           DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
           POSTHOG_PROJECT_TOKEN: "synthetic",
         }),
-      ).toBe(23);
+      ).toBe(25);
       expect(exportRequest).toHaveBeenCalledOnce();
       expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("PRIVATE");
       const exported = JSON.parse(String(exportRequest.mock.calls[0]![1].body));
@@ -184,12 +203,12 @@ it.skipIf(!desktopRoot)(
           "provider.installation.observed",
           "provider.turn.sent",
         ]);
-        expect(events[0].properties.contractRevision).toBe("9");
+        expect(events[0].properties.contractRevision).toBe("10");
       }
       expect(
         exported.batch.find((event: { event: string }) => event.event === "feature.viewed")
           .properties,
-      ).toMatchObject({ feature: "latex-visual", contractRevision: "9" });
+      ).toMatchObject({ feature: "latex-visual", contractRevision: "10" });
       const visualOutcomes = exported.batch.filter(
         (event: { properties: { operationKind?: string } }) =>
           event.properties.operationKind === "latex-visual-edit",
@@ -200,7 +219,7 @@ it.skipIf(!desktopRoot)(
           trigger: "user",
           durationBucket: "1-5s",
           failureClass: "unknown",
-          contractRevision: "9",
+          contractRevision: "10",
         });
       expect(
         exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
