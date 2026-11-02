@@ -89,23 +89,15 @@ Local and Cloudflare preview hosts do not write events, which keeps production c
 
 The Worker under `workers/events` is ScientFactory's first-party telemetry and identity gateway. Desktop clients submit bounded event batches to `https://events.scientfactory.com/v1/events`; the Worker stores them in D1 first and can then forward pseudonymous copies to the ScientFactory EU PostHog project. PostHog is an optional analysis layer rather than the primary event store.
 
-Desktop ingestion is contract-first. The Worker accepts schema version 1, a
-registered event name, its exact allowlisted property set, the event's declared
-privacy level, and sufficient explicit consent. Unknown events, extra
-properties, raw text, and mismatched consent or privacy classifications are
-rejected before storage. The versioned registry and its focused tests live in
-`workers/events/src/eventContract.ts`. Revision 9 is generated from
-`scient-desktop/packages/scient-analytics/src/wireContract.ts`, with a shared
-conformance fixture for every registered event, plus revision-2 through revision-8
-compatibility tests. Revision 9 adds thread and project counts, who started a turn,
-hashed account owners, client and feature use, and agent tool outcomes. Revision 8 names the fixed `accounts`, `synced-folders` and
-`beta` settings pages. Revision 7 preserves Scient Agent (`scient`), Oh My Pi
-(`omp`), Muse and ACP Registry as distinct bounded provider categories. Revision 6's
-Visual LaTeX view and visual-edit outcomes remain supported. No document content
-or custom provider/instance labels are accepted. Do not edit that copy
-independently; the desktop analytics document owns regeneration instructions.
-New events add an optional bounded `contractRevision`; legacy revision-1
-payloads remain supported. Deploy this validator before releasing new producers.
+Desktop ingestion works like T3's: the Worker accepts any event the app records, with no list of
+event or property names. It checks schema version 1, the event's shape and size (an event name,
+at most 64 properties of short strings, numbers, booleans or short arrays of those, 16 KiB in all)
+and sufficient consent for the event's declared privacy level. It rejects nested values, free-text
+properties such as `prompt` or `error`, and any value that looks like a path, link or email
+address. `workers/events/src/eventContract.ts` is generated from
+`scient-desktop/packages/scient-analytics/src/wireContract.ts`; do not edit it here. The shared
+conformance fixtures (revisions 2 to 10) must keep passing. Since revision 10, new desktop events
+and fields need no gateway change, so the desktop and gateway no longer have to ship in order.
 
 The public desktop endpoint is disabled unless the Cloudflare runtime variable
 `DESKTOP_INGESTION_ENABLED` is exactly `true`. It also requires a random

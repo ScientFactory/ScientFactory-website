@@ -6,13 +6,29 @@ import legacyV5 from "../fixtures/contract-v5.json";
 import legacyV6 from "../fixtures/contract-v6.json";
 import legacyV7 from "../fixtures/contract-v7.json";
 import legacyV8 from "../fixtures/contract-v8.json";
-import fixture from "../fixtures/contract-v9.json";
-import { eventContractViolation, EVENT_DEFINITIONS, type PrivacyLevel } from "./eventContract";
+import legacyV9 from "../fixtures/contract-v9.json";
+import fixture from "../fixtures/contract-v10.json";
+import {
+  ANALYTICS_CONTRACT_REVISION,
+  eventContractViolation,
+  type PrivacyLevel,
+} from "./eventContract";
 
-describe("desktop contract v9 conformance", () => {
-  it("continues accepting the complete revision 2 through 8 corpora", () => {
-    for (const legacy of [legacyV2, legacyV3, legacyV4, legacyV5, legacyV6, legacyV7, legacyV8]) {
-      for (const entry of legacy.cases)
+describe("desktop contract v10 conformance", () => {
+  it("accepts every generated desktop event from revision 2 through 10", () => {
+    expect(fixture.contractRevision).toBe(ANALYTICS_CONTRACT_REVISION);
+    for (const corpus of [
+      legacyV2,
+      legacyV3,
+      legacyV4,
+      legacyV5,
+      legacyV6,
+      legacyV7,
+      legacyV8,
+      legacyV9,
+      fixture,
+    ]) {
+      for (const entry of corpus.cases)
         expect(
           eventContractViolation({
             ...entry,
@@ -23,24 +39,8 @@ describe("desktop contract v9 conformance", () => {
         ).toBeNull();
     }
   });
-  it("accepts every generated desktop event including unknown-value fallbacks", () => {
-    expect(fixture.contractRevision).toBe("9");
-    expect(new Set(fixture.cases.map((entry) => entry.name))).toEqual(
-      new Set(Object.keys(EVENT_DEFINITIONS)),
-    );
-    for (const entry of fixture.cases) {
-      expect(
-        eventContractViolation({
-          ...entry,
-          privacyLevel: entry.privacyLevel as PrivacyLevel,
-          consentLevel: entry.consentLevel as PrivacyLevel,
-        }),
-        entry.case,
-      ).toBeNull();
-    }
-  });
 
-  it("rejects unknown properties, malformed values, and insufficient consent for every event", () => {
+  it("rejects malformed values and insufficient consent for every event", () => {
     for (const entry of fixture.cases) {
       const event = {
         ...entry,
@@ -50,18 +50,10 @@ describe("desktop contract v9 conformance", () => {
       expect(
         eventContractViolation({
           ...event,
-          properties: { ...event.properties, path: "/private/fixture" },
+          properties: { ...event.properties, raw: { value: "private" } },
         }),
+        entry.case,
       ).not.toBeNull();
-      for (const key of Object.keys(event.properties)) {
-        expect(
-          eventContractViolation({
-            ...event,
-            properties: { ...event.properties, [key]: { raw: "private" } },
-          }),
-          `${entry.case}:${key}`,
-        ).not.toBeNull();
-      }
       if (event.privacyLevel !== "essential") {
         expect(eventContractViolation({ ...event, consentLevel: "essential" })).not.toBeNull();
       }

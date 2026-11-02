@@ -67,7 +67,10 @@ function createDatabase(existingCanonicalId?: string) {
 
 function gatewayEnv(
   database: D1Database,
-  options: { readonly enabled?: boolean; readonly rateLimitSuccess?: boolean } = {},
+  options: {
+    readonly enabled?: boolean;
+    readonly rateLimitSuccess?: boolean;
+  } = {},
 ): Cloudflare.Env {
   return {
     ANALYTICS_DB: database,
@@ -105,17 +108,38 @@ describe("event gateway validation", () => {
     );
   });
 
-  it("rejects event names outside the registered contract", () => {
+  it("accepts events and fields Scient has not listed, as T3 does", () => {
+    const payload = validPayload();
+    expect(
+      validateIngestionPayload({
+        ...payload,
+        events: [
+          {
+            ...payload.events[0],
+            name: "chatgpt.sign_in.completed",
+            privacy_level: "essential",
+            properties: {
+              ...payload.events[0].properties,
+              serviceTier: "fast",
+              turns: 3,
+            },
+          },
+        ],
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("rejects a malformed event name", () => {
     const payload = validPayload();
     expect(() =>
       validateIngestionPayload({
         ...payload,
-        events: [{ ...payload.events[0], name: "provider.secret.captured" }],
+        events: [{ ...payload.events[0], name: "Provider Secret" }],
       }),
-    ).toThrow("Unregistered event 'provider.secret.captured'");
+    ).toThrow("Invalid event name");
   });
 
-  it("rejects properties outside the event allowlist", () => {
+  it("rejects nested property values", () => {
     const payload = validPayload();
     expect(() =>
       validateIngestionPayload({
@@ -125,22 +149,12 @@ describe("event gateway validation", () => {
             ...payload.events[0],
             properties: {
               ...payload.events[0].properties,
-              prompt: "private research",
+              usage: { prompt: "private research" },
             },
           },
         ],
       }),
-    ).toThrow("Unregistered property 'prompt' for event 'provider.turn.sent'");
-  });
-
-  it("rejects a declared privacy level that differs from the event contract", () => {
-    const payload = validPayload();
-    expect(() =>
-      validateIngestionPayload({
-        ...payload,
-        events: [{ ...payload.events[0], privacy_level: "essential" }],
-      }),
-    ).toThrow("Event 'provider.turn.sent' requires privacy level 'product'");
+    ).toThrow("Invalid event property 'usage'");
   });
 
   it("rejects an event when consent is below its required level", () => {
@@ -191,7 +205,11 @@ describe("event gateway routes", () => {
   it("stores Visual LaTeX views and outcomes with revision 6 and rejects document content before storage", async () => {
     const database = realDatabase();
     const base = validPayload().events[0]!;
-    const common = { appVersion: "0.6.25", buildChannel: "stable", contractRevision: "6" };
+    const common = {
+      appVersion: "0.6.25",
+      buildChannel: "stable",
+      contractRevision: "6",
+    };
     const events = [
       {
         ...base,
@@ -249,10 +267,24 @@ describe("event gateway routes", () => {
         name: row.event_name,
         properties: JSON.parse(String(row.properties_json)),
       })),
-    ).toEqual(events.map((event) => ({ name: event.name, properties: event.properties })));
-    for (const key of ["source", "path", "documentId", "revision", "error"]) {
+    ).toEqual(
+      events.map((event) => ({
+        name: event.name,
+        properties: event.properties,
+      })),
+    );
+    for (const [key, value] of [
+      ["path", "PRIVATE document"],
+      ["error", "PRIVATE document"],
+      ["text", "PRIVATE document"],
+      ["documentId", "/Users/someone/PRIVATE.tex"],
+      ["revision", "https://example.com/PRIVATE"],
+    ]) {
       const rejected = await submit([
-        { ...events[0], properties: { ...events[0]!.properties, [key]: "PRIVATE document" } },
+        {
+          ...events[0],
+          properties: { ...events[0]!.properties, [key!]: value },
+        },
       ]);
       expect(rejected.status).toBe(400);
     }
@@ -438,7 +470,7 @@ describe("event gateway routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       status: "ready",
-      contract_revision: "9",
+      contract_revision: "10",
       worker_version: "unavailable",
       worker_version_tag: null,
       worker_version_created_at: null,
@@ -576,9 +608,11 @@ describe("PostHog forwarding", () => {
     };
     const { database, sqlite } = realDatabase();
     sqlite
-      .prepare(`INSERT INTO analytics_events
+      .prepare(
+        `INSERT INTO analytics_events
       (event_id, event_name, source, privacy_level, occurred_at, distinct_id, canonical_id, identity_type, session_id, consent_level, properties_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
       .run(...Object.values(row));
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -624,8 +658,10 @@ describe("PostHog forwarding", () => {
     };
     const { database, sqlite } = realDatabase();
     sqlite
-      .prepare(`INSERT INTO analytics_deletion_requests
-      (request_id, installation_id, posthog_distinct_id, requested_at) VALUES (?, ?, ?, ?)`)
+      .prepare(
+        `INSERT INTO analytics_deletion_requests
+      (request_id, installation_id, posthog_distinct_id, requested_at) VALUES (?, ?, ?, ?)`,
+      )
       .run(
         row.request_id,
         row.posthog_distinct_id,
@@ -636,7 +672,9 @@ describe("PostHog forwarding", () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
-        Response.json({ results: [{ uuid: personUuid, distinct_ids: [row.posthog_distinct_id] }] }),
+        Response.json({
+          results: [{ uuid: personUuid, distinct_ids: [row.posthog_distinct_id] }],
+        }),
       )
       .mockResolvedValueOnce(
         new Response(
@@ -673,7 +711,10 @@ describe("PostHog forwarding", () => {
       sqlite
         .prepare("SELECT posthog_state, posthog_submitted_at FROM analytics_deletion_requests")
         .get(),
-    ).toMatchObject({ posthog_state: "pending", posthog_submitted_at: expect.any(String) });
+    ).toMatchObject({
+      posthog_state: "pending",
+      posthog_submitted_at: expect.any(String),
+    });
   });
 
   it("forwards anonymous-to-account identity events from the first-party link queue", async () => {
@@ -696,8 +737,10 @@ describe("PostHog forwarding", () => {
       row.linked_at,
     );
     sqlite
-      .prepare(`INSERT INTO analytics_identity_links (link_id, source_identity_id, canonical_id, linked_at)
-      VALUES (?, ?, ?, ?)`)
+      .prepare(
+        `INSERT INTO analytics_identity_links (link_id, source_identity_id, canonical_id, linked_at)
+      VALUES (?, ?, ?, ?)`,
+      )
       .run(...Object.values(row));
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
