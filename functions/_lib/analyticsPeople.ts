@@ -250,8 +250,10 @@ export async function prunePeopleAnalytics(db: D1Database, now = new Date()): Pr
   }
   statements.push(
     db
-      .prepare(`DELETE FROM analytics_web_sightings WHERE visitor_id IN (SELECT identity_id FROM analytics_expired_identities)
-      OR julianday(occurred_at) < julianday(?)`)
+      .prepare(`DELETE FROM analytics_web_sightings WHERE event_id IN (SELECT event_id FROM analytics_web_sightings
+      WHERE visitor_id IN (SELECT identity_id FROM analytics_expired_identities)
+      OR (NOT EXISTS (SELECT 1 FROM analytics_identities WHERE identity_id = visitor_id)
+        AND julianday(occurred_at) < julianday(?)) LIMIT 5000)`)
       .bind(cutoff),
     db.prepare(`DELETE FROM analytics_identity_links WHERE source_identity_id IN (SELECT identity_id FROM analytics_expired_identities)
       OR canonical_id IN (SELECT identity_id FROM analytics_expired_identities)`),
@@ -267,13 +269,16 @@ export async function prunePeopleAnalytics(db: D1Database, now = new Date()): Pr
       .bind(diagnostic, diagnostic, cutoff),
     // Keep identities with remaining events for the next bounded maintenance pass.
     db.prepare(`DELETE FROM analytics_identities WHERE identity_id IN (SELECT identity_id FROM analytics_expired_identities)
-      AND NOT EXISTS (SELECT 1 FROM analytics_events WHERE distinct_id = identity_id)`),
+      AND NOT EXISTS (SELECT 1 FROM analytics_events WHERE distinct_id = identity_id)
+      AND NOT EXISTS (SELECT 1 FROM analytics_web_sightings WHERE visitor_id = identity_id)`),
     db
       .prepare(`DELETE FROM site_events WHERE id IN (SELECT id FROM site_events
       WHERE julianday(occurred_at) < julianday(?) OR (event_name = 'download_failed' AND julianday(occurred_at) < julianday(?)) LIMIT 5000)`)
       .bind(cutoff, diagnostic),
     db.prepare("DELETE FROM analytics_expired_identities"),
-    db.prepare("DELETE FROM analytics_daily_members WHERE day < substr(?, 1, 10)").bind(cutoff),
+    db
+      .prepare("DELETE FROM analytics_daily_members WHERE day < substr(?, 1, 10)")
+      .bind(new Date(now.valueOf() - 733 * 86400000).toISOString()),
   );
   const results = await db.batch(statements);
   const remaining = await db
@@ -298,7 +303,13 @@ export async function prunePeopleAnalytics(db: D1Database, now = new Date()): Pr
     OR (event_name = 'download_failed' AND julianday(occurred_at) < julianday(?)) LIMIT 1`)
     .bind(cutoff, diagnostic)
     .first();
-  if (remaining || diagnosticsRemaining || orphanRemaining || legacyRemaining)
+  const webRemaining = await db
+    .prepare(`SELECT 1 AS expired FROM analytics_web_sightings
+    WHERE NOT EXISTS (SELECT 1 FROM analytics_identities WHERE identity_id = visitor_id)
+    AND julianday(occurred_at) < julianday(?) LIMIT 1`)
+    .bind(cutoff)
+    .first();
+  if (remaining || diagnosticsRemaining || orphanRemaining || legacyRemaining || webRemaining)
     throw new Error("retention-backlog");
   return results.reduce((n, result) => n + result.meta.changes, 0);
 }

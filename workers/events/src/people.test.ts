@@ -291,3 +291,17 @@ it("retains a canonical account while any linked installation or visitor remains
     f.sqlite.prepare("SELECT canonical_id FROM analytics_identity_links").get()!.canonical_id,
   ).toBe("account:one");
 });
+
+it("retains old network observations for active website visitors, expiring unlinked observations", async () => {
+  const f = fixture();
+  f.sqlite
+    .exec(`INSERT INTO analytics_identities(identity_id, identity_type, canonical_id, consent_level, first_seen_at, last_seen_at)
+    VALUES ('visitor:active', 'web_visitor', 'visitor:active', 'product', datetime('now','-3 years'), datetime('now'));
+    INSERT INTO analytics_web_sightings(event_id,event_name,occurred_at,visitor_id,ip_address)
+    VALUES ('event:active','download_clicked',datetime('now','-3 years'),'visitor:active','192.0.2.1'),
+    ('event:orphan','download_clicked',datetime('now','-3 years'),'web-event:orphan','192.0.2.2')`);
+  await prunePeopleAnalytics(f.database);
+  expect(f.sqlite.prepare("SELECT event_id FROM analytics_web_sightings").all()).toEqual([
+    { event_id: "event:active" },
+  ]);
+});
