@@ -25,6 +25,7 @@ it.skipIf(!desktopRoot)(
     const env = {
       ANALYTICS_DB: store.database,
       DESKTOP_INGESTION_ENABLED: "true",
+      IDENTITY_ANALYTICS_ENABLED: "true",
       ANALYTICS_INGESTION_RATE_LIMITER: { limit: async () => ({ success: true }) },
     };
     const context = {
@@ -70,7 +71,7 @@ it.skipIf(!desktopRoot)(
     try {
       runtime.record("provider.turn.sent", {
         provider: "codex",
-        model: "a PRIVATE model name",
+        model: "/private/PRIVATE-MODEL",
         prompt: "PRIVATE-CONTENT",
       });
       for (const provider of ["scient", "omp", "muse", "acpRegistry"]) {
@@ -93,7 +94,7 @@ it.skipIf(!desktopRoot)(
       });
       runtime.record("provider.turn.usage", {
         provider: "codex",
-        model: "a PRIVATE model name",
+        model: "/private/PRIVATE-MODEL",
         terminalStatus: "completed",
         usageStatus: "complete",
         inputTokens: 12345,
@@ -160,9 +161,24 @@ it.skipIf(!desktopRoot)(
         prompt: "PRIVATE-CONTENT",
       });
       runtime.record("feature.used", { feature: "overleaf.sync", outcome: "ok", durationMs: 900 });
-      expect(await runtime.flush()).toBe(25);
+      runtime.record("install.account_observed", {
+        provider: "codex",
+        email: "synthetic@scient.test",
+        plan: "Pro",
+      });
+      runtime.record("install.profile_observed", {
+        workKinds: "scientific",
+        field: "biology",
+        role: "researcher",
+      });
+      runtime.record("install.owner_observed", {
+        ownerSource: "device",
+        ownerId: "b".repeat(64),
+        observedBy: "server",
+      });
+      expect(await runtime.flush()).toBe(28);
       expect(await runtime.pendingCount()).toBe(0);
-      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(25);
+      expect(store.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(28);
       expect(uploads[0]!.body).not.toContain("PRIVATE");
       expect(
         JSON.parse(
@@ -186,6 +202,16 @@ it.skipIf(!desktopRoot)(
       ).toBe(25);
       expect(exportRequest).toHaveBeenCalledOnce();
       expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("PRIVATE");
+      expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("synthetic@scient.test");
+      expect(
+        store.sqlite.prepare("SELECT email FROM analytics_installation_accounts").get()!.email,
+      ).toBe("synthetic@scient.test");
+      expect(
+        store.sqlite.prepare("SELECT count(*) AS n FROM analytics_installation_profiles").get()!.n,
+      ).toBe(1);
+      expect(
+        store.sqlite.prepare("SELECT count(*) AS n FROM analytics_installation_devices").get()!.n,
+      ).toBe(1);
       const exported = JSON.parse(String(exportRequest.mock.calls[0]![1].body));
       expect(
         exported.batch.find((event: { event: string }) => event.event === "install.owner_observed")
@@ -203,12 +229,12 @@ it.skipIf(!desktopRoot)(
           "provider.installation.observed",
           "provider.turn.sent",
         ]);
-        expect(events[0].properties.contractRevision).toBe("10");
+        expect(events[0].properties.contractRevision).toBe("11");
       }
       expect(
         exported.batch.find((event: { event: string }) => event.event === "feature.viewed")
           .properties,
-      ).toMatchObject({ feature: "latex-visual", contractRevision: "10" });
+      ).toMatchObject({ feature: "latex-visual", contractRevision: "11" });
       const visualOutcomes = exported.batch.filter(
         (event: { properties: { operationKind?: string } }) =>
           event.properties.operationKind === "latex-visual-edit",
@@ -219,7 +245,7 @@ it.skipIf(!desktopRoot)(
           trigger: "user",
           durationBucket: "1-5s",
           failureClass: "unknown",
-          contractRevision: "10",
+          contractRevision: "11",
         });
       expect(
         exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")

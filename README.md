@@ -318,3 +318,36 @@ fails; duplicate/possible-match skips are reported separately as
 `scient.operation.skipped` and do not qualify for meaningful-use metrics.
 Retries are new attempts, not a second completion of an already saved source.
 These events do not claim batch-conversion or human-review coverage.
+
+### Prepared account analytics (activation held)
+
+Revision 11 accepts provider account/profile observations. `IDENTITY_ANALYTICS_ENABLED`
+is committed as `false` in both the Pages and event Worker configurations. With it
+off, new desktop identity events are acknowledged and discarded; no IP/geography
+observations are written. Existing usage ingestion/export stays independent.
+
+After the new privacy wording is reviewed and published, apply migration 0007,
+deploy the compatible gateway and explicitly activate both flags before releasing
+the desktop revision. Do not enable a flag or deploy this Worker as part of merging
+the implementation PR. The website's normal Pages deployment remains safe while
+the flag is false; a manual event Worker deployment and production database
+migration are separate operations.
+
+With activation enabled, dedicated account, profile, device-hash and request-network
+observations remain in Cloudflare and are excluded from PostHog. Token-authenticated
+installation deletion removes its observations too. Usage follows two-year inactivity
+retention; diagnostic events expire after 60 days. The pre-activation 180/30-day
+retention path remains in effect until activation. Local desktop outbox retention
+is a separate bounded delivery policy.
+
+Migration 0007 backfills daily event/active-installation totals and maintains them
+transactionally on new event insertion. Retry IDs do not inflate counts. Daily
+country dimensions count distinct installation/day/IP network observations, not
+people. Aggregate totals survive individual deletion; temporary membership rows
+do not. The raw observations and email/device association views support analysis;
+`analytics_download_installation_candidates` explicitly labels same-IP/time matches
+as tentative and never merges identities. Shared accounts, networks and computers
+must not be presented as proof of one human.
+
+Provider capability and desktop behavior are documented in the dependent desktop
+PR. The public privacy page will be rewritten with the owner before activation.

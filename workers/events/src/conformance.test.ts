@@ -7,15 +7,16 @@ import legacyV6 from "../fixtures/contract-v6.json";
 import legacyV7 from "../fixtures/contract-v7.json";
 import legacyV8 from "../fixtures/contract-v8.json";
 import legacyV9 from "../fixtures/contract-v9.json";
-import fixture from "../fixtures/contract-v10.json";
+import legacyV10 from "../fixtures/contract-v10.json";
+import fixture from "../fixtures/contract-v11.json";
 import {
   ANALYTICS_CONTRACT_REVISION,
   eventContractViolation,
   type PrivacyLevel,
 } from "./eventContract";
 
-describe("desktop contract v10 conformance", () => {
-  it("accepts every generated desktop event from revision 2 through 10", () => {
+describe("desktop contract v11 conformance", () => {
+  it("accepts every generated desktop event from revision 2 through 11", () => {
     expect(fixture.contractRevision).toBe(ANALYTICS_CONTRACT_REVISION);
     for (const corpus of [
       legacyV2,
@@ -26,6 +27,7 @@ describe("desktop contract v10 conformance", () => {
       legacyV7,
       legacyV8,
       legacyV9,
+      legacyV10,
       fixture,
     ]) {
       for (const entry of corpus.cases)
