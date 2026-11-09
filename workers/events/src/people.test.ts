@@ -8,6 +8,7 @@ const installation = "installation:10000000-0000-4000-8000-000000000001";
 const token = "a".repeat(64);
 const stores: ReturnType<typeof testDatabase>[] = [];
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   for (const store of stores.splice(0)) store.close();
 });
@@ -27,6 +28,7 @@ function fixture(enabled = true) {
     properties: Record<string, unknown>,
     id = crypto.randomUUID(),
     secret = token,
+    occurredAt = new Date().toISOString(),
   ) => {
     const request = new Request("https://events.scientfactory.com/v1/events", {
       method: "POST",
@@ -45,7 +47,7 @@ function fixture(enabled = true) {
             properties,
             distinct_id: installation,
             session_id: "session:10000000-0000-4000-8000-000000000002",
-            occurred_at: new Date().toISOString(),
+            occurred_at: occurredAt,
             privacy_level: "product",
             consent_level: "product",
           },
@@ -304,4 +306,28 @@ it("retains old network observations for active website visitors, expiring unlin
   expect(f.sqlite.prepare("SELECT event_id FROM analytics_web_sightings").all()).toEqual([
     { event_id: "event:active" },
   ]);
+});
+
+it("cannot replay expired usage into permanent totals, but accepts fresh returning activity", async () => {
+  const base = Date.now();
+  vi.useFakeTimers();
+  vi.setSystemTime(base);
+  const f = fixture();
+  const id = crypto.randomUUID();
+  const occurredAt = new Date(base - 729 * 86400000).toISOString();
+  expect((await f.send("provider.turn.sent", {}, id, token, occurredAt)).status).toBe(202);
+  vi.setSystemTime(base + 3 * 86400000);
+  await prunePeopleAnalytics(f.database, new Date());
+  expect((await f.send("provider.turn.sent", {}, id, token, occurredAt)).status).toBe(400);
+  expect(
+    f.sqlite
+      .prepare("SELECT sum(value) AS n FROM analytics_daily_totals WHERE metric='events'")
+      .get()!.n,
+  ).toBe(1);
+  expect((await f.send("provider.turn.sent", {})).status).toBe(202);
+  expect(
+    f.sqlite
+      .prepare("SELECT sum(value) AS n FROM analytics_daily_totals WHERE metric='events'")
+      .get()!.n,
+  ).toBe(2);
 });

@@ -228,9 +228,14 @@ const EXPIRED_IDENTITY_SQL = `julianday(last_seen_at) < julianday(?)
     AND source.identity_id <> analytics_identities.identity_id
     AND julianday(source.last_seen_at) >= julianday(?)))`;
 
+export function usageRetentionCutoff(now: Date): Date {
+  const cutoff = new Date(now);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 2);
+  return cutoff;
+}
+
 export async function prunePeopleAnalytics(db: D1Database, now = new Date()): Promise<number> {
-  const inactive = new Date(now);
-  inactive.setUTCFullYear(inactive.getUTCFullYear() - 2);
+  const inactive = usageRetentionCutoff(now);
   const diagnostic = new Date(now.valueOf() - 60 * 86400000).toISOString();
   const cutoff = inactive.toISOString();
   // Freeze a bounded set of expired identities for the entire cleanup transaction.

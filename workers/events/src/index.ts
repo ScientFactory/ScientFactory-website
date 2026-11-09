@@ -1,6 +1,7 @@
 import {
   DIAGNOSTIC_SQL,
   diagnosticObservation,
+  usageRetentionCutoff,
   installationObservationStatements,
   isIdentityObservation,
   networkObservation,
@@ -33,7 +34,6 @@ const POSTHOG_DELETION_MAX_ATTEMPTS = 10;
 const INSTALLATION_TOKEN_HEADER = "X-Scient-Installation-Token";
 const INSTALLATION_TOKEN_PATTERN = /^[0-9a-f]{64}$/i;
 const RAW_EVENT_RETENTION_DAYS = 180;
-const MAX_INGESTION_AGE_DAYS = 732;
 const DIAGNOSTIC_EVENT_RETENTION_DAYS = 30;
 const RETENTION_BATCH_SIZE = 5_000;
 
@@ -154,18 +154,14 @@ function parseEvent(value: unknown, identityEnabled = false): AcceptedEvent {
   if (occurredAtDate.valueOf() > now + 24 * 60 * 60 * 1000) {
     throw new RequestValidationError("occurred_at is too far in the future");
   }
-  const retentionDays = (
-    identityEnabled
-      ? diagnosticObservation(String(value.name), privacyLevel, properties)
-      : privacyLevel === "diagnostic"
-  )
-    ? identityEnabled
-      ? 60
-      : DIAGNOSTIC_EVENT_RETENTION_DAYS
-    : identityEnabled
-      ? MAX_INGESTION_AGE_DAYS
-      : RAW_EVENT_RETENTION_DAYS;
-  if (occurredAtDate.valueOf() < now - retentionDays * 24 * 60 * 60 * 1000) {
+  const earliestAllowed = identityEnabled
+    ? diagnosticObservation(String(value.name), privacyLevel, properties)
+      ? now - 60 * 86400000
+      : usageRetentionCutoff(new Date(now)).valueOf()
+    : now -
+      (privacyLevel === "diagnostic" ? DIAGNOSTIC_EVENT_RETENTION_DAYS : RAW_EVENT_RETENTION_DAYS) *
+        86400000;
+  if (occurredAtDate.valueOf() < earliestAllowed) {
     throw new RequestValidationError("occurred_at is too old");
   }
 
