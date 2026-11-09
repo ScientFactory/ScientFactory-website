@@ -276,3 +276,18 @@ it("expires failure observations after 60 days without dropping old active usage
   vi.stubGlobal("fetch", fetcher);
   expect(await flushPendingEvents({ ...f.env, POSTHOG_PROJECT_TOKEN: "synthetic" })).toBe(1);
 });
+
+it("retains a canonical account while any linked installation or visitor remains active", async () => {
+  const f = fixture();
+  f.sqlite
+    .exec(`INSERT INTO analytics_identities(identity_id, identity_type, canonical_id, consent_level, first_seen_at, last_seen_at)
+    VALUES ('account:one', 'account', 'account:one', 'product', datetime('now','-3 years'), datetime('now','-3 years')),
+    ('visitor:one', 'web_visitor', 'account:one', 'product', datetime('now','-3 years'), datetime('now'));
+    INSERT INTO analytics_identity_links(link_id, source_identity_id, canonical_id, linked_at)
+    VALUES ('link:one','visitor:one','account:one',datetime('now','-3 years'))`);
+  await prunePeopleAnalytics(f.database);
+  expect(f.sqlite.prepare("SELECT count(*) AS n FROM analytics_identities").get()!.n).toBe(2);
+  expect(
+    f.sqlite.prepare("SELECT canonical_id FROM analytics_identity_links").get()!.canonical_id,
+  ).toBe("account:one");
+});

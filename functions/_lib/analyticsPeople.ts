@@ -221,6 +221,13 @@ export function diagnosticObservation(
   );
 }
 
+const EXPIRED_IDENTITY_SQL = `julianday(last_seen_at) < julianday(?)
+  AND (identity_type <> 'account' OR NOT EXISTS (
+    SELECT 1 FROM analytics_identities AS source
+    WHERE source.canonical_id = analytics_identities.identity_id
+    AND source.identity_id <> analytics_identities.identity_id
+    AND julianday(source.last_seen_at) >= julianday(?)))`;
+
 export async function prunePeopleAnalytics(db: D1Database, now = new Date()): Promise<number> {
   const inactive = new Date(now);
   inactive.setUTCFullYear(inactive.getUTCFullYear() - 2);
@@ -230,9 +237,9 @@ export async function prunePeopleAnalytics(db: D1Database, now = new Date()): Pr
   const statements = [
     db
       .prepare(`INSERT OR IGNORE INTO analytics_expired_identities (identity_id)
-    SELECT identity_id FROM analytics_identities WHERE julianday(last_seen_at) < julianday(?)
+    SELECT identity_id FROM analytics_identities WHERE ${EXPIRED_IDENTITY_SQL}
     ORDER BY last_seen_at LIMIT 100`)
-      .bind(cutoff),
+      .bind(cutoff, cutoff),
   ];
   for (const table of INSTALLATION_OBSERVATION_TABLES) {
     statements.push(
@@ -271,8 +278,8 @@ export async function prunePeopleAnalytics(db: D1Database, now = new Date()): Pr
   const results = await db.batch(statements);
   const remaining = await db
     .prepare(`SELECT 1 AS expired FROM analytics_identities
-    WHERE julianday(last_seen_at) < julianday(?) LIMIT 1`)
-    .bind(cutoff)
+    WHERE ${EXPIRED_IDENTITY_SQL} LIMIT 1`)
+    .bind(cutoff, cutoff)
     .first();
   const diagnosticsRemaining = await db
     .prepare(`SELECT 1 AS expired FROM analytics_events WHERE ${DIAGNOSTIC_SQL}

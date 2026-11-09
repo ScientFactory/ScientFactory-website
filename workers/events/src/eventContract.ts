@@ -60,6 +60,7 @@ export function isAllowedAccountEmail(eventName: string, key: string, value: unk
     eventName === "install.account_observed" &&
     key === "email" &&
     typeof value === "string" &&
+    value.length <= 254 &&
     ACCOUNT_EMAIL_PATTERN.test(value)
   );
 }
