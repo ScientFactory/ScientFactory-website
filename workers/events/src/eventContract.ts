@@ -1,10 +1,7 @@
 // Generated from scient-desktop/packages/scient-analytics/src/wireContract.ts. Do not edit here.
-// Scient desktop wire contract. The website gateway consumes a generated copy.
-//
-// Like T3, Scient sends whatever events its code records. This contract checks the shape and
-// size of an event, and that it holds no free text, path, link or email address. It never lists
-// event or property names, so new events and fields arrive without a revision or a gateway deploy.
-export const ANALYTICS_CONTRACT_REVISION = "10" as const;
+// Shared desktop/gateway shape and privacy guard; event and property names are open.
+// Only install.account_observed may carry an email, in its validated email property.
+export const ANALYTICS_CONTRACT_REVISION = "11" as const;
 export const PRIVACY_LEVELS = ["essential", "product", "diagnostic", "contribution"] as const;
 
 export type PrivacyLevel = (typeof PRIVACY_LEVELS)[number];
@@ -50,6 +47,23 @@ export function isPrivateLooking(value: string): boolean {
   return PATH_PATTERN.test(value) || URL_PATTERN.test(value) || EMAIL_PATTERN.test(value);
 }
 
+/** The gateway keeps these in its own tables and never exports them with usage events. */
+export const IDENTITY_EVENT_NAMES: ReadonlySet<string> = new Set([
+  "install.account_observed",
+  "install.profile_observed",
+]);
+export const ACCOUNT_EMAIL_PATTERN = /^[^\s@/\\:]{1,128}@[A-Za-z0-9.-]{1,120}\.[A-Za-z]{2,24}$/u;
+
+/** Only an account event may carry an email address, and only as its `email`. */
+export function isAllowedAccountEmail(eventName: string, key: string, value: unknown): boolean {
+  return (
+    eventName === "install.account_observed" &&
+    key === "email" &&
+    typeof value === "string" &&
+    ACCOUNT_EMAIL_PATTERN.test(value)
+  );
+}
+
 const PRIVACY_RANK: Readonly<Record<PrivacyLevel, number>> = {
   essential: 0,
   product: 1,
@@ -87,6 +101,7 @@ export function eventContractViolation(input: {
     if (!PROPERTY_KEY_PATTERN.test(key)) return `Invalid event property name '${key}'`;
     const value = input.properties[key];
     if (!isWireValue(value)) return `Invalid event property '${key}'`;
+    if (isAllowedAccountEmail(input.name, key, value)) continue;
     // Free text, paths, links and email addresses never leave the machine.
     if (isContentKey(key)) return `Private event property '${key}'`;
     const values: ReadonlyArray<unknown> = Array.isArray(value) ? value : [value];

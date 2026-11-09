@@ -1,3 +1,4 @@
+import { webObservationStatement } from "./analyticsPeople";
 // FILE: events.ts
 // Purpose: Stores a deliberately small set of consent-aware first-party website events.
 // Layer: Cloudflare Pages Function utility
@@ -28,7 +29,7 @@ export interface SiteEvent {
 
 export interface SiteEventContext {
   readonly request: Request;
-  readonly env: { readonly DOWNLOAD_DB?: D1Database };
+  readonly env: { readonly DOWNLOAD_DB?: D1Database; readonly IDENTITY_ANALYTICS_ENABLED?: string };
   waitUntil(promise: Promise<unknown>): void;
 }
 
@@ -90,6 +91,7 @@ export async function insertSiteEvent(
   db: D1Database,
   event: SiteEvent,
   request?: Request,
+  identityEnabled = false,
 ): Promise<void> {
   const eventId = crypto.randomUUID();
   const identity = request ? websiteIdentity(request) : null;
@@ -142,6 +144,17 @@ export async function insertSiteEvent(
         identity?.consentLevel ?? "essential",
       ),
   );
+  if (identityEnabled && request) {
+    const observation = webObservationStatement(
+      db,
+      eventId,
+      event.eventName,
+      occurredAt,
+      distinctId,
+      request,
+    );
+    if (observation) statements.push(observation);
+  }
   await db.batch(statements);
 }
 
@@ -154,7 +167,12 @@ export function queueSiteEvent(context: SiteEventContext, event: SiteEvent): voi
     return;
   }
 
-  const write = insertSiteEvent(db, event, context.request).catch((error: unknown) => {
+  const write = insertSiteEvent(
+    db,
+    event,
+    context.request,
+    context.env.IDENTITY_ANALYTICS_ENABLED === "true",
+  ).catch((error: unknown) => {
     console.error(
       JSON.stringify({
         message: "Site event write failed",

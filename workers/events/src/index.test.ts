@@ -410,6 +410,7 @@ describe("event gateway routes", () => {
       expect.any(String),
       expect.any(String),
       expect.any(String),
+      "installation:16ace444-e7c3-4b26-893f-98713188ae52",
     );
     expect(database.bind).toHaveBeenCalledWith(
       "8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
@@ -470,7 +471,7 @@ describe("event gateway routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       status: "ready",
-      contract_revision: "10",
+      contract_revision: "11",
       worker_version: "unavailable",
       worker_version_tag: null,
       worker_version_created_at: null,

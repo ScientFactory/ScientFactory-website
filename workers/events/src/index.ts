@@ -1,4 +1,13 @@
 import {
+  DIAGNOSTIC_SQL,
+  diagnosticObservation,
+  installationObservationStatements,
+  isIdentityObservation,
+  networkObservation,
+  INSTALLATION_OBSERVATION_TABLES,
+  prunePeopleAnalytics,
+} from "../../../functions/_lib/analyticsPeople";
+import {
   ANALYTICS_CONTRACT_REVISION,
   eventContractViolation,
   PRIVACY_LEVELS,
@@ -24,6 +33,7 @@ const POSTHOG_DELETION_MAX_ATTEMPTS = 10;
 const INSTALLATION_TOKEN_HEADER = "X-Scient-Installation-Token";
 const INSTALLATION_TOKEN_PATTERN = /^[0-9a-f]{64}$/i;
 const RAW_EVENT_RETENTION_DAYS = 180;
+const MAX_INGESTION_AGE_DAYS = 732;
 const DIAGNOSTIC_EVENT_RETENTION_DAYS = 30;
 const RETENTION_BATCH_SIZE = 5_000;
 
@@ -31,6 +41,7 @@ type AnalyticsEnv = Omit<
   AnalyticsWorkerBindings,
   | "ANALYTICS_INGESTION_RATE_LIMITER"
   | "CF_VERSION_METADATA"
+  | "IDENTITY_ANALYTICS_ENABLED"
   | "DESKTOP_INGESTION_ENABLED"
   | "DESKTOP_POSTHOG_EXPORT_ENABLED"
   | "POSTHOG_PERSONAL_API_KEY"
@@ -42,6 +53,7 @@ type AnalyticsEnv = Omit<
   readonly POSTHOG_PERSONAL_API_KEY?: string;
   readonly POSTHOG_PROJECT_ID?: string;
   readonly IDENTITY_LINK_TOKEN?: string;
+  readonly IDENTITY_ANALYTICS_ENABLED?: string;
   readonly DESKTOP_INGESTION_ENABLED?: string;
   readonly DESKTOP_POSTHOG_EXPORT_ENABLED?: string;
   readonly ANALYTICS_INGESTION_RATE_LIMITER?: RateLimit;
@@ -116,7 +128,7 @@ function requireString(value: unknown, field: string, pattern: RegExp): string {
   return value;
 }
 
-function parseEvent(value: unknown): AcceptedEvent {
+function parseEvent(value: unknown, identityEnabled = false): AcceptedEvent {
   if (!isRecord(value)) throw new RequestValidationError("Each event must be an object");
 
   const properties = value.properties;
@@ -142,8 +154,17 @@ function parseEvent(value: unknown): AcceptedEvent {
   if (occurredAtDate.valueOf() > now + 24 * 60 * 60 * 1000) {
     throw new RequestValidationError("occurred_at is too far in the future");
   }
-  const retentionDays =
-    privacyLevel === "diagnostic" ? DIAGNOSTIC_EVENT_RETENTION_DAYS : RAW_EVENT_RETENTION_DAYS;
+  const retentionDays = (
+    identityEnabled
+      ? diagnosticObservation(String(value.name), privacyLevel, properties)
+      : privacyLevel === "diagnostic"
+  )
+    ? identityEnabled
+      ? 60
+      : DIAGNOSTIC_EVENT_RETENTION_DAYS
+    : identityEnabled
+      ? MAX_INGESTION_AGE_DAYS
+      : RAW_EVENT_RETENTION_DAYS;
   if (occurredAtDate.valueOf() < now - retentionDays * 24 * 60 * 60 * 1000) {
     throw new RequestValidationError("occurred_at is too old");
   }
@@ -180,7 +201,10 @@ function parseEvent(value: unknown): AcceptedEvent {
   };
 }
 
-export function validateIngestionPayload(value: unknown): ReadonlyArray<AcceptedEvent> {
+export function validateIngestionPayload(
+  value: unknown,
+  identityEnabled = false,
+): ReadonlyArray<AcceptedEvent> {
   if (!isRecord(value) || value.schema_version !== 1 || value.source !== "desktop") {
     throw new RequestValidationError("Unsupported event payload");
   }
@@ -190,7 +214,7 @@ export function validateIngestionPayload(value: unknown): ReadonlyArray<Accepted
   if (value.events.length > MAX_BATCH_SIZE) {
     throw new RequestValidationError(`At most ${MAX_BATCH_SIZE} events are accepted`);
   }
-  const events = value.events.map(parseEvent);
+  const events = value.events.map((event) => parseEvent(event, identityEnabled));
   const installationId = events[0]?.distinctId;
   if (events.some((event) => event.distinctId !== installationId)) {
     throw new RequestValidationError("A batch must contain one installation identity");
@@ -227,6 +251,8 @@ async function persistEvents(
   database: D1Database,
   events: ReadonlyArray<AcceptedEvent>,
   deletionTokenHash: string,
+  request?: Request,
+  identityEnabled = false,
 ): Promise<void> {
   const installationId = events[0]?.distinctId;
   const deleted = await database
@@ -263,7 +289,8 @@ async function persistEvents(
       last_seen_at,
       deletion_token_hash,
       product_first_seen_at
-    ) VALUES (?, 'desktop_installation', ?, ?, ?, ?, ?, ?)
+    ) SELECT ?, 'desktop_installation', ?, ?, ?, ?, ?, ?
+      WHERE NOT EXISTS (SELECT 1 FROM analytics_deleted_installations WHERE installation_id = ?)
     ON CONFLICT(identity_id) DO UPDATE SET
       consent_level = CASE WHEN excluded.last_seen_at >= analytics_identities.last_seen_at
         THEN excluded.consent_level ELSE analytics_identities.consent_level END,
@@ -311,25 +338,36 @@ async function persistEvents(
         latestEvent.occurredAt,
         deletionTokenHash,
         firstProductAt,
+        installationId,
       ),
-    ...events.map((event) =>
-      database
-        .prepare(insert)
-        .bind(
-          event.id,
-          event.name,
-          event.privacyLevel,
-          event.occurredAt,
-          event.distinctId,
-          JSON.stringify(event.properties),
-          event.distinctId,
-          event.distinctId,
-          event.sessionId,
-          event.consentLevel,
-          event.distinctId,
+    ...events
+      .filter((event) => identityEnabled || !isIdentityObservation(event))
+      .map((event) =>
+        database
+          .prepare(insert)
+          .bind(
+            event.id,
+            event.name,
+            event.privacyLevel,
+            event.occurredAt,
+            event.distinctId,
+            JSON.stringify(event.properties),
+            event.distinctId,
+            event.distinctId,
+            event.sessionId,
+            event.consentLevel,
+            event.distinctId,
+            deletionTokenHash,
+          ),
+      ),
+    ...(identityEnabled
+      ? installationObservationStatements(
+          database,
+          events,
+          request ? networkObservation(request) : null,
           deletionTokenHash,
-        ),
-    ),
+        )
+      : []),
   ]);
 
   const authenticated = await database
@@ -421,20 +459,29 @@ async function exportPendingEvents(
        (SELECT product_first_seen_at FROM analytics_identities WHERE identity_id = analytics_events.distinct_id) AS product_first_seen_at
      FROM analytics_events
      WHERE posthog_state = 'pending'
+       AND event_name NOT IN ('install.account_observed', 'install.profile_observed')
+       AND NOT (event_name = 'install.owner_observed' AND CASE WHEN json_valid(properties_json) THEN COALESCE(json_extract(properties_json, '$.ownerSource'), '') ELSE '' END = 'device')
        AND (source <> 'desktop' OR privacy_level <> 'diagnostic')
        AND (source <> 'desktop' OR ? = 1)
        AND (source <> 'desktop' OR (
-         julianday(occurred_at) >= julianday('now', CASE WHEN privacy_level = 'diagnostic' THEN '-${DIAGNOSTIC_EVENT_RETENTION_DAYS} days' ELSE '-${RAW_EVENT_RETENTION_DAYS} days' END)
-         AND julianday(received_at) >= julianday('now', CASE WHEN privacy_level = 'diagnostic' THEN '-${DIAGNOSTIC_EVENT_RETENTION_DAYS} days' ELSE '-${RAW_EVENT_RETENTION_DAYS} days' END)
+         (? = 1 OR julianday(occurred_at) >= julianday('now', CASE WHEN privacy_level = 'diagnostic' THEN '-${DIAGNOSTIC_EVENT_RETENTION_DAYS} days' ELSE '-${RAW_EVENT_RETENTION_DAYS} days' END))
+         AND (? = 1 OR julianday(received_at) >= julianday('now', CASE WHEN privacy_level = 'diagnostic' THEN '-${DIAGNOSTIC_EVENT_RETENTION_DAYS} days' ELSE '-${RAW_EVENT_RETENTION_DAYS} days' END))
          AND julianday(occurred_at) <= julianday('now', '+1 day')
        ))
+       AND (? = 0 OR NOT ${DIAGNOSTIC_SQL} OR (julianday(occurred_at) >= julianday('now', '-60 days') AND julianday(received_at) >= julianday('now', '-60 days')))
        AND posthog_attempts < 20
        AND (posthog_next_attempt_at IS NULL OR julianday(posthog_next_attempt_at) <= julianday('now'))
        AND NOT EXISTS (SELECT 1 FROM analytics_deleted_installations WHERE installation_id = analytics_events.distinct_id)
      ORDER BY received_at, event_id
      LIMIT ?`,
   )
-    .bind(env.DESKTOP_POSTHOG_EXPORT_ENABLED === "true" ? 1 : 0, POSTHOG_BATCH_SIZE)
+    .bind(
+      env.DESKTOP_POSTHOG_EXPORT_ENABLED === "true" ? 1 : 0,
+      env.IDENTITY_ANALYTICS_ENABLED === "true" ? 1 : 0,
+      env.IDENTITY_ANALYTICS_ENABLED === "true" ? 1 : 0,
+      env.IDENTITY_ANALYTICS_ENABLED === "true" ? 1 : 0,
+      POSTHOG_BATCH_SIZE,
+    )
     .all<PendingEventRow>();
   let rows = result.results;
   if (rows.length === 0) return 0;
@@ -446,6 +493,8 @@ async function exportPendingEvents(
     if (row.source !== "desktop") return true;
     try {
       const properties: unknown = JSON.parse(row.properties_json);
+      if (isRecord(properties) && isIdentityObservation({ name: row.event_name, properties }))
+        return false;
       if (
         isRecord(properties) &&
         PRIVACY_LEVELS.includes(row.privacy_level as PrivacyLevel) &&
@@ -900,7 +949,7 @@ async function persistIdentityLinks(
 async function handleIdentityLink(
   request: Request,
   env: AnalyticsEnv,
-  context: ExecutionContext,
+  context: Pick<ExecutionContext, "waitUntil">,
 ): Promise<Response> {
   if (!env.IDENTITY_LINK_TOKEN) {
     return jsonResponse({ error: "Identity linking is not configured" }, 503);
@@ -1048,6 +1097,12 @@ async function handleInstallationDeletion(request: Request, env: AnalyticsEnv): 
         `DELETE FROM analytics_identity_links WHERE source_identity_id = ? AND EXISTS
          (SELECT 1 FROM analytics_deleted_installations WHERE installation_id = ? AND deletion_token_hash = ?)`,
       ).bind(installationId, installationId, tokenHash),
+      ...INSTALLATION_OBSERVATION_TABLES.map((table) =>
+        env.ANALYTICS_DB.prepare(
+          `DELETE FROM ${table} WHERE installation_id = ? AND EXISTS
+        (SELECT 1 FROM analytics_deleted_installations WHERE installation_id = ? AND deletion_token_hash = ?)`,
+        ).bind(installationId, installationId, tokenHash),
+      ),
       ...(["analytics_consents", "analytics_events", "analytics_identities"] as const).map(
         (table) =>
           env.ANALYTICS_DB.prepare(
@@ -1088,7 +1143,7 @@ async function handleInstallationDeletion(request: Request, env: AnalyticsEnv): 
 async function handleIngestion(
   request: Request,
   env: AnalyticsEnv,
-  context: ExecutionContext,
+  context: Pick<ExecutionContext, "waitUntil">,
 ): Promise<Response> {
   if (env.DESKTOP_INGESTION_ENABLED !== "true") {
     return jsonResponse({ error: "Desktop analytics ingestion is disabled" }, 503);
@@ -1103,7 +1158,10 @@ async function handleIngestion(
 
   try {
     const deletionTokenHash = await sha256(requireInstallationToken(request));
-    const events = validateIngestionPayload(await readJsonBody(request));
+    const events = validateIngestionPayload(
+      await readJsonBody(request),
+      env.IDENTITY_ANALYTICS_ENABLED === "true",
+    );
     const installationId = events[0]?.distinctId;
     if (!installationId) throw new RequestValidationError("At least one event is required");
     if (!env.ANALYTICS_INGESTION_RATE_LIMITER) {
@@ -1115,7 +1173,13 @@ async function handleIngestion(
       response.headers.set("Retry-After", "60");
       return response;
     }
-    await persistEvents(env.ANALYTICS_DB, events, deletionTokenHash);
+    await persistEvents(
+      env.ANALYTICS_DB,
+      events,
+      deletionTokenHash,
+      request,
+      env.IDENTITY_ANALYTICS_ENABLED === "true",
+    );
     context.waitUntil(
       flushPendingEvents(env).catch((error: unknown) => {
         console.error(
@@ -1144,8 +1208,8 @@ async function handleIngestion(
   }
 }
 
-const worker: ExportedHandler<AnalyticsEnv> = {
-  async fetch(request, env, context) {
+const worker = {
+  async fetch(request, env, context: Pick<ExecutionContext, "waitUntil">) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
       let storageReady = false;
@@ -1233,7 +1297,13 @@ const worker: ExportedHandler<AnalyticsEnv> = {
     context.waitUntil(
       (async () => {
         for (const [name, operation] of [
-          ["retention", () => pruneExpiredAnalyticsEvents(env.ANALYTICS_DB)],
+          [
+            "retention",
+            () =>
+              env.IDENTITY_ANALYTICS_ENABLED === "true"
+                ? prunePeopleAnalytics(env.ANALYTICS_DB)
+                : pruneExpiredAnalyticsEvents(env.ANALYTICS_DB),
+          ],
           ["deletion", () => flushPendingDeletions(env)],
           ["identity-export", () => flushPendingIdentityLinks(env)],
           ["event-export", () => flushPendingEvents(env)],
@@ -1264,6 +1334,6 @@ const worker: ExportedHandler<AnalyticsEnv> = {
       })(),
     );
   },
-};
+} satisfies ExportedHandler<AnalyticsEnv>;
 
 export default worker;
