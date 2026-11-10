@@ -319,25 +319,24 @@ fails; duplicate/possible-match skips are reported separately as
 Retries are new attempts, not a second completion of an already saved source.
 These events do not claim batch-conversion or human-review coverage.
 
-### Prepared account analytics (activation held)
+### Account analytics activation
 
 Revision 11 accepts provider account/profile observations. `IDENTITY_ANALYTICS_ENABLED`
-is committed as `false` in both the Pages and event Worker configurations. With it
-off, new desktop identity events are acknowledged and discarded; no IP/geography
-observations are written. Existing usage ingestion/export stays independent.
+is committed as `true` in both the Pages and event Worker configurations. Existing
+usage ingestion/export stays independent. With this flag off, new identity events
+are acknowledged and discarded rather than queued for later activation.
 
-After the new privacy wording is reviewed and published, apply migration 0007,
-deploy the compatible gateway and explicitly activate both flags before releasing
-the desktop revision. Do not enable a flag or deploy this Worker as part of merging
-the implementation PR. The website's normal Pages deployment remains safe while
-the flag is false; a manual event Worker deployment and production database
-migration are separate operations.
+Migration 0007 must be applied before deploying the compatible gateway. Website
+Pages deployment and event Worker deployment are separate operations. Qualify
+storage, retention and synthetic observation handling before the desktop release.
+The owner authorized production migration and activation on 10 November 2026,
+with the public privacy-wording review to follow preparation and activation.
 
 With activation enabled, dedicated account, profile, device-hash and request-network
 observations remain in Cloudflare and are excluded from PostHog. Token-authenticated
 installation deletion removes its observations too. Usage follows two-year inactivity
-retention; diagnostic events expire after 60 days. The pre-activation 180/30-day
-retention path remains in effect until activation. Local desktop outbox retention
+retention; diagnostic events expire after 60 days. The fallback 180/30-day
+retention path applies only when identity analytics is disabled. Local desktop outbox retention
 is a separate bounded delivery policy.
 
 Migration 0007 backfills daily event/active-installation totals and maintains them
@@ -350,4 +349,4 @@ as tentative and never merges identities. Shared accounts, networks and computer
 must not be presented as proof of one human.
 
 Provider capability and desktop behavior are documented in the dependent desktop
-PR. The public privacy page will be rewritten with the owner before activation.
+PR. The public privacy wording is being reviewed separately with the owner.
