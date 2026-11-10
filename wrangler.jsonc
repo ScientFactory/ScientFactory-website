@@ -12,7 +12,7 @@
       "migrations_dir": "migrations",
     },
   ],
-  "vars": { "IDENTITY_ANALYTICS_ENABLED": "false" },
+  "vars": { "IDENTITY_ANALYTICS_ENABLED": "true" },
   "observability": {
     "enabled": true,
   },
