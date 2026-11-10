@@ -6,70 +6,41 @@ import Layout from "../layouts/Layout.astro";
 <Layout
   theme="light"
   title="Privacy — ScientFactory"
-  description="A plain-language explanation of how the ScientFactory website handles visitor information."
+  description="How ScientFactory handles website, Desktop analytics and Scient Connect information."
 >
   <Prose
     eyebrow="Last updated 10 November 2026"
     title="Privacy, plainly stated."
-    intro="This notice covers the ScientFactory website at scientfactory.com and the optional Scient Connect service. It describes both as they operate today."
+    intro="This notice covers the ScientFactory website, analytics in Scient Desktop and the optional Scient Connect service."
   >
     <section class="content-section" aria-labelledby="privacy-analytics">
-      <p class="content-section__label">Analytics</p>
+      <p class="content-section__label">Website analytics</p>
       <div class="content-section__body">
-        <h2 id="privacy-analytics">First-party measurement with a clear choice.</h2>
+        <h2 id="privacy-analytics">Website analytics</h2>
         <p>
-          The website records four anonymous events: a page was viewed, a download was clicked, a ScientFactory download redirect failed, or an external link was clicked. These events help us understand which pages and installers are useful and whether the download service is working.
+          We collect website usage, device and network information to understand how people find and start using Scient, measure downloads and improve the service.
         </p>
         <p>
-          With “Essential only,” each event receives a new event-specific identifier. The database stores the time, page path, and only the details needed for that event—for example, the installer type or destination website and path. Query strings are discarded. These counts describe events, not unique people or a person's journey through the site.
+          Optional analytics cookies help us recognize returning visits. You can change your choice through <strong>Cookie settings</strong> in the footer. Event counts and network information are still recorded without these cookies.
         </p>
         <p>
-          If you choose “Allow analytics,” we set a random first-party visitor identifier for up to 180 days and create a temporary identifier for the current browser session. This lets us measure returning visits, sessions, and the path from page view to installer download. The identifiers are random: they are not derived from your name, email address, device fingerprint, IP address, or account with another service.
-        </p>
-        <p>
-          ScientFactory stores events and consent records first in its Cloudflare database. Pseudonymous copies may also be processed in ScientFactory's EU-hosted PostHog project so we can analyze usage and retention. You can change your choice at any time through “Cookie settings” in the footer; choosing “Essential only” removes the persistent visitor cookie.
-        </p>
-        <p>
-          ScientFactory does not use advertising trackers, browser fingerprinting, behavioral session recording, or cross-site tracking on this website. Research content is never included in website analytics events.
-        </p>
-      </div>
-    </section>
-
-    <section class="content-section" aria-labelledby="privacy-hosting">
-      <p class="content-section__label">Hosting</p>
-      <div class="content-section__body">
-        <h2 id="privacy-hosting">Standard infrastructure data may be processed to deliver the site.</h2>
-        <p>
-          The website is delivered through Cloudflare. Like other web infrastructure providers, Cloudflare may process standard request information such as an IP address, browser type, timestamp, and requested page to operate, secure, and troubleshoot the service.
-        </p>
-      </div>
-    </section>
-
-    <section class="content-section" aria-labelledby="privacy-downloads">
-      <p class="content-section__label">Downloads</p>
-      <div class="content-section__body">
-        <h2 id="privacy-downloads">Installer delivery is completed by GitHub.</h2>
-        <p>
-          The download page checks ScientFactory's release endpoint, which validates the public attested GitHub release handoff before locating an installer. Your browser does not bypass that validation by querying the GitHub API directly.
-        </p>
-        <p>
-          When you choose an installer, your browser first requests a ScientFactory download address. The website records the download click and redirects the browser to the official GitHub release file. A <code>download_failed</code> event means our website could not resolve or start that redirect; it cannot detect a later transfer failure after GitHub begins serving the file. GitHub processes the resulting file request under its own privacy terms.
-        </p>
-        <p>
-          Release details may be cached temporarily in your browser's session storage for up to 15 minutes. This avoids repeating the same release lookup and is cleared with the browser session.
+          We do not use advertising trackers, cross-site tracking or session recording on this website.
         </p>
       </div>
     </section>
 
     <section class="content-section" aria-labelledby="privacy-app">
-      <p class="content-section__label">Scient desktop</p>
+      <p class="content-section__label">Scient Desktop</p>
       <div class="content-section__body">
-        <h2 id="privacy-app">We collect how Scient is used, not what you work on.</h2>
+        <h2 id="privacy-app">Scient Desktop</h2>
         <p>
-          Scient collects data about how the app is used, so we can see what works and make it better. That means things like which features you use, which providers and models you choose, and whether things work as they should.
+          Scient collects usage, reliability, account, device and network information to understand how people use the app and improve it. This includes which features, agents and models are used and whether they work as expected.
         </p>
         <p>
-          Your private data stays private. We never collect your prompts, conversations, files, research results or credentials.
+          Where available, account information includes provider sign-in emails and reported plans. Device and network information helps us associate installations and understand where the app is used. You may also optionally tell us about your work, field and role, or skip these questions.
+        </p>
+        <p>
+          Our analytics do not collect your prompts, conversations, files, research results, passwords, API keys or access tokens. Connected AI services receive the requests and supporting context needed to provide their services under their own terms and privacy policies.
         </p>
       </div>
     </section>
@@ -83,6 +54,45 @@ import Layout from "../layouts/Layout.astro";
         </p>
         <p>
           We use Clerk for sign-in, and Cloudflare, PlanetScale and Axiom to run the service.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="privacy-storage">
+      <p class="content-section__label">Storage and retention</p>
+      <div class="content-section__body">
+        <h2 id="privacy-storage">Storage and retention</h2>
+        <p>
+          Website and Desktop analytics are stored in ScientFactory's Cloudflare database. Ordinary usage information may also be processed in our EU-hosted PostHog project. Account details, optional work-profile answers, device identifiers and network observations stay in Cloudflare and are excluded from those exports.
+        </p>
+        <p>
+          Detailed installation usage is retained while the installation remains active and for two years after its last activity. Diagnostic and failure records expire after 60 days. Aggregate totals without personal identifiers may be retained indefinitely.
+        </p>
+        <p>
+          Verified installation-deletion requests remove that installation's detailed records. Aggregate totals and a minimal record needed to prevent deleted data from being recreated may remain.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="privacy-choices">
+      <p class="content-section__label">Your choices</p>
+      <div class="content-section__body">
+        <h2 id="privacy-choices">Your choices</h2>
+        <p>
+          Packaged Scient builds send analytics by default. To disable app analytics, set <code>SCIENT_ANALYTICS_ENABLED=false</code> before starting Scient. Administrators can also use Scient's managed policy. The website's cookie choice is separate from this app setting.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="privacy-hosting">
+      <p class="content-section__label">Hosting and downloads</p>
+      <div class="content-section__body">
+        <h2 id="privacy-hosting">Hosting and downloads</h2>
+        <p>
+          Cloudflare delivers the website and may process standard request information to operate, secure and troubleshoot the service.
+        </p>
+        <p>
+          Installers are served by GitHub under its own privacy terms. Our website records download clicks and failures in its redirect service; it cannot observe a later transfer failure after GitHub starts serving the file.
         </p>
       </div>
     </section>
