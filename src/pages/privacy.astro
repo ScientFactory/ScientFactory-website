@@ -77,28 +77,12 @@ import Layout from "../layouts/Layout.astro";
     <section class="content-section" aria-labelledby="privacy-connect">
       <p class="content-section__label">Scient Connect</p>
       <div class="content-section__body">
-        <h2 id="privacy-connect">An optional account to reach your own computers.</h2>
+        <h2 id="privacy-connect">Reach your own computers, only if you turn it on.</h2>
         <p>
-          Scient Connect is off until you sign in and turn it on for a computer. Sign-in is handled by Clerk, which keeps your account: your name, email address and profile picture from Google, Microsoft or GitHub if you sign in with one, and records of your sign-ins.
+          Scient Connect is optional and off until you sign in. To link your computers, we keep your account and the name and address of each computer you link. Your conversations and files travel between your devices through Cloudflare; we don't store them. We keep short technical logs for 30 days to fix problems.
         </p>
         <p>
-          ScientFactory's relay at relay.scientfactory.com stores, in its database at PlanetScale in the United States, your account identifier, each computer you link (its name, a public key that identifies it, and the local port Scient listens on), the tunnel address it was given, and when its link was created and last changed. If you choose to hold incoming webhook requests while a computer is offline, the relay stores those requests until they are delivered, for up to 24 hours.
-        </p>
-        <p>
-          Your conversations, files and terminals do not pass through the relay. They travel between your device and your computer through a Cloudflare tunnel. Cloudflare decrypts and re-encrypts that traffic at its edge, as it does for any site it serves; ScientFactory does not record it.
-        </p>
-        <p>
-          To diagnose problems, the relay sends a record of each request it handles (the time, address path, result, duration and your account identifier) to Axiom, which keeps it for 30 days. Removing a computer from your account deletes its link and its tunnel.
-        </p>
-      </div>
-    </section>
-
-    <section class="content-section" aria-labelledby="privacy-changes">
-      <p class="content-section__label">Changes and questions</p>
-      <div class="content-section__body">
-        <h2 id="privacy-changes">We will update this page when the website changes.</h2>
-        <p>
-          If we add other accounts, forms, or identity links, this notice will be updated before those features are enabled.
+          We use Clerk for sign-in, and Cloudflare, PlanetScale and Axiom to run the service.
         </p>
       </div>
     </section>
