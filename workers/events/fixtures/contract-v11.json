@@ -1918,6 +1918,7 @@
         "failureClass": "unknown",
         "reviewRequired": false,
         "failureOwner": "unknown",
+        "failureCategory": "unknown",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
