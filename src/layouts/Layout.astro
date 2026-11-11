@@ -69,10 +69,14 @@ const primaryLinks = [
         </a>
         <div class="nav-links">
           {primaryLinks.map((link) => (
-            <a href={link.href} class="nav-link" aria-current={link.active ? "page" : undefined}>
+            <a
+              href={link.href}
+              class:list={["nav-link", link.href === "/" && "nav-link--home"]}
+              aria-current={link.active ? "page" : undefined}>
               {link.label}
             </a>
           ))}
+          <a href="https://app.scientfactory.com" class="nav-link">Sign in</a>
         </div>
       </nav>
 
@@ -399,6 +403,7 @@ const primaryLinks = [
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
     padding: 1.75rem clamp(3rem, 3.4vw, 3.25rem);
   }
 
@@ -448,6 +453,7 @@ const primaryLinks = [
     border-bottom: 1px solid transparent;
     color: var(--ink);
     font-size: 1rem;
+    white-space: nowrap;
     transition: border-color 220ms var(--ease-out), color 220ms var(--ease-out);
   }
 
@@ -585,6 +591,13 @@ const primaryLinks = [
   .analytics-consent-actions button:disabled {
     cursor: wait;
     opacity: 0.6;
+  }
+
+  /* The brand already links home; this leaves room for Sign in on phones. */
+  @media (max-width: 480px) {
+    .nav-link--home {
+      display: none;
+    }
   }
 
   @media (max-width: 640px) {
