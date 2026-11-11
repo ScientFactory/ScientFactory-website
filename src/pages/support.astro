@@ -1,0 +1,51 @@
+---
+import Prose from "../components/Prose.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  theme="light"
+  title="Support — ScientFactory"
+  description="Get help with Scient Desktop, the Scient phone app and Scient Connect."
+>
+  <Prose
+    title="Support."
+    intro="Help with Scient Desktop, the Scient phone app and Scient Connect."
+  >
+    <section class="content-section" aria-labelledby="support-contact">
+      <p class="content-section__label">Contact us</p>
+      <div class="content-section__body">
+        <h2 id="support-contact">Write to us</h2>
+        <p>
+          Email <a href="mailto:support@scientfactory.com">support@scientfactory.com</a>. Tell us which app and version you use and what happened.
+        </p>
+        <p>
+          The <a href="/docs">Scient Docs</a> cover setup and everyday use.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="support-phone">
+      <p class="content-section__label">Phone app</p>
+      <div class="content-section__body">
+        <h2 id="support-phone">Using the phone app</h2>
+        <p>
+          The phone app works with your own computers running Scient Desktop. Sign in with the same account on both, then turn on Scient Connect on the computer, or scan the pairing code from the computer's Connections settings.
+        </p>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="support-delete">
+      <p class="content-section__label">Your account</p>
+      <div class="content-section__body">
+        <h2 id="support-delete">Delete your account</h2>
+        <p>
+          In the phone app, open <strong>Settings → Scient Account → Scient Connect</strong> and choose <strong>Delete account</strong>. This deletes your Scient account and removes your linked computers from Scient Connect. You can also ask us by email.
+        </p>
+        <p>
+          Deleted right away: your account, linked computers, phone registrations and notification tokens, notification and Live Activity records, and the tunnels Scient Connect created for you. Notification delivery records expire after 7 days, and technical logs after 30 days. Crash reports aren't tied to your account and expire after 30 days.
+        </p>
+      </div>
+    </section>
+  </Prose>
+</Layout>

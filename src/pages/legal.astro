@@ -1,0 +1,18 @@
+---
+import Prose from "../components/Prose.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout theme="light" title="Legal — ScientFactory" description="ScientFactory's legal documents.">
+  <Prose title="Legal." intro="The documents that apply to Scient and ScientFactory.">
+    <section class="content-section" aria-labelledby="legal-documents">
+      <p class="content-section__label">Documents</p>
+      <div class="content-section__body">
+        <h2 id="legal-documents">Documents</h2>
+        <p><a href="/privacy">Privacy notice</a></p>
+        <p><a href="/terms">Terms of use</a></p>
+        <p>Scient and ScientFactory are operated by GENORE PREV LTD, an Israeli company (company number 516936846).</p>
+      </div>
+    </section>
+  </Prose>
+</Layout>
