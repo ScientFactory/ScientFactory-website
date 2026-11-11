@@ -63,13 +63,22 @@ import Layout from "../layouts/Layout.astro";
       <div class="content-section__body">
         <h2 id="privacy-phone">Scient phone app</h2>
         <p>
-          The phone app uses your Scient account. To deliver notifications, Live Activities and widgets, we keep a random ID for your phone, its name, its notification tokens, and the project and conversation titles and short status lines those notifications show. Apple and Google carry the notifications.
+          You can pair the phone app directly with your computer, or sign in to use Scient Connect. When you sign in, we receive your account email and user ID through Clerk.
         </p>
         <p>
-          The app sends crash reports with a random ID that isn't tied to your account, and timing information about its connections. You can turn crash reports off in the app's Diagnostics settings. The app has no advertising or analytics trackers.
+          To deliver notifications, Live Activities and widgets, we keep a random ID for your phone, its name, its operating system and app version, its notification tokens, and the project and conversation titles and short status lines those notifications show. Apple and Google carry the notifications. Status lines for finished work are removed within about 30 minutes, and notification delivery records after 7 days.
         </p>
         <p>
-          Your conversations and files travel between the phone and your own computers, encrypted, and we don't store them. Voice dictation runs on the phone, or on your own computer with the speech service you choose there. On Android, Google's on-device speech component sends Google usage and performance information under Google's terms.
+          The app sends error reports (error message, stack trace, app version, device model and operating system) and startup timings with a random ID that isn't tied to your account; you can turn them off in the app's Diagnostics settings. Requests to Scient Connect are also traced, and those traces are linked to your account. Diagnostics and logs are kept for 30 days. The app has no advertising or analytics trackers.
+        </p>
+        <p>
+          Your conversations and files travel between the phone and your own computers, and we don't store them. Through Scient Connect they are encrypted. A direct connection is encrypted when your computer's address uses HTTPS or a private network such as a tailnet; a plain <code>http://</code> address on a local network is not encrypted.
+        </p>
+        <p>
+          Voice dictation runs on the phone, or on your own computer with the speech service you choose there. On Android, Google's on-device speech component (ML Kit) sends Google device and app information, identifiers and diagnostics under Google's terms.
+        </p>
+        <p>
+          Deleting your account in the app removes your account, linked computers, phone registrations and notification records right away. <a href="/support#support-delete">What account deletion removes</a>.
         </p>
       </div>
     </section>
