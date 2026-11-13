@@ -251,6 +251,45 @@ describe("desktop release mirror", () => {
     expect(pointerTag(objects)).toBe("v0.6.29");
   });
 
+  it("keeps a newer promotion when an older run's GitHub answer arrives late", async () => {
+    const { bucket, objects } = memoryBucket();
+    vi.stubGlobal(
+      "fetch",
+      githubFetch(() => handoffFor("0.6.28")),
+    );
+    await syncDesktopMirror(bucket, NOW);
+    let releaseOldAnswer!: () => void;
+    const oldAnswer = new Promise<void>((resolve) => {
+      releaseOldAnswer = resolve;
+    });
+    let handoffRequests = 0;
+    vi.stubGlobal(
+      "fetch",
+      githubFetch(() => handoffFor("0.6.29"), {
+        [HANDOFF_URL]: async () => {
+          handoffRequests += 1;
+          // The first request is answered late, with the release that was latest when it began.
+          if (handoffRequests === 1) {
+            await oldAnswer;
+            return Response.json(handoffFor("0.6.28"));
+          }
+          return Response.json(handoffFor("0.6.29"));
+        },
+      }),
+    );
+
+    const olderRun = syncDesktopMirror(bucket, NOW);
+    await vi.waitFor(() => expect(handoffRequests).toBe(1));
+    await expect(syncDesktopMirror(bucket, NOW)).resolves.toMatchObject({
+      tag: "v0.6.29",
+      promoted: true,
+    });
+    releaseOldAnswer();
+
+    await expect(olderRun).resolves.toMatchObject({ tag: "v0.6.28", superseded: true });
+    expect(pointerTag(objects)).toBe("v0.6.29");
+  });
+
   it("leaves the previous pointer in place when an installer does not match the handoff", async () => {
     const previous = JSON.stringify({ schemaVersion: 1, marker: "previous" });
     const { bucket, objects } = memoryBucket({ [STABLE]: previous });

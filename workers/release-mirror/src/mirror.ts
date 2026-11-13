@@ -121,10 +121,11 @@ async function mirrorInstaller(
  * first; the Stable pointer is written last, so it never names bytes that are not there.
  */
 export async function syncDesktopMirror(bucket: R2Bucket, now: Date): Promise<MirrorSyncResult> {
+  // The pointer version this run may replace, captured before anything this run learns from
+  // GitHub: a run whose GitHub answer predates another run's promotion must lose its swap.
+  const observed = await bucket.head(DESKTOP_MIRROR_STABLE_KEY);
   const { raw, publishedAt } = await fetchLatestHandoff();
   const handoff = parseReleaseHandoff(raw);
-  // The pointer version this run may replace; read before the pointer's content.
-  const observed = await bucket.head(DESKTOP_MIRROR_STABLE_KEY);
   // An unreadable pointer is replaced below rather than blocking the mirror.
   const current = await readMirroredRelease(bucket).catch(() => null);
 
