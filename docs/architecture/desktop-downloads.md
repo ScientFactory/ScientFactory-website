@@ -34,14 +34,18 @@ Each run:
 
 1. Reads GitHub's latest handoff and validates it.
 2. For each required installer, keeps an existing `scient-desktop/<tag>/<name>` whose size
-   and recorded SHA-256 match, and otherwise streams it from the GitHub release into R2 with
-   the handoff's SHA-256. R2 refuses the write when the bytes do not match.
-3. Writes `scient-desktop/stable.json` last: the handoff, GitHub's Last-Modified,
-   `mirroredAt`, and `checkedAt`.
+   and recorded SHA-256 match. A missing installer is streamed from the GitHub release into
+   R2 with the handoff's SHA-256 and `If-None-Match: *`; R2 refuses the write when the bytes
+   do not match. An existing installer with a different digest is never replaced: the run
+   fails, because the current pointer and year-long caches may still serve those bytes. A
+   changed installer needs a new release tag.
+3. Writes `scient-desktop/stable.json` last, as a compare-and-swap on the pointer version the
+   run observed at its start: the handoff, GitHub's Last-Modified, `mirroredAt`, and
+   `checkedAt`. If another run wrote the pointer meanwhile, this run reports `superseded`
+   and leaves it, so a slow run that saw an older release cannot undo a newer promotion.
 
 A failed run leaves the previous pointer untouched, so the pointer only names installers
-that are in the bucket. Versioned installer keys are immutable and cached for a year;
-older versions stay in the bucket.
+that are in the bucket. Older versions stay in the bucket.
 
 Deploy the worker with `bun run mirror:deploy`. The Pages project reads the bucket through
 its `DESKTOP_DOWNLOADS` binding in `wrangler.jsonc`.
