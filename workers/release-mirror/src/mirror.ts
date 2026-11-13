@@ -11,7 +11,11 @@ import {
   requiredInstallerNames,
   type ReleaseHandoffAsset,
 } from "../../../src/lib/release-handoff";
-import { desktopMirrorKey, GITHUB_RELEASE_HANDOFF_URL } from "../../../src/lib/release-source";
+import {
+  DESKTOP_MIRROR_STABLE_KEY,
+  desktopMirrorKey,
+  GITHUB_RELEASE_HANDOFF_URL,
+} from "../../../src/lib/release-source";
 
 const USER_AGENT = "ScientFactory-release-mirror";
 const HANDOFF_TIMEOUT_MS = 30_000;
@@ -23,6 +27,8 @@ export interface MirrorSyncResult {
   readonly copied: readonly string[];
   /** True when this run moved the Stable pointer to a different release. */
   readonly promoted: boolean;
+  /** True when another run wrote the pointer first, so this run left it alone. */
+  readonly superseded: boolean;
 }
 
 async function fetchLatestHandoff(): Promise<{ raw: unknown; publishedAt: string | null }> {
@@ -42,17 +48,28 @@ async function fetchLatestHandoff(): Promise<{ raw: unknown; publishedAt: string
   };
 }
 
-/** Copies one installer unless the bucket already holds it with the handoff's digest. */
+/**
+ * Copies one installer unless the bucket already holds it with the handoff's digest.
+ * Installer keys are immutable: bytes already published under a tag are never replaced, since
+ * the current pointer and year-long caches may still serve them. A changed digest needs a new tag.
+ */
 async function mirrorInstaller(
   bucket: R2Bucket,
   tag: string,
   asset: ReleaseHandoffAsset,
 ): Promise<boolean> {
   const key = desktopMirrorKey(tag, asset.name);
+  const verifyExisting = (existing: R2Object | null): false => {
+    if (existing?.size === asset.size && existing.customMetadata?.sha256 === asset.sha256) {
+      return false;
+    }
+    throw new Error(
+      `${key} already holds other bytes (sha256 ${existing?.customMetadata?.sha256 ?? "unrecorded"}); ` +
+        `the handoff now says ${asset.sha256}. Published installers are never replaced.`,
+    );
+  };
   const existing = await bucket.head(key);
-  if (existing?.size === asset.size && existing.customMetadata?.sha256 === asset.sha256) {
-    return false;
-  }
+  if (existing !== null) return verifyExisting(existing);
 
   const response = await fetch(githubReleaseDownloadUrl(tag, asset.name), {
     headers: { "User-Agent": USER_AGENT },
@@ -69,11 +86,14 @@ async function mirrorInstaller(
   }
 
   // R2 needs a known length for a streamed body, and rejects the write when the bytes do not
-  // hash to `sha256`, so a stored object is always exactly the attested installer.
+  // hash to `sha256`. `If-None-Match: *` keeps a concurrent run from replacing the object.
   const sized = new FixedLengthStream(asset.size);
-  await Promise.all([
-    response.body.pipeTo(sized.writable),
-    bucket.put(key, sized.readable, {
+  const stopPiping = new AbortController();
+  const piping = response.body.pipeTo(sized.writable, { signal: stopPiping.signal });
+  let written: R2Object | null;
+  try {
+    written = await bucket.put(key, sized.readable, {
+      onlyIf: new Headers({ "If-None-Match": "*" }),
       sha256: asset.sha256,
       httpMetadata: {
         contentType: releaseAssetContentType(asset.name),
@@ -81,8 +101,18 @@ async function mirrorInstaller(
         cacheControl: "public, max-age=31536000, immutable",
       },
       customMetadata: { sha256: asset.sha256 },
-    }),
-  ]);
+    });
+  } catch (error) {
+    stopPiping.abort();
+    await piping.catch(() => undefined);
+    throw error;
+  }
+  if (written === null) {
+    stopPiping.abort();
+    await piping.catch(() => undefined);
+    return verifyExisting(await bucket.head(key));
+  }
+  await piping;
   return true;
 }
 
@@ -93,6 +123,8 @@ async function mirrorInstaller(
 export async function syncDesktopMirror(bucket: R2Bucket, now: Date): Promise<MirrorSyncResult> {
   const { raw, publishedAt } = await fetchLatestHandoff();
   const handoff = parseReleaseHandoff(raw);
+  // The pointer version this run may replace; read before the pointer's content.
+  const observed = await bucket.head(DESKTOP_MIRROR_STABLE_KEY);
   // An unreadable pointer is replaced below rather than blocking the mirror.
   const current = await readMirroredRelease(bucket).catch(() => null);
 
@@ -106,12 +138,21 @@ export async function syncDesktopMirror(bucket: R2Bucket, now: Date): Promise<Mi
   const sameRelease =
     current !== null && JSON.stringify(current.handoff) === JSON.stringify(handoff);
   const at = now.toISOString();
-  await writeMirrorPointer(bucket, {
-    schemaVersion: 1,
-    handoff: raw,
-    publishedAt,
-    mirroredAt: sameRelease && copied.length === 0 ? current.pointer.mirroredAt : at,
-    checkedAt: at,
-  });
-  return { tag: handoff.tag, copied, promoted: !sameRelease };
+  const written = await writeMirrorPointer(
+    bucket,
+    {
+      schemaVersion: 1,
+      handoff: raw,
+      publishedAt,
+      mirroredAt: sameRelease && copied.length === 0 ? current.pointer.mirroredAt : at,
+      checkedAt: at,
+    },
+    observed?.etag ?? null,
+  );
+  return {
+    tag: handoff.tag,
+    copied,
+    promoted: written && !sameRelease,
+    superseded: !written,
+  };
 }

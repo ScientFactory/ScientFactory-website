@@ -64,14 +64,23 @@ export async function readMirroredRelease(bucket: R2Bucket): Promise<MirroredRel
   return parseMirrorPointer(JSON.parse(await object.text()) as unknown);
 }
 
+/**
+ * Writes the pointer only if it is still the version this run observed (`observedEtag`, or
+ * absent when null). Returns false when another run wrote it first, so a slow run that saw an
+ * older release can never replace a newer promotion.
+ */
 export async function writeMirrorPointer(
   bucket: R2Bucket,
   pointer: DesktopMirrorPointer,
-): Promise<void> {
-  await bucket.put(DESKTOP_MIRROR_STABLE_KEY, JSON.stringify(pointer), {
+  observedEtag: string | null,
+): Promise<boolean> {
+  const written = await bucket.put(DESKTOP_MIRROR_STABLE_KEY, JSON.stringify(pointer), {
+    onlyIf:
+      observedEtag === null ? new Headers({ "If-None-Match": "*" }) : { etagMatches: observedEtag },
     httpMetadata: {
       contentType: "application/json; charset=utf-8",
       cacheControl: "no-store",
     },
   });
+  return written !== null;
 }
