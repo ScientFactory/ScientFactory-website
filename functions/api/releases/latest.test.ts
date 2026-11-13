@@ -53,6 +53,7 @@ function handoffResponse(value: unknown = handoffFixture): Response {
 function createContext() {
   return {
     request: new Request("https://scientfactory.com/api/releases/latest?ignored=true"),
+    env: {},
     waitUntil: vi.fn(),
   } as unknown as Parameters<typeof onRequestGet>[0];
 }

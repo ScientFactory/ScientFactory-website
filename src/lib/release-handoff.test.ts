@@ -92,6 +92,34 @@ describe("Scient release handoff", () => {
     expect(() => releaseFromHandoff(value, lastModified)).toThrow();
   });
 
+  it("points installers at the mirror and keeps every other asset on GitHub", () => {
+    const release = releaseFromHandoff(
+      {
+        ...handoffFixture,
+        assets: [
+          ...handoffFixture.assets,
+          { name: "latest-mac.yml", size: 500, sha256: "9".repeat(64) },
+        ],
+      },
+      "2026-08-22T01:50:58.000Z",
+      "mirror",
+    );
+    const urls = Object.fromEntries(
+      release.assets.map((asset) => [asset.name, asset.browser_download_url]),
+    );
+    expect(urls["Scient-0.6.5-arm64.dmg"]).toBe(
+      "https://downloads.scientfactory.com/scient-desktop/v0.6.5/Scient-0.6.5-arm64.dmg",
+    );
+    expect(urls["Scient-0.6.5-x86_64.AppImage"]).toBe(
+      "https://downloads.scientfactory.com/scient-desktop/v0.6.5/Scient-0.6.5-x86_64.AppImage",
+    );
+    expect(urls["latest-mac.yml"]).toBe(
+      "https://github.com/ScientFactory/scient-desktop/releases/download/v0.6.5/latest-mac.yml",
+    );
+    expect(urls["SHA256SUMS.txt"]).toContain("github.com");
+    expect(release.published_at).toBe("2026-08-22T01:50:58.000Z");
+  });
+
   it("keeps publication copy optional when the CDN omits its date", () => {
     expect(releaseFromHandoff(handoffFixture, null).published_at).toBeNull();
     expect(releaseFromHandoff(handoffFixture, "not-a-date").published_at).toBeNull();

@@ -12,6 +12,12 @@
       "migrations_dir": "migrations",
     },
   ],
+  "r2_buckets": [
+    {
+      "binding": "DESKTOP_DOWNLOADS",
+      "bucket_name": "scient-downloads",
+    },
+  ],
   "vars": { "IDENTITY_ANALYTICS_ENABLED": "true" },
   "observability": {
     "enabled": true,

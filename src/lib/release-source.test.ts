@@ -32,6 +32,25 @@ describe("Scient Desktop release source", () => {
     expect(isOfficialDesktopReleaseDownload(url)).toBe(false);
   });
 
+  it("accepts ScientFactory's mirrored installer path", () => {
+    expect(
+      isOfficialDesktopReleaseDownload(
+        "https://downloads.scientfactory.com/scient-desktop/v0.6.28/Scient-0.6.28-arm64.dmg",
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    "http://downloads.scientfactory.com/scient-desktop/v0.6.28/Scient-0.6.28-arm64.dmg",
+    "https://downloads.scientfactory.com/scient-agent/v0.1.5/scient-agent-darwin-arm64",
+    "https://downloads.scientfactory.com/scient-desktop/stable.json",
+    "https://downloads.scientfactory.com/scient-desktop/v0.6.28/../stable.json",
+    "https://downloads.scientfactory.com/scient-desktop/v0.6.28/Scient.dmg?x=1",
+    "https://downloads.scientfactory.com.evil.test/scient-desktop/v0.6.28/Scient.dmg",
+  ])("rejects an untrusted mirror path: %s", (url) => {
+    expect(isOfficialDesktopReleaseDownload(url)).toBe(false);
+  });
+
   it("accepts the exact canonical release page", () => {
     expect(
       isOfficialDesktopReleasePage(

@@ -52,7 +52,7 @@ function handoffResponse(value: unknown = handoffFixture): Response {
 }
 
 function createDatabase(run = vi.fn().mockResolvedValue({ success: true })) {
-  const bind = vi.fn(() => ({ run }));
+  const bind = vi.fn((..._values: unknown[]) => ({ run }));
   const prepare = vi.fn(() => ({ bind }));
   const batch = vi.fn(async (statements: ReadonlyArray<{ run?: () => Promise<unknown> }>) => {
     await Promise.all(statements.map((statement) => statement.run?.()));
@@ -142,36 +142,65 @@ describe("tracked download redirect", () => {
     await flushWaitUntil(context);
   });
 
-  it("records a ScientFactory-side failure when resolution fails", async () => {
+  it("sends a visitor to the release page and records why when resolution fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const db = createDatabase();
     const context = createContext("macArm64", db.database);
     vi.stubGlobal(
       "fetch",
-      vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 503 })),
+      vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 429 })),
     );
 
     const response = await onRequestGet(context);
 
-    expect(response.status).toBe(503);
-    await flushWaitUntil(context);
-    expect(db.bind).toHaveBeenCalledWith(
-      expect.any(String),
-      "download_failed",
-      "diagnostic",
-      expect.any(String),
-      expect.stringMatching(/^web-event:/),
-      JSON.stringify({
-        page_path: "/download",
-        asset_key: "macArm64",
-        failure_stage: "release_fetch",
-        failure_reason: "upstream_unavailable",
-      }),
-      "event",
-      expect.stringMatching(/^web-event:/),
-      null,
-      "essential",
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(
+      "https://github.com/ScientFactory/scient-desktop/releases/latest",
     );
+    await flushWaitUntil(context);
+    const failure = db.bind.mock.calls.find((call) => call[1] === "download_failed");
+    expect(failure?.[2]).toBe("diagnostic");
+    expect(JSON.parse(String(failure?.[5]))).toEqual({
+      page_path: "/download",
+      asset_key: "macArm64",
+      failure_stage: "release_fetch",
+      failure_reason: "upstream_unavailable",
+      upstream_status: 429,
+      upstream_elapsed_ms: expect.any(Number),
+      upstream_attempts: 1,
+      fallback: "release_page",
+    });
+  });
+
+  it("redirects to ScientFactory's mirrored installer when the mirror is current", async () => {
+    const db = createDatabase();
+    const context = createContext("linuxX64", db.database);
+    const pointer = JSON.stringify({
+      schemaVersion: 1,
+      handoff: handoffFixture,
+      publishedAt: null,
+      mirroredAt: new Date().toISOString(),
+      checkedAt: new Date().toISOString(),
+    });
+    Object.assign(context.env, {
+      DESKTOP_DOWNLOADS: { get: async () => ({ size: pointer.length, text: async () => pointer }) },
+    });
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await onRequestGet(context);
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(
+      "https://downloads.scientfactory.com/scient-desktop/v0.5.7/Scient-0.5.7-x86_64.AppImage",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    await flushWaitUntil(context);
+    const click = db.bind.mock.calls.find((call) => call[1] === "download_clicked");
+    expect(JSON.parse(String(click?.[5]))).toMatchObject({
+      destination_host: "downloads.scientfactory.com",
+      destination_path: "/scient-desktop/v0.5.7/Scient-0.5.7-x86_64.AppImage",
+    });
   });
 
   it("rejects unknown asset keys before contacting GitHub", async () => {
