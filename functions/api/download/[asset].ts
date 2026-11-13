@@ -1,14 +1,18 @@
 // FILE: [asset].ts
-// Purpose: Counts a download intent, then redirects to the matching official GitHub installer.
+// Purpose: Counts a download intent, then redirects to the matching official installer.
 // Layer: Cloudflare Pages Function
 
 import { findDownloadAsset, type DownloadAssetKey } from "../../../src/lib/download-assets";
 import type { Release, ReleaseAsset } from "../../../src/lib/release-schema";
-import { isOfficialDesktopReleaseDownload } from "../../../src/lib/release-source";
+import {
+  DESKTOP_LATEST_RELEASE_PAGE_URL,
+  isOfficialDesktopReleaseDownload,
+} from "../../../src/lib/release-source";
 import { queueSiteEvent } from "../../_lib/events";
 import {
   LatestReleaseResolutionError,
   resolveLatestDesktopRelease,
+  type UpstreamFailure,
 } from "../../_lib/latest-release";
 
 const DOWNLOAD_ASSET_KEYS = new Set<DownloadAssetKey>([
@@ -22,6 +26,7 @@ class DownloadResolutionError extends Error {
   constructor(
     readonly stage: string,
     readonly reason: string,
+    readonly upstream: UpstreamFailure | null = null,
   ) {
     super(reason);
   }
@@ -44,7 +49,7 @@ async function resolveDownload(
     release = await resolveLatestDesktopRelease(context);
   } catch (error) {
     if (error instanceof LatestReleaseResolutionError) {
-      throw new DownloadResolutionError(error.stage, error.reason);
+      throw new DownloadResolutionError(error.stage, error.reason, error.upstream);
     }
     throw new DownloadResolutionError("release_fetch", "upstream_request_failed");
   }
@@ -60,36 +65,17 @@ async function resolveDownload(
   return { release, asset };
 }
 
-function redirectResponse(asset: ReleaseAsset): Response {
+function redirectResponse(location: string): Response {
   return new Response(null, {
     status: 302,
     headers: {
       "Cache-Control": "no-store",
-      Location: asset.browser_download_url,
+      Location: location,
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
       "X-Robots-Tag": "noindex, nofollow",
     },
   });
-}
-
-function unavailableResponse(): Response {
-  return Response.json(
-    {
-      error:
-        "This installer is temporarily unavailable. Please return to the download page and try again.",
-    },
-    {
-      status: 503,
-      headers: {
-        "Cache-Control": "no-store",
-        "Content-Type": "application/json; charset=utf-8",
-        "Retry-After": "60",
-        "X-Content-Type-Options": "nosniff",
-        "X-Robots-Tag": "noindex, nofollow",
-      },
-    },
-  );
 }
 
 async function handleDownload(
@@ -113,7 +99,7 @@ async function handleDownload(
         destinationPath: destination.pathname,
       });
     }
-    return redirectResponse(asset);
+    return redirectResponse(asset.browser_download_url);
   } catch (error) {
     const failure =
       error instanceof DownloadResolutionError
@@ -127,18 +113,25 @@ async function handleDownload(
         assetKey: key,
         failureStage: failure.stage,
         failureReason: failure.reason,
+        upstreamStatus: failure.upstream?.status ?? null,
+        upstreamError: failure.upstream?.error ?? null,
+        upstreamElapsedMs: failure.upstream?.elapsedMs ?? null,
+        upstreamAttempts: failure.upstream?.attempts ?? null,
+        fallback: "release_page",
       });
     }
 
     console.error(
       JSON.stringify({
-        message: "Download redirect could not be resolved",
+        message: "Download redirect could not be resolved; sent to the release page",
         assetKey: key,
         stage: failure.stage,
         reason: failure.reason,
+        upstream: failure.upstream,
       }),
     );
-    return unavailableResponse();
+    // The release page lists every installer, so a visitor still reaches a download.
+    return redirectResponse(DESKTOP_LATEST_RELEASE_PAGE_URL);
   }
 }
 

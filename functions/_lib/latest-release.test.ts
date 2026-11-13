@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LatestReleaseResolutionError, resolveLatestDesktopRelease } from "./latest-release";
 
@@ -24,20 +24,72 @@ const handoffFixture = {
   ],
 };
 
+const mirroredHandoff = {
+  ...handoffFixture,
+  version: "0.6.4",
+  tag: "v0.6.4",
+  assets: handoffFixture.assets.map((asset) => ({
+    ...asset,
+    name: asset.name.replace("0.6.5", "0.6.4"),
+  })),
+};
+
+const NOW = Date.parse("2026-11-13T12:00:00.000Z");
+
 function handoffResponse(headers?: HeadersInit): Response {
   return Response.json(handoffFixture, {
     headers: { "Last-Modified": "Sat, 22 Aug 2026 01:50:58 GMT", ...headers },
   });
 }
 
-function context() {
+function mirrorBucket(checkedAt: string | null, body?: string): R2Bucket {
+  const text =
+    body ??
+    JSON.stringify({
+      schemaVersion: 1,
+      handoff: mirroredHandoff,
+      publishedAt: "2026-11-01T00:00:00.000Z",
+      mirroredAt: "2026-11-01T00:05:00.000Z",
+      checkedAt,
+    });
+  return {
+    get: vi.fn(async () =>
+      checkedAt === null && body === undefined
+        ? null
+        : { size: text.length, text: async () => text },
+    ),
+  } as unknown as R2Bucket;
+}
+
+function context(bucket?: R2Bucket) {
   const pending: Array<Promise<unknown>> = [];
   return {
     request: new Request("https://scientfactory.com/api/releases/latest"),
+    env: bucket ? { DESKTOP_DOWNLOADS: bucket } : {},
     waitUntil: (promise: Promise<unknown>) => pending.push(promise),
     pending,
   };
 }
+
+function emptyCache() {
+  const put = vi.fn();
+  vi.stubGlobal("caches", {
+    default: { match: vi.fn().mockResolvedValue(undefined), put, delete: vi.fn() },
+  });
+  return put;
+}
+
+function upstreamError(upstream: object) {
+  return expect.objectContaining<Partial<LatestReleaseResolutionError>>({
+    stage: "release_fetch",
+    reason: "upstream_unavailable",
+    upstream: expect.objectContaining(upstream),
+  });
+}
+
+beforeEach(() => {
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -71,16 +123,98 @@ describe("latest release resolver", () => {
     expect(new URL(key.url).searchParams.toString()).toBe(
       new URLSearchParams({
         source: "ScientFactory/scient-desktop",
-        schema: "handoff-v1",
+        schema: "handoff-v2",
       }).toString(),
     );
   });
 
+  it("serves a fresh mirror without contacting GitHub", async () => {
+    vi.useFakeTimers({ now: NOW });
+    emptyCache();
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const release = await resolveLatestDesktopRelease(
+      context(mirrorBucket("2026-11-13T11:55:00.000Z")),
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(release.tag_name).toBe("v0.6.4");
+    expect(release.assets[0]?.browser_download_url).toBe(
+      "https://downloads.scientfactory.com/scient-desktop/v0.6.4/Scient-0.6.4-arm64.dmg",
+    );
+  });
+
+  it("prefers GitHub over a mirror the worker has not confirmed recently", async () => {
+    vi.useFakeTimers({ now: NOW });
+    emptyCache();
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(handoffResponse()));
+
+    const release = await resolveLatestDesktopRelease(
+      context(mirrorBucket("2026-11-13T05:00:00.000Z")),
+    );
+
+    expect(release.tag_name).toBe("v0.6.5");
+    expect(release.assets[0]?.browser_download_url).toContain("github.com");
+  });
+
+  it("falls back to a stale mirror when GitHub refuses, without retrying the refusal", async () => {
+    vi.useFakeTimers({ now: NOW });
+    emptyCache();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("Too many requests", { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const release = await resolveLatestDesktopRelease(
+      context(mirrorBucket("2026-11-01T00:05:00.000Z")),
+    );
+
+    expect(release.tag_name).toBe("v0.6.4");
+    expect(release.assets[0]?.browser_download_url).toContain("downloads.scientfactory.com");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores an unreadable mirror pointer and resolves from GitHub", async () => {
+    emptyCache();
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(handoffResponse()));
+
+    await expect(
+      resolveLatestDesktopRelease(context(mirrorBucket(null, '{"schemaVersion":1}'))),
+    ).resolves.toMatchObject({ tag_name: "v0.6.5" });
+  });
+
+  it("retries a GitHub server error once", async () => {
+    vi.useFakeTimers();
+    emptyCache();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 502 }))
+      .mockResolvedValueOnce(handoffResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pending = resolveLatestDesktopRelease(context());
+    await vi.advanceTimersByTimeAsync(250);
+
+    await expect(pending).resolves.toMatchObject({ tag_name: "v0.6.5" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports GitHub's refusal with its status when there is no mirror", async () => {
+    const put = emptyCache();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 429 })),
+    );
+
+    await expect(resolveLatestDesktopRelease(context())).rejects.toEqual(
+      upstreamError({ status: 429, error: null, attempts: 1 }),
+    );
+    expect(put).not.toHaveBeenCalled();
+  });
+
   it("rejects an oversized handoff before parsing or caching it", async () => {
-    const put = vi.fn();
-    vi.stubGlobal("caches", {
-      default: { match: vi.fn().mockResolvedValue(undefined), put, delete: vi.fn() },
-    });
+    const put = emptyCache();
     vi.stubGlobal(
       "fetch",
       vi
@@ -97,34 +231,24 @@ describe("latest release resolver", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it("aborts a stalled handoff request at the bounded timeout", async () => {
+  it("aborts each stalled attempt at the bounded timeout and names the timeout", async () => {
     vi.useFakeTimers();
-    vi.stubGlobal("caches", {
-      default: {
-        match: vi.fn().mockResolvedValue(undefined),
-        put: vi.fn(),
-        delete: vi.fn(),
-      },
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn<typeof fetch>().mockImplementation(
-        (_input, init) =>
-          new Promise<Response>((_resolve, reject) => {
-            init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted")));
-          }),
-      ),
+    emptyCache();
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted")));
+        }),
     );
+    vi.stubGlobal("fetch", fetchMock);
 
     const pending = resolveLatestDesktopRelease(context());
     const rejection = expect(pending).rejects.toEqual(
-      expect.objectContaining<Partial<LatestReleaseResolutionError>>({
-        stage: "release_fetch",
-        reason: "upstream_unavailable",
-      }),
+      upstreamError({ status: null, error: "TimeoutError", attempts: 2 }),
     );
-    await vi.advanceTimersByTimeAsync(8_000);
+    await vi.advanceTimersByTimeAsync(4_000 + 250 + 4_000);
     await rejection;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("discards an invalid cached value and replaces it from the handoff", async () => {

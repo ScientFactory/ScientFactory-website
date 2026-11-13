@@ -5,14 +5,25 @@
 import type { Release, ReleaseAsset } from "./release-schema";
 import {
   DESKTOP_RELEASE_REPOSITORY,
+  desktopMirrorUrl,
   isOfficialDesktopProvenanceRepository,
 } from "./release-source";
 
-interface HandoffAsset {
+export interface ReleaseHandoffAsset {
   readonly name: string;
   readonly size: number;
   readonly sha256: string;
 }
+
+/** The validated facts the website relies on from a release handoff. */
+export interface ReleaseHandoff {
+  readonly version: string;
+  readonly tag: string;
+  readonly assets: readonly ReleaseHandoffAsset[];
+}
+
+/** Where installer downloads point: GitHub, or ScientFactory's verified copy. */
+export type ReleaseDownloadHost = "github" | "mirror";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -25,7 +36,7 @@ function parsePublishedAt(value: string | null): string | null {
   return new Date(timestamp).toISOString();
 }
 
-function parseAsset(value: unknown): HandoffAsset {
+function parseAsset(value: unknown): ReleaseHandoffAsset {
   if (
     !isRecord(value) ||
     typeof value.name !== "string" ||
@@ -42,7 +53,7 @@ function parseAsset(value: unknown): HandoffAsset {
   return { name: value.name, size: value.size, sha256: value.sha256 };
 }
 
-function contentType(name: string): string {
+export function releaseAssetContentType(name: string): string {
   if (name.endsWith(".dmg")) return "application/x-apple-diskimage";
   if (name.endsWith(".yml")) return "text/yaml";
   if (name.endsWith(".txt")) return "text/plain";
@@ -51,17 +62,21 @@ function contentType(name: string): string {
   return "application/octet-stream";
 }
 
-function releaseAsset(repository: string, tag: string, asset: HandoffAsset): ReleaseAsset {
-  return {
-    name: asset.name,
-    browser_download_url: `https://github.com/${repository}/releases/download/${tag}/${encodeURIComponent(asset.name)}`,
-    content_type: contentType(asset.name),
-    size: asset.size,
-    digest: `sha256:${asset.sha256}`,
-  };
+/** The installers every Stable release must carry, one per download card. */
+export function requiredInstallerNames(version: string): readonly string[] {
+  return [
+    `Scient-${version}-arm64.dmg`,
+    `Scient-${version}-x64.dmg`,
+    `Scient-${version}-x64.exe`,
+    `Scient-${version}-x86_64.AppImage`,
+  ];
 }
 
-export function releaseFromHandoff(value: unknown, lastModified: string | null): Release {
+export function githubReleaseDownloadUrl(tag: string, name: string): string {
+  return `https://github.com/${DESKTOP_RELEASE_REPOSITORY}/releases/download/${tag}/${encodeURIComponent(name)}`;
+}
+
+export function parseReleaseHandoff(value: unknown): ReleaseHandoff {
   if (
     !isRecord(value) ||
     value.schemaVersion !== 1 ||
@@ -88,24 +103,29 @@ export function releaseFromHandoff(value: unknown, lastModified: string | null):
     throw new Error("Release handoff contains duplicate assets.");
   }
 
-  const tag = `v${value.version}`;
-  const requiredInstallers = [
-    `Scient-${value.version}-arm64.dmg`,
-    `Scient-${value.version}-x64.dmg`,
-    `Scient-${value.version}-x64.exe`,
-    `Scient-${value.version}-x86_64.AppImage`,
-  ];
   const names = new Set(assets.map((asset) => asset.name));
-  if (!requiredInstallers.every((name) => names.has(name))) {
+  if (!requiredInstallerNames(value.version).every((name) => names.has(name))) {
     throw new Error("Release handoff is missing a required installer.");
   }
+
+  return { version: value.version, tag: `v${value.version}`, assets };
+}
+
+export function releaseFromHandoff(
+  value: unknown,
+  lastModified: string | null,
+  downloads: ReleaseDownloadHost = "github",
+): Release {
+  const { version, tag, assets } = parseReleaseHandoff(value);
+  // Only the installers are mirrored; every other asset stays on GitHub.
+  const mirrored = new Set(downloads === "mirror" ? requiredInstallerNames(version) : []);
   const checksumSize = assets.reduce(
     (size, asset) => size + asset.sha256.length + 2 + asset.name.length + 1,
     0,
   );
   const checksumAsset: ReleaseAsset = {
     name: "SHA256SUMS.txt",
-    browser_download_url: `https://github.com/${DESKTOP_RELEASE_REPOSITORY}/releases/download/${tag}/SHA256SUMS.txt`,
+    browser_download_url: githubReleaseDownloadUrl(tag, "SHA256SUMS.txt"),
     content_type: "text/plain",
     size: checksumSize,
   };
@@ -117,7 +137,15 @@ export function releaseFromHandoff(value: unknown, lastModified: string | null):
     published_at: parsePublishedAt(lastModified),
     prerelease: false,
     assets: [
-      ...assets.map((asset) => releaseAsset(DESKTOP_RELEASE_REPOSITORY, tag, asset)),
+      ...assets.map((asset): ReleaseAsset => ({
+        name: asset.name,
+        browser_download_url: mirrored.has(asset.name)
+          ? desktopMirrorUrl(tag, asset.name)
+          : githubReleaseDownloadUrl(tag, asset.name),
+        content_type: releaseAssetContentType(asset.name),
+        size: asset.size,
+        digest: `sha256:${asset.sha256}`,
+      })),
       checksumAsset,
     ],
   };

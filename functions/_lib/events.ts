@@ -24,6 +24,14 @@ export interface SiteEvent {
   readonly destinationPath?: string | null;
   readonly failureStage?: string | null;
   readonly failureReason?: string | null;
+  /** Download failures: GitHub's final HTTP status, or null when none arrived. */
+  readonly upstreamStatus?: number | null;
+  /** Download failures: the error name when GitHub sent no usable response. */
+  readonly upstreamError?: string | null;
+  readonly upstreamElapsedMs?: number | null;
+  readonly upstreamAttempts?: number | null;
+  /** Download failures: where the visitor was sent instead of an installer. */
+  readonly fallback?: "release_page" | null;
   readonly sessionId?: string | null;
 }
 
@@ -110,7 +118,12 @@ export async function insertSiteEvent(
       destination_path: cleanPath(event.destinationPath),
       failure_stage: limited(event.failureStage, 80),
       failure_reason: limited(event.failureReason, 120),
-    }).filter((entry): entry is [string, string] => entry[1] !== null),
+      upstream_status: event.upstreamStatus ?? null,
+      upstream_error: limited(event.upstreamError, 60),
+      upstream_elapsed_ms: event.upstreamElapsedMs ?? null,
+      upstream_attempts: event.upstreamAttempts ?? null,
+      fallback: event.fallback ?? null,
+    }).filter((entry): entry is [string, string | number] => entry[1] !== null),
   );
 
   const statements: D1PreparedStatement[] = [];

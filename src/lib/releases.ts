@@ -4,6 +4,7 @@
 
 import { parseRelease, type Release, type ReleaseAsset } from "./release-schema";
 import {
+  DESKTOP_LATEST_RELEASE_PAGE_URL,
   DESKTOP_REPOSITORY_URL,
   GITHUB_RELEASE_API_URL,
   RELEASE_CACHE_NAMESPACE,
@@ -20,7 +21,7 @@ let inFlightRelease: Promise<Release> | null = null;
 
 export const REPO_URL = DESKTOP_REPOSITORY_URL;
 export const RELEASES_URL = `${REPO_URL}/releases`;
-export const LATEST_RELEASE_URL = `${RELEASES_URL}/latest`;
+export const LATEST_RELEASE_URL = DESKTOP_LATEST_RELEASE_PAGE_URL;
 
 interface CachedRelease {
   readonly cachedAt: number;
