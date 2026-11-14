@@ -140,8 +140,8 @@ export const analyticsReportQuery = `
 
   SELECT
     'posthog_delivery' AS report_section,
-    CASE WHEN source = 'desktop' AND privacy_level = 'diagnostic' THEN 'first-party-only'
-         ELSE posthog_state END AS item,
+    CASE WHEN posthog_state = 'excluded' OR (source = 'desktop' AND privacy_level = 'diagnostic')
+         THEN 'first-party-only' ELSE posthog_state END AS item,
     COUNT(*) AS event_count,
     MAX(received_at) AS latest_event
   FROM analytics_events

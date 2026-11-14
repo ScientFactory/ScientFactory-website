@@ -42,7 +42,8 @@ export function isIdentityObservation(event: Pick<IdentityObservation, "name" | 
   );
 }
 
-// Called inside the event transaction, after token ownership and tombstones are checked.
+// Runs inside the event batch. Every write requires the installation's token and no tombstone;
+// observation writes also require their stored event.
 export function installationObservationStatements(
   db: D1Database,
   events: ReadonlyArray<IdentityObservation>,
@@ -52,8 +53,12 @@ export function installationObservationStatements(
   const statements: D1PreparedStatement[] = [];
   for (const event of events) {
     const p = event.properties;
+    // The stored event proves what was observed; the token and tombstone checks prove this
+    // request may write it. A replay with the right event and a wrong token writes nothing.
     const guard =
-      "EXISTS (SELECT 1 FROM analytics_events WHERE event_id = ? AND distinct_id = ? AND properties_json = ? AND occurred_at = ? AND event_name = ?)";
+      "EXISTS (SELECT 1 FROM analytics_events WHERE event_id = ? AND distinct_id = ? AND properties_json = ? AND occurred_at = ? AND event_name = ?)" +
+      " AND EXISTS (SELECT 1 FROM analytics_identities WHERE identity_id = ? AND deletion_token_hash = ?)" +
+      " AND NOT EXISTS (SELECT 1 FROM analytics_deleted_installations WHERE installation_id = ?)";
     if (event.name === "install.account_observed") {
       statements.push(
         db
@@ -75,6 +80,9 @@ export function installationObservationStatements(
             JSON.stringify(p),
             event.occurredAt,
             event.name,
+            event.distinctId,
+            tokenHash,
+            event.distinctId,
           ),
       );
     } else if (event.name === "install.profile_observed") {
@@ -98,6 +106,9 @@ export function installationObservationStatements(
             JSON.stringify(p),
             event.occurredAt,
             event.name,
+            event.distinctId,
+            tokenHash,
+            event.distinctId,
           ),
       );
     } else if (
@@ -122,6 +133,9 @@ export function installationObservationStatements(
             JSON.stringify(p),
             event.occurredAt,
             event.name,
+            event.distinctId,
+            tokenHash,
+            event.distinctId,
           ),
       );
     }

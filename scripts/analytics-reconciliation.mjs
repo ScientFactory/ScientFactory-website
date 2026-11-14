@@ -20,6 +20,7 @@ export function reconciliationQueries({ source = "desktop", from, to }) {
     d1: `SELECT event_name, posthog_state, COUNT(*) AS event_count
       FROM analytics_events WHERE source = '${source}'
         AND (source <> 'desktop' OR privacy_level <> 'diagnostic')
+        AND posthog_state <> 'excluded'
         AND julianday(occurred_at) >= julianday('${since}') AND julianday(occurred_at) < julianday('${until}')
       GROUP BY event_name, posthog_state ORDER BY event_name, posthog_state`,
     posthog: `SELECT event, uniqExact(properties.event_id) FROM events

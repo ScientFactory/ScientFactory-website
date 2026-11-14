@@ -11,6 +11,8 @@ describe("analytics reconciliation", () => {
     }
     expect(query.posthog).toContain("uniqExact(properties.event_id)");
     expect(query.d1).toContain("privacy_level <> 'diagnostic'");
+    // Never-exported rows would otherwise fail as an unknown delivery state.
+    expect(query.d1).toContain("posthog_state <> 'excluded'");
     expect(query.posthog).toContain("coalesce(properties.privacy_level, '') != 'diagnostic'");
     expect(() =>
       reconciliationQueries({ source: "desktop' OR 1=1", from: "2026-08-20", to: "2026-08-27" }),

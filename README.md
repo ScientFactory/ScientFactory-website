@@ -210,7 +210,12 @@ Export uses stable capture UUIDs and bounded retries, with a database lease
 renewed before each outbound call. This prevents concurrent local exporters;
 it is not a provider-side transactional fence. Persisted desktop properties are
 revalidated so malformed/legacy rows cannot bypass today's privacy contract.
-`posthog_state='sent'` means capture acknowledged, not erasure settled.
+`posthog_state='sent'` means capture acknowledged, not erasure settled;
+`'excluded'` marks rows written that way because export never sends them (desktop
+diagnostics and identity observations). Event export runs from the five-minute
+cron, up to ten batches of 100 per run, not after each upload, so an upload
+costs one D1 round trip. Each upload logs its status, event count and stage
+durations (`read_ms`, `rate_limit_ms`, `d1_ms`, `total_ms`) without identifiers.
 
 The identity-link token is service-to-service authority. Rotate it if it is exposed, and never embed it in website or desktop bundles:
 
