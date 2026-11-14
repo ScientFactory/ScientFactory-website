@@ -164,6 +164,20 @@ it("rejects wrong tokens and ignores event replays without inflating totals or c
   ).toBe(1);
 });
 
+it("writes nothing for an exact observation replay sent with a wrong token", async () => {
+  const f = fixture();
+  const id = crypto.randomUUID();
+  const at = new Date().toISOString();
+  const observation = { provider: "codex", email: "one@scient.test" };
+  expect((await f.send("install.account_observed", observation, id, token, at)).status).toBe(202);
+  const changes = () => f.sqlite.prepare("SELECT total_changes() AS n").get()!.n;
+  const before = changes();
+  expect(
+    (await f.send("install.account_observed", observation, id, "b".repeat(64), at)).status,
+  ).toBe(403);
+  expect(changes()).toBe(before);
+});
+
 it("erases installation observations, preserves aggregates and prevents resurrection", async () => {
   const f = fixture();
   await f.send("install.account_observed", { provider: "codex", email: "one@scient.test" });
