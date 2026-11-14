@@ -3,13 +3,17 @@ import { readFileSync, readdirSync } from "node:fs";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 
 /** Exercises real migration/transaction SQL; not a substitute for D1 deployment proof. */
-export function testDatabase(beforeReadiness?: (sqlite: DatabaseSync) => void) {
+export function testDatabase(
+  beforeReadiness?: (sqlite: DatabaseSync) => void,
+  beforeMigration: Readonly<Record<string, (sqlite: DatabaseSync) => void>> = {},
+) {
   const sqlite = new DatabaseSync(":memory:");
   const migrations = new URL("../../../migrations/", import.meta.url);
   for (const file of readdirSync(migrations)
     .filter((name) => name.endsWith(".sql"))
     .sort()) {
     if (file === "0006_analytics_readiness.sql") beforeReadiness?.(sqlite);
+    beforeMigration[file]?.(sqlite);
     sqlite.exec(readFileSync(new URL(file, migrations), "utf8"));
   }
   const prepare = (sql: string, bindings: SQLInputValue[] = []) => {

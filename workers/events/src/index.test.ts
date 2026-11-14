@@ -55,7 +55,12 @@ function createDatabase(existingCanonicalId?: string) {
     : vi.fn().mockResolvedValueOnce(null).mockResolvedValue({ authenticated: 1 });
   const bind = vi.fn(() => ({ run, all, first }));
   const prepare = vi.fn(() => ({ bind }));
-  const batch = vi.fn().mockResolvedValue([]);
+  // Like D1, one result per statement; the ingest batch ends with its ownership check.
+  const batch = vi.fn(async (statements: ReadonlyArray<unknown>) =>
+    statements.map((_, index) => ({
+      results: index === statements.length - 1 ? [{ authenticated: 1 }] : [],
+    })),
+  );
   return {
     database: { prepare, batch } as unknown as D1Database,
     prepare,
@@ -400,8 +405,10 @@ describe("event gateway routes", () => {
 
     expect(response.status).toBe(202);
     expect(await response.json()).toEqual({ accepted: 1 });
+    // One D1 round trip: identity upsert, event insert and the ownership check.
     expect(database.batch).toHaveBeenCalledOnce();
-    expect(database.batch.mock.calls[0]?.[0]).toHaveLength(2);
+    expect(database.batch.mock.calls[0]?.[0]).toHaveLength(3);
+    expect(database.first).not.toHaveBeenCalled();
     expect(database.bind).toHaveBeenCalledWith(
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
@@ -433,10 +440,12 @@ describe("event gateway routes", () => {
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       "product",
+      "pending",
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       expect.any(String),
     );
-    expect(waitUntil).toHaveBeenCalledOnce();
+    // Export runs from the cron, not after every ingest.
+    expect(waitUntil).not.toHaveBeenCalled();
   });
 
   it("rejects browser submissions from unknown origins", async () => {

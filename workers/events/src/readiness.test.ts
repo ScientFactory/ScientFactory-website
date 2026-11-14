@@ -11,8 +11,8 @@ import { withExportLease } from "./exportLease";
 const installation = "installation:10000000-0000-4000-8000-000000000001";
 const token = "a".repeat(64);
 const databases: ReturnType<typeof testDatabase>[] = [];
-function fixture(beforeReadiness?: Parameters<typeof testDatabase>[0]) {
-  const store = testDatabase(beforeReadiness);
+function fixture(...hooks: Parameters<typeof testDatabase>) {
+  const store = testDatabase(...hooks);
   databases.push(store);
   const tasks: Promise<unknown>[] = [];
   const env = {
@@ -151,6 +151,113 @@ describe("inactive gateway readiness with real SQL", () => {
     await expect(pruneExpiredAnalyticsEvents(f.database)).rejects.toThrow("retention-backlog");
     expect(f.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(1);
     expect(await pruneExpiredAnalyticsEvents(f.database)).toBe(1);
+  });
+
+  it("writes never-exported rows as excluded and leaves export to the cron", async () => {
+    const f = fixture();
+    const session = f.event().events[0]!;
+    const diagnostic = {
+      ...session,
+      id: crypto.randomUUID(),
+      name: "app.diagnostics",
+      privacy_level: "diagnostic",
+      consent_level: "diagnostic",
+      properties: {
+        appVersion: "0.6.8",
+        buildChannel: "stable",
+        queuedCountBucket: "0",
+        droppedCountBucket: "0",
+        retryCountBucket: "0",
+        deliveryClass: "delivered",
+      },
+    };
+    const response = await f.request("/v1/events", {
+      ...f.event(),
+      events: [session, { ...diagnostic, consent_level: "diagnostic" }],
+    });
+    expect(response.status).toBe(202);
+    expect(f.tasks).toHaveLength(0);
+    expect(
+      f.sqlite
+        .prepare("SELECT event_name, posthog_state FROM analytics_events ORDER BY event_name")
+        .all(),
+    ).toEqual([
+      { event_name: "app.diagnostics", posthog_state: "excluded" },
+      { event_name: "app.session.started", posthog_state: "pending" },
+    ]);
+  });
+
+  it("drains several PostHog batches in one cron export", async () => {
+    const f = fixture();
+    for (let batch = 0; batch < 5; batch += 1) {
+      const events = Array.from({ length: 50 }, () => ({
+        ...f.event().events[0]!,
+        id: crypto.randomUUID(),
+      }));
+      expect((await f.request("/v1/events", { ...f.event(), events })).status).toBe(202);
+    }
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetcher);
+    expect(
+      await flushPendingEvents({
+        ...f.env,
+        POSTHOG_PROJECT_TOKEN: "synthetic",
+        DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
+      }),
+    ).toBe(250);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it("backfills excluded rows without recounting totals and keeps the table's triggers", async () => {
+    const insert = `INSERT INTO analytics_events (event_id, event_name, source, privacy_level,
+      occurred_at, distinct_id, properties_json, posthog_state) VALUES (?, ?, 'desktop', ?, ?, ?, ?, ?)`;
+    const day = "2026-11-14T10:00:00.000Z";
+    const f = fixture(undefined, {
+      "0008_analytics_export_excluded.sql": (sqlite) => {
+        const rows = [
+          ["diagnostic", "app.diagnostics", "diagnostic", "{}", "pending"],
+          ["account", "install.account_observed", "product", "{}", "pending"],
+          ["device", "install.owner_observed", "product", '{"ownerSource":"device"}', "pending"],
+          ["owner", "install.owner_observed", "product", '{"ownerSource":"account"}', "pending"],
+          ["product", "provider.turn.sent", "product", "{}", "pending"],
+          ["sent", "app.diagnostics", "diagnostic", "{}", "sent"],
+        ] as const;
+        for (const [id, name, privacy, properties, state] of rows) {
+          sqlite.prepare(insert).run(id, name, privacy, day, installation, properties, state);
+        }
+      },
+    });
+    expect(
+      f.sqlite
+        .prepare("SELECT event_id, posthog_state FROM analytics_events ORDER BY event_id")
+        .all(),
+    ).toEqual([
+      { event_id: "account", posthog_state: "excluded" },
+      { event_id: "device", posthog_state: "excluded" },
+      { event_id: "diagnostic", posthog_state: "excluded" },
+      { event_id: "owner", posthog_state: "pending" },
+      { event_id: "product", posthog_state: "pending" },
+      { event_id: "sent", posthog_state: "sent" },
+    ]);
+    const eventTotal = () =>
+      f.sqlite
+        .prepare(
+          "SELECT sum(value) AS n FROM analytics_daily_totals WHERE metric = 'events' AND day = '2026-11-14'",
+        )
+        .get()!.n;
+    expect(eventTotal()).toBe(5);
+    f.sqlite
+      .prepare(insert)
+      .run("later", "provider.turn.sent", "product", day, installation, "{}", "pending");
+    expect(eventTotal()).toBe(6);
+    f.sqlite.exec(`INSERT INTO analytics_deleted_installations
+      (installation_id, deletion_token_hash, request_id, requested_at)
+      VALUES ('${installation}', 'hash', 'request', '${day}')`);
+    expect(() =>
+      f.sqlite
+        .prepare(insert)
+        .run("deleted", "provider.turn.sent", "product", day, installation, "{}", "pending"),
+    ).toThrow("deleted-installation");
   });
 
   it("does not reset diagnostic retention when old offline events arrive or await export", async () => {

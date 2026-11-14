@@ -27,6 +27,8 @@ const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_BATCH_SIZE = 50;
 const MAX_PROPERTIES_BYTES = 16 * 1024;
 const POSTHOG_BATCH_SIZE = 100;
+// The five-minute cron is the only event export; this bounds one run's work.
+const POSTHOG_MAX_BATCHES_PER_EXPORT = 10;
 const POSTHOG_HOST = "https://eu.i.posthog.com";
 const POSTHOG_API_HOST = "https://eu.posthog.com";
 const POSTHOG_DELETION_BATCH_SIZE = 1;
@@ -251,11 +253,6 @@ async function persistEvents(
   identityEnabled = false,
 ): Promise<void> {
   const installationId = events[0]?.distinctId;
-  const deleted = await database
-    .prepare("SELECT 1 AS deleted FROM analytics_deleted_installations WHERE installation_id = ?")
-    .bind(installationId)
-    .first();
-  if (deleted) throw new InstallationAuthenticationError("Installation authentication failed");
   const latestEvent = events.reduce((latest, event) =>
     event.occurredAt > latest.occurredAt ? event : latest,
   );
@@ -267,14 +264,9 @@ async function persistEvents(
       .filter((event) => event.consentLevel === "product" || event.consentLevel === "diagnostic")
       .map((event) => event.occurredAt)
       .sort()[0] ?? null;
-  const existing = await database
-    .prepare("SELECT deletion_token_hash FROM analytics_identities WHERE identity_id = ?")
-    .bind(installationId)
-    .first<{ readonly deletion_token_hash: string | null }>();
-  if (existing?.deletion_token_hash && existing.deletion_token_hash !== deletionTokenHash) {
-    throw new InstallationAuthenticationError("Installation authentication failed");
-  }
 
+  // One D1 round trip: every write is guarded by the tombstone and token, and the
+  // final statement reports whether this token owns a live installation.
   const upsertIdentity = `
     INSERT INTO analytics_identities (
       identity_id,
@@ -313,17 +305,18 @@ async function persistEvents(
       identity_type,
       canonical_id,
       session_id,
-      consent_level
+      consent_level,
+      posthog_state
     ) SELECT
       ?, ?, 'desktop', ?, ?, ?, ?, 'desktop_installation',
       COALESCE((SELECT canonical_id FROM analytics_identities WHERE identity_id = ?), ?),
-      ?, ?
+      ?, ?, ?
     WHERE EXISTS (
       SELECT 1 FROM analytics_identities
       WHERE identity_id = ? AND deletion_token_hash = ?
     )
   `;
-  await database.batch([
+  const results = await database.batch([
     database
       .prepare(upsertIdentity)
       .bind(
@@ -352,6 +345,7 @@ async function persistEvents(
             event.distinctId,
             event.sessionId,
             event.consentLevel,
+            neverExported(event) ? "excluded" : "pending",
             event.distinctId,
             deletionTokenHash,
           ),
@@ -364,17 +358,22 @@ async function persistEvents(
           deletionTokenHash,
         )
       : []),
+    database
+      .prepare(
+        `SELECT 1 AS authenticated FROM analytics_identities
+          WHERE identity_id = ? AND deletion_token_hash = ?
+            AND NOT EXISTS (SELECT 1 FROM analytics_deleted_installations WHERE installation_id = ?)`,
+      )
+      .bind(installationId, deletionTokenHash, installationId),
   ]);
-
-  const authenticated = await database
-    .prepare(
-      "SELECT 1 AS authenticated FROM analytics_identities WHERE identity_id = ? AND deletion_token_hash = ?",
-    )
-    .bind(installationId, deletionTokenHash)
-    .first<{ readonly authenticated: number }>();
-  if (!authenticated) {
+  if ((results.at(-1)?.results.length ?? 0) === 0) {
     throw new InstallationAuthenticationError("Installation authentication failed");
   }
+}
+
+/** The PostHog export never sends these, so they never enter its queue. */
+function neverExported(event: AcceptedEvent): boolean {
+  return event.privacyLevel === "diagnostic" || isIdentityObservation(event);
 }
 
 async function posthogEvent(row: PendingEventRow): Promise<Record<string, unknown>> {
@@ -430,9 +429,15 @@ async function markPosthogFailure(
 
 export async function flushPendingEvents(env: AnalyticsEnv): Promise<number> {
   if (!env.POSTHOG_PROJECT_TOKEN) return 0;
-  return withExportLease(env.ANALYTICS_DB, (beforeRequest) =>
-    exportPendingEvents(env, beforeRequest),
-  );
+  return withExportLease(env.ANALYTICS_DB, async (beforeRequest) => {
+    let exported = 0;
+    for (let batch = 0; batch < POSTHOG_MAX_BATCHES_PER_EXPORT; batch += 1) {
+      const sent = await exportPendingEvents(env, beforeRequest);
+      exported += sent;
+      if (sent < POSTHOG_BATCH_SIZE) break;
+    }
+    return exported;
+  });
 }
 
 async function exportPendingEvents(
@@ -1136,11 +1141,7 @@ async function handleInstallationDeletion(request: Request, env: AnalyticsEnv): 
   }
 }
 
-async function handleIngestion(
-  request: Request,
-  env: AnalyticsEnv,
-  context: Pick<ExecutionContext, "waitUntil">,
-): Promise<Response> {
+async function handleIngestion(request: Request, env: AnalyticsEnv): Promise<Response> {
   if (env.DESKTOP_INGESTION_ENABLED !== "true") {
     return jsonResponse({ error: "Desktop analytics ingestion is disabled" }, 503);
   }
@@ -1152,22 +1153,53 @@ async function handleIngestion(
     return jsonResponse({ error: "Content-Type must be application/json" }, 415, origin);
   }
 
+  // Worker clocks advance only across I/O, so these measure the body read, rate
+  // limiter and D1, the stages a slow acknowledgement can come from.
+  const started = Date.now();
+  const stages: Record<string, number> = {};
+  let stageStart = started;
+  const endStage = (name: string) => {
+    const now = Date.now();
+    stages[name] = now - stageStart;
+    stageStart = now;
+  };
+  let eventCount = 0;
+  const respond = (response: Response, errorClass?: string) => {
+    console.log(
+      JSON.stringify({
+        message: "Analytics ingestion",
+        status: response.status,
+        events: eventCount,
+        ...(errorClass ? { error_class: errorClass } : {}),
+        ...Object.fromEntries(Object.entries(stages).map(([name, ms]) => [`${name}_ms`, ms])),
+        total_ms: Date.now() - started,
+      }),
+    );
+    return response;
+  };
+
   try {
     const deletionTokenHash = await sha256(requireInstallationToken(request));
     const events = validateIngestionPayload(
       await readJsonBody(request),
       env.IDENTITY_ANALYTICS_ENABLED === "true",
     );
+    endStage("read");
+    eventCount = events.length;
     const installationId = events[0]?.distinctId;
     if (!installationId) throw new RequestValidationError("At least one event is required");
     if (!env.ANALYTICS_INGESTION_RATE_LIMITER) {
-      return jsonResponse({ error: "Analytics rate limiting is unavailable" }, 503, origin);
+      return respond(
+        jsonResponse({ error: "Analytics rate limiting is unavailable" }, 503, origin),
+        "rate-limiter-unavailable",
+      );
     }
     const rateLimit = await env.ANALYTICS_INGESTION_RATE_LIMITER.limit({ key: installationId });
+    endStage("rate_limit");
     if (!rateLimit.success) {
       const response = jsonResponse({ error: "Too many analytics requests" }, 429, origin);
       response.headers.set("Retry-After", "60");
-      return response;
+      return respond(response, "rate-limited");
     }
     await persistEvents(
       env.ANALYTICS_DB,
@@ -1176,31 +1208,21 @@ async function handleIngestion(
       request,
       env.IDENTITY_ANALYTICS_ENABLED === "true",
     );
-    context.waitUntil(
-      flushPendingEvents(env).catch((error: unknown) => {
-        console.error(
-          JSON.stringify({
-            message: "PostHog forwarding failed",
-            error_class: error instanceof TransportFailure ? error.kind : "internal",
-          }),
-        );
-      }),
-    );
-    return jsonResponse({ accepted: events.length }, 202, origin);
+    endStage("d1");
+    return respond(jsonResponse({ accepted: events.length }, 202, origin));
   } catch (error) {
+    endStage("failed");
     if (error instanceof InstallationAuthenticationError) {
-      return jsonResponse({ error: error.message }, 403, origin);
+      return respond(jsonResponse({ error: error.message }, 403, origin), "authentication");
     }
     if (error instanceof RequestValidationError) {
-      return jsonResponse({ error: error.message }, 400, origin);
+      return respond(jsonResponse({ error: error.message }, 400, origin), "validation");
     }
+    const errorClass = error instanceof TransportFailure ? error.kind : "internal";
     console.error(
-      JSON.stringify({
-        message: "Analytics ingestion failed",
-        error_class: error instanceof TransportFailure ? error.kind : "internal",
-      }),
+      JSON.stringify({ message: "Analytics ingestion failed", error_class: errorClass }),
     );
-    return jsonResponse({ error: "Analytics ingestion failed" }, 500, origin);
+    return respond(jsonResponse({ error: "Analytics ingestion failed" }, 500, origin), errorClass);
   }
 }
 
@@ -1278,7 +1300,7 @@ const worker = {
       return response;
     }
     if (request.method === "POST" && url.pathname === "/v1/events") {
-      return handleIngestion(request, env, context);
+      return handleIngestion(request, env);
     }
     if (request.method === "POST" && url.pathname === "/v1/identity/link") {
       return handleIdentityLink(request, env, context);
