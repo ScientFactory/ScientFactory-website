@@ -42,7 +42,8 @@ export function isIdentityObservation(event: Pick<IdentityObservation, "name" | 
   );
 }
 
-// Called inside the event transaction, after token ownership and tombstones are checked.
+// Runs inside the event batch. Each write is guarded by its stored event (inserted only
+// under the installation's token) or by the token and tombstone directly.
 export function installationObservationStatements(
   db: D1Database,
   events: ReadonlyArray<IdentityObservation>,
