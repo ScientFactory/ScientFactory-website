@@ -278,12 +278,13 @@ describe("event gateway routes", () => {
         properties: event.properties,
       })),
     );
-    for (const [key, value] of [
-      ["path", "PRIVATE document"],
-      ["error", "PRIVATE document"],
-      ["text", "PRIVATE document"],
-      ["documentId", "/Users/someone/PRIVATE.tex"],
-      ["revision", "https://example.com/PRIVATE"],
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    for (const [key, value, reason] of [
+      ["path", "PRIVATE document", "property-content-key"],
+      ["error", "PRIVATE document", "property-content-key"],
+      ["text", "PRIVATE document", "property-content-key"],
+      ["documentId", "/Users/someone/PRIVATE.tex", "property-private-value"],
+      ["revision", "https://example.com/PRIVATE", "property-private-value"],
     ]) {
       const rejected = await submit([
         {
@@ -292,6 +293,18 @@ describe("event gateway routes", () => {
         },
       ]);
       expect(rejected.status).toBe(400);
+      expect(await rejected.json()).toMatchObject({ reason, stage: "privacy" });
+      const entry = String(log.mock.lastCall?.[0]);
+      expect(JSON.parse(entry)).toMatchObject({
+        reason,
+        stage: "privacy",
+        rejected_event_index: 0,
+        app_version: "0.6.25",
+        build_channel: "stable",
+        contract_revision: "6",
+      });
+      expect(entry).not.toContain("PRIVATE");
+      expect(entry).not.toContain("feature.viewed");
     }
     expect(database.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(3);
   });
@@ -313,14 +326,21 @@ describe("event gateway routes", () => {
     expect(database.batch).not.toHaveBeenCalled();
   });
 
-  it("requires an installation-owned token", async () => {
+  it("requires an installation-owned token and logs why without identifiers or values", async () => {
     const database = createDatabase();
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const payload = validPayload();
+    // Nothing is authenticated yet, so no event name is logged, even one of a valid shape.
+    const named = {
+      ...payload,
+      events: [...payload.events, { ...payload.events[0], name: "patient.192.0.2.10" }],
+    };
     const response = await worker.fetch!(
       incoming(
         new Request("https://events.scientfactory.com/v1/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(validPayload()),
+          body: JSON.stringify(named),
         }),
       ),
       gatewayEnv(database.database),
@@ -328,7 +348,69 @@ describe("event gateway routes", () => {
     );
 
     expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Invalid installation token",
+      reason: "installation-token-missing",
+      stage: "headers",
+    });
     expect(database.batch).not.toHaveBeenCalled();
+    const entry = String(log.mock.lastCall?.[0]);
+    expect(JSON.parse(entry)).toMatchObject({
+      status: 400,
+      error_class: "validation",
+      reason: "installation-token-missing",
+      stage: "headers",
+      schema_version: 1,
+      source: "desktop",
+      batch_size: 2,
+      app_version: "0.0.32",
+      build_channel: "development",
+    });
+    for (const secret of [
+      "installation:",
+      "session:",
+      "8e0ee7d5",
+      "codex",
+      "gpt-5.6",
+      "192.0.2",
+      "provider.turn.sent",
+    ]) {
+      expect(entry).not.toContain(secret);
+    }
+  });
+
+  it("names the failed storage step without logging the error message", async () => {
+    const database = createDatabase();
+    database.batch.mockRejectedValueOnce(new Error("D1_ERROR: Network connection lost."));
+    const failure = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const response = await worker.fetch!(
+      incoming(
+        new Request("https://events.scientfactory.com/v1/events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Scient-Installation-Token": INSTALLATION_TOKEN,
+          },
+          body: JSON.stringify(validPayload()),
+        }),
+      ),
+      gatewayEnv(database.database),
+      { waitUntil: vi.fn() } as unknown as ExecutionContext,
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Analytics ingestion failed",
+    });
+    const entry = String(failure.mock.lastCall?.[0]);
+    expect(JSON.parse(entry)).toEqual({
+      message: "Analytics ingestion failed",
+      failed_step: "storage",
+      error_class: "internal",
+      error_name: "Error",
+      error_kind: "network-lost",
+    });
   });
 
   it("acknowledges deletion when the installation has never uploaded data", async () => {
