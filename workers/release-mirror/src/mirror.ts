@@ -109,14 +109,23 @@ export async function mirrorReleaseAsset(
   { repository, tag, asset, sha512 }: ReleaseAssetSource,
 ): Promise<boolean> {
   const key = desktopMirrorKey(tag, asset.name);
-  const verifyExisting = (existing: R2Object | null): false => {
-    if (existing?.size === asset.size && existing.customMetadata?.sha256 === asset.sha256) {
-      return false;
+  const verifyExisting = async (existing: R2Object | null): Promise<false> => {
+    if (existing?.size !== asset.size || existing.customMetadata?.sha256 !== asset.sha256) {
+      throw new Error(
+        `${key} already holds other bytes (sha256 ${existing?.customMetadata?.sha256 ?? "unrecorded"}); ` +
+          `the handoff now says ${asset.sha256}. Published assets are never replaced.`,
+      );
     }
-    throw new Error(
-      `${key} already holds other bytes (sha256 ${existing?.customMetadata?.sha256 ?? "unrecorded"}); ` +
-        `the handoff now says ${asset.sha256}. Published assets are never replaced.`,
-    );
+    if (sha512 !== undefined && existing.customMetadata?.sha512 !== sha512) {
+      const stored = await bucket.get(key);
+      if (stored === null) throw new Error(`${key} disappeared before verification.`);
+      const digest = new crypto.DigestStream("SHA-512");
+      await stored.body.pipeTo(digest);
+      if (base64(await digest.digest) !== sha512) {
+        throw new Error(`${key} does not match its update manifest's SHA-512.`);
+      }
+    }
+    return false;
   };
   const existing = await bucket.head(key);
   if (existing !== null) return verifyExisting(existing);
@@ -154,7 +163,7 @@ export async function mirrorReleaseAsset(
         contentDisposition: `attachment; filename="${asset.name}"`,
         cacheControl: IMMUTABLE_CACHE_CONTROL,
       },
-      customMetadata: { sha256: asset.sha256 },
+      customMetadata: { sha256: asset.sha256, ...(sha512 === undefined ? {} : { sha512 }) },
     });
   } catch (error) {
     stopPiping.abort();

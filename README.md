@@ -66,13 +66,13 @@ deployments do not deploy it.
    hashes it; on the Workers Free plan (50 external subrequests, 10 ms CPU) it cannot finish,
    so confirm the account is on Workers Paid. A run cut short resumes from what is already in the
    bucket.
-3. Cache rules on the `downloads.scientfactory.com` zone (C1):
-   - `starts_with(http.request.uri.path, "/scient-desktop/updates/")`: **Bypass cache**.
-   - `/scient-desktop/v*` paths: **Eligible for cache**, edge TTL **use cache-control header**,
-     and a status-code TTL of **no-store** for 404 (and 4xx/5xx). Without such a rule,
-     Cloudflare caches 404s of default-cacheable types (`.exe`, `.zip`, `.dmg`) for a few
-     minutes, and does not cache `.AppImage`, `.blockmap` or `.yml` at all. Files above
-     512 MB are not cached on non-Enterprise plans.
+3. In the `scientfactory.com` zone, the `Scient download cache policy` ruleset (C1)
+   applies only to the `downloads.scientfactory.com` hostname:
+   - `/scient-desktop/updates/*` and `/scient-desktop/stable.json`: **Bypass cache**.
+   - `/scient-desktop/v*`: **Eligible for cache**, edge and browser TTLs **respect origin**,
+     with **no-store** for HTTP 300–599. Keep errors and redirects out of immutable caches.
+     Without such a rule, Cloudflare caches some 404s and does not cache `.AppImage`,
+     `.blockmap` or `.yml` by default. Files above 512 MB are not cached on non-Enterprise plans.
 4. Verify each channel (`stable`/`latest`, then `beta`/`beta`):
 
    ```sh

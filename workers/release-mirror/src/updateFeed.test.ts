@@ -27,7 +27,12 @@ interface Release {
 async function release(
   version: string,
   channel: "stable" | "beta" = "stable",
-  tamper: { readonly sha512Of?: string } = {},
+  tamper: {
+    readonly sha512Of?: string;
+    readonly omitPayload?: string;
+    readonly omitBlockmap?: string;
+    readonly extraLinux?: boolean;
+  } = {},
 ): Promise<Release> {
   const prefix = channel === "stable" ? "latest" : "beta";
   const repository =
@@ -45,20 +50,28 @@ async function release(
   };
   const files = new Map<string, string>();
   const manifest = async (list: readonly string[]) => {
+    const included = list.filter((name) => name !== tamper.omitPayload);
     const entries: string[] = [];
-    for (const name of list) {
+    for (const name of included) {
       files.set(name, payload(name));
       const recorded = await sha512(tamper.sha512Of === name ? "other bytes" : payload(name));
       entries.push(
         `  - url: ${name}\n    sha512: ${recorded}\n    size: ${payload(name).length}\n`,
       );
     }
-    return `version: ${version}\nfiles:\n${entries.join("")}path: ${list[0]}\nsha512: ${await sha512(payload(list[0]!))}\nreleaseDate: '2026-11-16T10:00:00.000Z'\n`;
+    return `version: ${version}\nfiles:\n${entries.join("")}path: ${included[0]}\nsha512: ${await sha512(payload(included[0]!))}\nreleaseDate: '2026-11-16T10:00:00.000Z'\n`;
   };
   files.set(`${prefix}-mac.yml`, await manifest(names.mac));
   files.set(`${prefix}.yml`, await manifest(names.win));
   files.set(`${prefix}-linux.yml`, await manifest(names.linux));
+  if (tamper.extraLinux) {
+    files.set(
+      `${prefix}-linux-arm64.yml`,
+      await manifest([`Scient-${version}-arm64.AppImage`, `scient_${version}_arm64.deb`]),
+    );
+  }
   for (const name of [...names.mac.filter((n) => n.endsWith(".zip")), ...names.win]) {
+    if (name === tamper.omitBlockmap) continue;
     files.set(`${name}.blockmap`, `${name} blockmap`);
   }
   files.set(`scient-server-${version}.tgz`, "server");
@@ -120,6 +133,12 @@ function memoryBucket() {
       : null;
   const bucket = {
     head: vi.fn(async (key: string) => describe(key, objects.get(key))),
+    get: vi.fn(async (key: string) => {
+      const object = objects.get(key);
+      return object === undefined
+        ? null
+        : { ...describe(key, object), body: new Response(object.body).body };
+    }),
     list: vi.fn(async ({ prefix }: R2ListOptions) => ({
       objects: [...objects.keys()]
         .filter((key) => key.startsWith(prefix ?? ""))
@@ -339,6 +358,24 @@ describe("desktop update feed", () => {
     expect(objects.has("scient-desktop/v0.6.30/Scient-0.6.30-arm64.zip")).toBe(true);
   });
 
+  it("publishes an offered extra-architecture Linux feed including its deb package", async () => {
+    const stable = await release("0.6.30", "stable", { extraLinux: true });
+    const { bucket, objects } = memoryBucket();
+    vi.stubGlobal(
+      "fetch",
+      github(() => [stable]),
+    );
+
+    const result = await syncUpdateFeed(bucket, "stable");
+    expect(result.promoted).toContain("latest-linux-arm64.yml");
+    expect(result.copied).toContain("scient_0.6.30_arm64.deb");
+    expect(objects.get("scient-desktop/v0.6.30/scient_0.6.30_arm64.deb")?.body).toBe(
+      stable.files.get("scient_0.6.30_arm64.deb"),
+    );
+    const manifest = feedFile(objects, `${FEED}latest-linux-arm64.yml`);
+    expect(manifest).toContain("../../v0.6.30/scient_0.6.30_arm64.deb");
+    expect(manifest).toContain("../../v0.6.30/Scient-0.6.30-arm64.AppImage");
+  });
   it("refuses bytes the handoff accepts but the release's manifest does not", async () => {
     const stable = await release("0.6.30", "stable", { sha512Of: "Scient-0.6.30-x64.exe" });
     const { bucket, objects } = memoryBucket();
@@ -351,6 +388,93 @@ describe("desktop update feed", () => {
     expect(objects.has("scient-desktop/v0.6.30/Scient-0.6.30-x64.exe")).toBe(false);
     expect([...objects.keys()].some((key) => key.startsWith(FEED))).toBe(false);
   });
+
+  it.each([false, true])(
+    "checks an existing installer's SHA-512 before promotion (mismatch: %s)",
+    async (mismatch) => {
+      const name = "Scient-0.6.30-x64.exe";
+      const stable = await release("0.6.30", "stable", mismatch ? { sha512Of: name } : {});
+      const { bucket, objects } = memoryBucket();
+      const body = stable.files.get(name)!;
+      objects.set(`scient-desktop/v0.6.30/${name}`, {
+        body,
+        etag: "installer-already-mirrored",
+        customMetadata: { sha256: await sha256(body) },
+      });
+      vi.stubGlobal(
+        "fetch",
+        github(() => [stable]),
+      );
+
+      if (mismatch) {
+        await expect(syncUpdateFeed(bucket, "stable")).rejects.toThrow(/SHA-512/);
+        expect([...objects.keys()].some((key) => key.startsWith(FEED))).toBe(false);
+      } else {
+        await expect(syncUpdateFeed(bucket, "stable")).resolves.toMatchObject({
+          promoted: ["latest-linux.yml", "latest-mac.yml", "latest.yml"],
+        });
+      }
+    },
+  );
+
+  it("refuses a macOS manifest without both architectures' updater ZIPs", async () => {
+    const stable = await release("0.6.30", "stable", {
+      omitPayload: "Scient-0.6.30-arm64.zip",
+    });
+    const { bucket, objects } = memoryBucket();
+    vi.stubGlobal(
+      "fetch",
+      github(() => [stable]),
+    );
+
+    await expect(syncUpdateFeed(bucket, "stable")).rejects.toThrow(
+      /does not reference required Scient-0.6.30-arm64\.zip/,
+    );
+    expect(objects.size).toBe(0);
+  });
+
+  it("refuses a ZIP without its required differential blockmap", async () => {
+    const stable = await release("0.6.30", "stable", {
+      omitBlockmap: "Scient-0.6.30-arm64.zip",
+    });
+    const { bucket, objects } = memoryBucket();
+    vi.stubGlobal(
+      "fetch",
+      github(() => [stable]),
+    );
+
+    await expect(syncUpdateFeed(bucket, "stable")).rejects.toThrow(/no required .*\.zip\.blockmap/);
+    expect(objects.size).toBe(0);
+  });
+
+  it.each([
+    { channel: "stable" as const, older: "0.6.30", newer: "0.6.31" },
+    {
+      channel: "beta" as const,
+      older: "0.6.31-beta.20261116.2",
+      newer: "0.6.31-beta.20261116.10",
+    },
+  ])(
+    "refuses a stale source after a newer $channel promotion",
+    async ({ channel, older, newer }) => {
+      const oldRelease = await release(older, channel);
+      const newRelease = await release(newer, channel);
+      let releases = [newRelease];
+      const { bucket, objects, writes } = memoryBucket();
+      vi.stubGlobal(
+        "fetch",
+        github(() => releases),
+      );
+      await syncUpdateFeed(bucket, channel);
+      const before = new Map(objects);
+      const written = writes.length;
+      releases = [oldRelease];
+
+      await expect(syncUpdateFeed(bucket, channel)).rejects.toThrow(/Refusing to regress/);
+      expect(objects).toEqual(before);
+      expect(writes).toHaveLength(written);
+    },
+  );
 
   it("refuses a manifest that differs from the handoff", async () => {
     const stable = await release("0.6.30");

@@ -147,6 +147,23 @@ function planFeedObjects(handoff: ReleaseHandoff, manifests: readonly VerifiedMa
         `${asset.name} is for ${manifest.version}; the handoff is ${handoff.version}.`,
       );
     }
+    const required = asset.name.endsWith("-mac.yml")
+      ? [
+          `Scient-${handoff.version}-arm64.dmg`,
+          `Scient-${handoff.version}-arm64.zip`,
+          `Scient-${handoff.version}-x64.dmg`,
+          `Scient-${handoff.version}-x64.zip`,
+        ]
+      : asset.name === "latest.yml" || asset.name === "beta.yml"
+        ? [`Scient-${handoff.version}-x64.exe`]
+        : asset.name.endsWith("-linux.yml")
+          ? [`Scient-${handoff.version}-x86_64.AppImage`]
+          : [];
+    for (const name of required) {
+      if (!manifest.files.some((file) => file.url === name)) {
+        throw new Error(`${asset.name} does not reference required ${name}.`);
+      }
+    }
     for (const file of manifest.files) {
       const payload = byName.get(file.url);
       if (payload === undefined) {
@@ -164,9 +181,14 @@ function planFeedObjects(handoff: ReleaseHandoff, manifests: readonly VerifiedMa
       payloads.set(file.url, { asset: payload, sha512: file.sha512 });
     }
   }
-  const blockmaps = [...payloads.keys()]
-    .map((name) => byName.get(`${name}.blockmap`))
-    .filter((asset): asset is ReleaseHandoffAsset => asset !== undefined);
+  const blockmaps: ReleaseHandoffAsset[] = [];
+  for (const name of payloads.keys()) {
+    const blockmap = byName.get(`${name}.blockmap`);
+    if (blockmap !== undefined) blockmaps.push(blockmap);
+    else if (/\.(?:zip|exe)$/u.test(name)) {
+      throw new Error(`Handoff ${handoff.tag} has no required ${name}.blockmap.`);
+    }
+  }
   return { payloads: [...payloads.values()], blockmaps };
 }
 
@@ -235,6 +257,25 @@ export async function syncUpdateFeed(
   for (const required of requiredManifestNames(manifestPrefix)) {
     if (!manifestAssets.some((asset) => asset.name === required)) {
       throw new Error(`Handoff ${tag} has no ${required}.`);
+    }
+  }
+
+  const candidateOrder =
+    channel === "beta" ? betaOrder(handoff.tag)! : handoff.version.split(".").map(Number);
+  for (const asset of manifestAssets) {
+    const metadata = observed.get(desktopUpdateFeedKey(channel, asset.name))?.customMetadata;
+    if (metadata === undefined) continue;
+    const version = metadata.version ?? "";
+    const previousOrder =
+      channel === "beta"
+        ? betaOrder(`v${version}`)
+        : /^\d+\.\d+\.\d+$/u.test(version)
+          ? version.split(".").map(Number)
+          : null;
+    if (previousOrder === null || compareOrder(candidateOrder, previousOrder) < 0) {
+      throw new Error(
+        `Refusing to regress ${asset.name} from ${metadata.version ?? "unknown"} to ${handoff.version}.`,
+      );
     }
   }
 

@@ -65,17 +65,20 @@ Each run, per channel (`workers/release-mirror/src/updateFeed.ts`):
    the run ends here.
 3. Downloads the release's channel manifests (`latest.yml`, `latest-mac.yml`,
    `latest-linux.yml`, or the `beta*` set) and accepts them only if size and SHA-256 match the
-   handoff. Every file a manifest names must be a bare file name the handoff lists, with the
-   same size.
-4. Copies every payload (macOS ZIPs and DMGs, the NSIS EXE, the AppImage), every blockmap, and
-   the manifests themselves into `scient-desktop/<tag>/`, with the same immutable writes as the
-   installers. Payloads must also hash to the manifest's SHA-512 while streaming; the last chunk
-   is held back until it does, so a mismatched copy never completes.
-5. Writes `scient-desktop/updates/<channel>/<manifest>` last, each as a compare-and-swap on the
-   version seen in step 1. The feed copy differs from the release's manifest only in two ways:
-   every file URL becomes `../../<tag>/<name>`, which electron-updater resolves against the feed
-   URL to the version directory, and `releaseName`/`releaseNotes` are added from the release's
-   Atom entry, which is what GitHub's provider showed before. Sizes and SHA-512s are untouched.
+   handoff. The macOS manifest must offer ZIPs and DMGs for both x64 and arm64;
+   Windows must offer the x64 NSIS EXE and Linux the x64 AppImage. Extra Linux
+   architecture manifests and their listed packages, including debs, are copied too.
+   Every file must be a bare file name with the handoff's size, and ZIP/EXE payloads
+   must have differential blockmaps.
+4. Copies every payload, blockmap and manifest into `scient-desktop/<tag>/` with immutable
+   writes. Payloads also match the manifest's SHA-512 while streaming. An existing object
+   needs a matching SHA-512 verification receipt or is streamed from R2 and hashed before
+   reuse; a matching handoff SHA-256 alone is insufficient.
+5. Rejects a candidate older than any observed platform manifest, then writes
+   `scient-desktop/updates/<channel>/<manifest>` last with a compare-and-swap on the
+   observed version. A stale source cannot regress a later promotion. The feed copy changes
+   file URLs to `../../<tag>/<name>` and adds release name/notes from the Atom entry;
+   sizes and SHA-512s remain unchanged.
 
 Nothing is redirected: an old version's objects stay at their own paths, and the updater finds
 the previous version's blockmap by substituting its version into the new file's path, which
