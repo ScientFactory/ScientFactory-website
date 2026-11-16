@@ -330,12 +330,18 @@ describe("event gateway routes", () => {
   it("requires an installation-owned token and logs why without identifiers or values", async () => {
     const database = createDatabase();
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const payload = validPayload();
+    // A name of a valid shape that carries an address is counted, never logged.
+    const named = {
+      ...payload,
+      events: [...payload.events, { ...payload.events[0], name: "patient.192.0.2.10" }],
+    };
     const response = await worker.fetch!(
       incoming(
         new Request("https://events.scientfactory.com/v1/events", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(validPayload()),
+          body: JSON.stringify(named),
         }),
       ),
       gatewayEnv(database.database),
@@ -357,12 +363,12 @@ describe("event gateway routes", () => {
       stage: "headers",
       schema_version: 1,
       source: "desktop",
-      batch_size: 1,
-      event_names: { "provider.turn.sent": 1 },
+      batch_size: 2,
+      event_names: { "provider.turn.sent": 1, "(other)": 1 },
       app_version: "0.0.32",
       build_channel: "development",
     });
-    for (const secret of ["installation:", "session:", "8e0ee7d5", "codex", "gpt-5.6"]) {
+    for (const secret of ["installation:", "session:", "8e0ee7d5", "codex", "gpt-5.6", "192.0.2"]) {
       expect(entry).not.toContain(secret);
     }
   });

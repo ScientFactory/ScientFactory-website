@@ -372,6 +372,12 @@ const APP_VERSION_PATTERN =
 const BUILD_CHANNEL_PATTERN = /^(?:stable|beta|nightly|development|unknown)$/;
 const CONTRACT_REVISION_PATTERN = /^\d{1,4}$/;
 const MAX_LOGGED_EVENT_NAMES = 20;
+/**
+ * Event names come from Scient's code: lowercase words joined by dots. An unverified client can
+ * send any name the shape allows, so a name with digits or other characters (an address, an id)
+ * is counted as "(other)" and never logged.
+ */
+const LOGGED_EVENT_NAME_PATTERN = /^[a-z]+(?:[._][a-z]+){1,5}$/;
 
 /**
  * A privacy-safe description of a submitted batch for rejection and failure logs:
@@ -404,7 +410,8 @@ function batchDiagnostics(value: unknown, request: Request): Record<string, unkn
     const name = isRecord(event) && typeof event.name === "string" ? event.name : "";
     const key = !EVENT_NAME_PATTERN.test(name)
       ? "(invalid)"
-      : name in names || Object.keys(names).length < MAX_LOGGED_EVENT_NAMES
+      : LOGGED_EVENT_NAME_PATTERN.test(name) &&
+          (name in names || Object.keys(names).length < MAX_LOGGED_EVENT_NAMES)
         ? name
         : "(other)";
     names[key] = (names[key] ?? 0) + 1;
