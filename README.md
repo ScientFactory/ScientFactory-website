@@ -143,8 +143,12 @@ and sufficient consent for the event's declared privacy level. It rejects nested
 properties such as `prompt` or `error`, and any value that looks like a path, link or email
 address. `workers/events/src/eventContract.ts` is generated from
 `scient-desktop/packages/scient-analytics/src/wireContract.ts`; do not edit it here. The shared
-conformance fixtures (revisions 2 to 10) must keep passing. Since revision 10, new desktop events
+conformance fixtures (revisions 2 to 11) must keep passing. Since revision 10, new desktop events
 and fields need no gateway change, so the desktop and gateway no longer have to ship in order.
+
+After regenerating a shared fixture, apply this repository's formatter before validation:
+`bunx --no-install oxfmt workers/events/fixtures/contract-v11.json`, then `bun run check`.
+The desktop generator's JSON layout is not the website's formatting contract.
 
 The public desktop endpoint is disabled unless the Cloudflare runtime variable
 `DESKTOP_INGESTION_ENABLED` is exactly `true`. It also requires a random

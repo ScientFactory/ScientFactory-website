@@ -253,10 +253,7 @@
       "privacyLevel": "product",
       "consentLevel": "product",
       "properties": {
-        "workKinds": [
-          "scientific",
-          "code"
-        ],
+        "workKinds": ["scientific", "code"],
         "field": "biology",
         "role": "researcher",
         "otherWork": "Teaching",
