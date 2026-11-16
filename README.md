@@ -50,6 +50,53 @@ Do not deploy production from a feature branch or store Cloudflare credentials i
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow. The cross-repository operating model is maintained in [`ScientFactory/Scient`](https://github.com/ScientFactory/Scient).
 
+## Desktop update feeds: deploy and verify
+
+The `scientfactory-release-mirror` worker is the only publisher of
+`downloads.scientfactory.com/scient-desktop/`. It copies the Stable installers and the complete
+Stable and Beta electron-updater sets; see
+[docs/architecture/desktop-downloads.md](docs/architecture/desktop-downloads.md). Pages
+deployments do not deploy it.
+
+1. After merge, from `main`: `bun run mirror:types:check && bun run mirror:deploy`.
+2. Watch the next runs (every ten minutes) with
+   `bunx wrangler tail scientfactory-release-mirror --config workers/release-mirror/wrangler.jsonc`.
+   Expect `Stable update feed synchronized` and `Beta update feed synchronized` with `promoted`
+   naming three manifests each. The first run per release copies up to about 1.8 GB per channel and
+   hashes it; on the Workers Free plan (50 external subrequests, 10 ms CPU) it cannot finish,
+   so confirm the account is on Workers Paid. A run cut short resumes from what is already in the
+   bucket.
+3. Cache rules on the `downloads.scientfactory.com` zone (C1):
+   - `starts_with(http.request.uri.path, "/scient-desktop/updates/")`: **Bypass cache**.
+   - `/scient-desktop/v*` paths: **Eligible for cache**, edge TTL **use cache-control header**,
+     and a status-code TTL of **no-store** for 404 (and 4xx/5xx). Without such a rule,
+     Cloudflare caches 404s of default-cacheable types (`.exe`, `.zip`, `.dmg`) for a few
+     minutes, and does not cache `.AppImage`, `.blockmap` or `.yml` at all. Files above
+     512 MB are not cached on non-Enterprise plans.
+4. Verify each channel (`stable`/`latest`, then `beta`/`beta`):
+
+   ```sh
+   feed=https://downloads.scientfactory.com/scient-desktop/updates/stable
+   for manifest in latest.yml latest-mac.yml latest-linux.yml; do
+     curl -fsS -D- "$feed/$manifest?noCache=$RANDOM" -o "/tmp/$manifest" | grep -i '^cache-control'  # no-store
+     grep -E '^(version|  - url|    size|    sha512|releaseName)' "/tmp/$manifest"
+   done
+   # For each url: it must resolve under scient-desktop/<tag>/, answer 200 with the listed size,
+   # and hash to the listed sha512.
+   url=https://downloads.scientfactory.com/scient-desktop/v0.6.30/Scient-0.6.30-x64.exe
+   curl -fsSI "$url" | grep -iE '^(content-length|cache-control|cf-cache-status)'
+   curl -fsS "$url" | openssl dgst -sha512 -binary | base64
+   curl -fsSI "$url.blockmap" | head -1                                         # 200
+   curl -sS -r 0-99 -o /dev/null -w '%{http_code} %{size_download}\n' "$url"     # 206 100
+   curl -sS -o /dev/null -w '%{http_code}\n' https://downloads.scientfactory.com/scient-desktop/v0.0.0/missing.exe  # 404, twice: never HIT
+   ```
+
+5. Only then merge the desktop change that makes these feeds the updater's default, and qualify
+   real updates on each platform from a build that uses them.
+
+To stop publishing, remove the cron trigger and redeploy; the bucket's objects stay valid. Never
+delete or rewrite a versioned object: installed clients and caches may still use it.
+
 ## Scient Docs publishing
 
 The public `/docs` experience is generated from reviewed Markdown in

@@ -47,6 +47,47 @@ Each run:
 A failed run leaves the previous pointer untouched, so the pointer only names installers
 that are in the bucket. Older versions stay in the bucket.
 
+## The update feeds
+
+The same worker publishes the desktop app's generic electron-updater feeds:
+
+| Channel | Feed URL (`generic` provider)                                       | Source                                                                                 |
+| ------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Stable  | `https://downloads.scientfactory.com/scient-desktop/updates/stable` | `ScientFactory/scient-desktop`, GitHub's latest release                                |
+| Beta    | `https://downloads.scientfactory.com/scient-desktop/updates/beta`   | `ScientFactory/scient-desktop-beta`, the newest `-beta.` tag in its releases Atom feed |
+
+Each run, per channel (`workers/release-mirror/src/updateFeed.ts`):
+
+1. Lists the channel's feed objects, recording each version, before asking GitHub anything.
+2. Reads and validates the channel's handoff (`parseChannelHandoff`): the channel's version
+   shape, the official source repository, and that channel's distribution. If every channel
+   manifest already offers this release (`tag` and the manifest's SHA-256 in its metadata),
+   the run ends here.
+3. Downloads the release's channel manifests (`latest.yml`, `latest-mac.yml`,
+   `latest-linux.yml`, or the `beta*` set) and accepts them only if size and SHA-256 match the
+   handoff. Every file a manifest names must be a bare file name the handoff lists, with the
+   same size.
+4. Copies every payload (macOS ZIPs and DMGs, the NSIS EXE, the AppImage), every blockmap, and
+   the manifests themselves into `scient-desktop/<tag>/`, with the same immutable writes as the
+   installers. Payloads must also hash to the manifest's SHA-512 while streaming; the last chunk
+   is held back until it does, so a mismatched copy never completes.
+5. Writes `scient-desktop/updates/<channel>/<manifest>` last, each as a compare-and-swap on the
+   version seen in step 1. The feed copy differs from the release's manifest only in two ways:
+   every file URL becomes `../../<tag>/<name>`, which electron-updater resolves against the feed
+   URL to the version directory, and `releaseName`/`releaseNotes` are added from the release's
+   Atom entry, which is what GitHub's provider showed before. Sizes and SHA-512s are untouched.
+
+Nothing is redirected: an old version's objects stay at their own paths, and the updater finds
+the previous version's blockmap by substituting its version into the new file's path, which
+the version directories satisfy for every release mirrored since the feed began. Two runs that
+race can leave platforms on different releases for one interval; each platform's manifest is
+self-consistent, and the next run moves the rest.
+
+Caching (C1): versioned objects carry `public, max-age=31536000, immutable`; feed manifests and
+`stable.json` carry `no-store`, and clients add a random `noCache` query to every check. A
+response for a missing object is not one the worker writes, so the zone's cache rules decide
+how long a 404 is kept (see the runbook in the README).
+
 Deploy the worker with `bun run mirror:deploy`. The Pages project reads the bucket through
 its `DESKTOP_DOWNLOADS` binding in `wrangler.jsonc`.
 
