@@ -95,6 +95,7 @@
         "queuedCountBucket": "unknown",
         "droppedCountBucket": "unknown",
         "retryCountBucket": "unknown",
+        "oldestEventAgeBucket": "unknown",
         "deliveryClass": "unknown",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
@@ -110,6 +111,7 @@
         "queuedCountBucket": "4-10",
         "droppedCountBucket": "2-3",
         "retryCountBucket": "1",
+        "oldestEventAgeBucket": "unknown",
         "deliveryClass": "network",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
@@ -361,6 +363,10 @@
         "crossProvider": true,
         "completionWake": "settled_only",
         "durationSeconds": 90,
+        "failureClass": "permission",
+        "failureCode": "retry_stalled",
+        "failurePhase": "provider",
+        "httpStatus": 400,
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -566,6 +572,7 @@
         "durationBucket": "5-15s",
         "usedTools": true,
         "hasAttachment": true,
+        "retryAttempts": 2,
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -594,6 +601,9 @@
       "properties": {
         "provider": "antigravity",
         "modelKey": "gpt-5.6-sol",
+        "retryAttempts": 2,
+        "failureCode": "retry_stalled",
+        "httpStatus": 400,
         "failureClass": "permission",
         "durationBucket": "5-15s",
         "appVersion": "0.6.8",
@@ -861,6 +871,7 @@
         "stage": "unknown",
         "failureClass": "unknown",
         "durationBucket": "unknown",
+        "trigger": "user",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -878,6 +889,11 @@
         "stage": "downloading",
         "failureClass": "permission",
         "durationBucket": "5-15s",
+        "trigger": "agent",
+        "attempt": 2,
+        "downloadSource": "fallback",
+        "compressed": true,
+        "resumedBucket": "10-50mb",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -895,6 +911,7 @@
         "stage": "unknown",
         "failureClass": "unknown",
         "durationBucket": "unknown",
+        "trigger": "user",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -912,6 +929,11 @@
         "stage": "downloading",
         "failureClass": "permission",
         "durationBucket": "5-15s",
+        "trigger": "agent",
+        "attempt": 2,
+        "downloadSource": "fallback",
+        "compressed": true,
+        "resumedBucket": "10-50mb",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -929,6 +951,7 @@
         "stage": "unknown",
         "failureClass": "unknown",
         "durationBucket": "unknown",
+        "trigger": "user",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -946,6 +969,11 @@
         "stage": "downloading",
         "failureClass": "permission",
         "durationBucket": "5-15s",
+        "trigger": "agent",
+        "attempt": 2,
+        "downloadSource": "fallback",
+        "compressed": true,
+        "resumedBucket": "10-50mb",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -963,6 +991,7 @@
         "stage": "unknown",
         "failureClass": "unknown",
         "durationBucket": "unknown",
+        "trigger": "user",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -980,6 +1009,38 @@
         "stage": "downloading",
         "failureClass": "permission",
         "durationBucket": "5-15s",
+        "trigger": "agent",
+        "attempt": 2,
+        "downloadSource": "fallback",
+        "compressed": true,
+        "resumedBucket": "10-50mb",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "provider.runtime.first_pick:fallbacks",
+      "name": "provider.runtime.first_pick",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "other",
+        "state": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "provider.runtime.first_pick:representative",
+      "name": "provider.runtime.first_pick",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "state": "ready",
+        "percentBucket": "50-74",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -1925,6 +1986,66 @@
       }
     },
     {
+      "case": "provider.turn.failed:failure-cause-hostile",
+      "name": "provider.turn.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "provider": "scient",
+        "modelKey": "gpt-5.6-sol",
+        "failureClass": "provider_error",
+        "durationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "mcp.delegated_task.finished:delegated-failure-hostile",
+      "name": "mcp.delegated_task.finished",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "status": "failed",
+        "callerProvider": "claudeAgent",
+        "targetProvider": "scient",
+        "failurePhase": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "provider.turn.failed:failure-code-unknown-identifier",
+      "name": "provider.turn.failed",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "provider": "scient",
+        "modelKey": "gpt-5.6-sol",
+        "failureClass": "provider_error",
+        "durationBucket": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "mcp.delegated_task.finished:delegated-failure-unknown-identifier",
+      "name": "mcp.delegated_task.finished",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "status": "failed",
+        "callerProvider": "claudeAgent",
+        "targetProvider": "codex",
+        "failurePhase": "provider",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
       "case": "provider.commands.observed:command-hostile",
       "name": "provider.commands.observed",
       "privacyLevel": "product",
@@ -2244,6 +2365,45 @@
       }
     },
     {
+      "case": "panel.viewed:file-csv",
+      "name": "panel.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "category": "file-preview",
+        "fileType": "csv",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "panel.viewed:file-none",
+      "name": "panel.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "category": "file-preview",
+        "fileType": "none",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "panel.viewed:file-private",
+      "name": "panel.viewed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "category": "file-preview",
+        "fileType": "other",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
       "case": "provider.turn.sent:scient",
       "name": "provider.turn.sent",
       "privacyLevel": "product",
@@ -2272,6 +2432,7 @@
         "durationBucket": "5-15s",
         "usedTools": true,
         "hasAttachment": true,
+        "retryAttempts": 2,
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -2341,6 +2502,11 @@
         "stage": "downloading",
         "failureClass": "permission",
         "durationBucket": "5-15s",
+        "trigger": "agent",
+        "attempt": 2,
+        "downloadSource": "fallback",
+        "compressed": true,
+        "resumedBucket": "10-50mb",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -2375,6 +2541,7 @@
         "durationBucket": "5-15s",
         "usedTools": true,
         "hasAttachment": true,
+        "retryAttempts": 2,
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -2444,6 +2611,11 @@
         "stage": "downloading",
         "failureClass": "permission",
         "durationBucket": "5-15s",
+        "trigger": "agent",
+        "attempt": 2,
+        "downloadSource": "fallback",
+        "compressed": true,
+        "resumedBucket": "10-50mb",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -2478,6 +2650,7 @@
         "durationBucket": "5-15s",
         "usedTools": true,
         "hasAttachment": true,
+        "retryAttempts": 2,
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -2547,6 +2720,11 @@
         "stage": "downloading",
         "failureClass": "permission",
         "durationBucket": "5-15s",
+        "trigger": "agent",
+        "attempt": 2,
+        "downloadSource": "fallback",
+        "compressed": true,
+        "resumedBucket": "10-50mb",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -2581,6 +2759,7 @@
         "durationBucket": "5-15s",
         "usedTools": true,
         "hasAttachment": true,
+        "retryAttempts": 2,
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
@@ -2650,6 +2829,11 @@
         "stage": "downloading",
         "failureClass": "permission",
         "durationBucket": "5-15s",
+        "trigger": "agent",
+        "attempt": 2,
+        "downloadSource": "fallback",
+        "compressed": true,
+        "resumedBucket": "10-50mb",
         "appVersion": "0.6.8",
         "buildChannel": "stable",
         "contractRevision": "11"
