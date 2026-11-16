@@ -216,6 +216,16 @@ diagnostics and identity observations). Event export runs from the five-minute
 cron, up to ten batches of 100 per run, not after each upload, so an upload
 costs one D1 round trip. Each upload logs its status, event count and stage
 durations (`read_ms`, `rate_limit_ms`, `d1_ms`, `total_ms`) without identifiers.
+A rejected upload's response and log carry a closed `reason` and `stage`
+(`headers`, `body`, `batch`, `event`, `privacy` or `size`), listed in
+`REJECTION_STAGES` in `workers/events/src/index.ts`. The log adds the batch
+size, event-name counts, the client's `appVersion`, `buildChannel` and
+`contractRevision` when they match their formats, a user-agent family, and
+for a property rejection the property's key. It never logs property values,
+identifiers, tokens or IP addresses. A failed upload logs `failed_step`
+(`body`, `token`, `validation`, `rate-limit` or `storage`), the error's class
+and name, and a closed `error_kind` for storage errors, never the error's
+message. Desktop's uploader ignores the body of an unsuccessful response.
 
 The identity-link token is service-to-service authority. Rotate it if it is exposed, and never embed it in website or desktop bundles:
 

@@ -10,8 +10,10 @@ import {
 } from "../../../functions/_lib/analyticsPeople";
 import {
   ANALYTICS_CONTRACT_REVISION,
+  EVENT_NAME_PATTERN,
   eventContractViolation,
   PRIVACY_LEVELS,
+  PROPERTY_KEY_PATTERN,
   type PrivacyLevel,
 } from "./eventContract";
 import { posthogEventUuid, posthogRequest, readBoundedJson, TransportFailure } from "./transport";
@@ -104,8 +106,71 @@ interface PendingDeletionRow {
   readonly posthog_submitted_at: string | null;
 }
 
-class RequestValidationError extends Error {}
+// Closed rejection reasons. They are logged and returned with every 400 so a
+// rejection is diagnosable without property values, identifiers or IP addresses.
+const REJECTION_STAGES = {
+  "installation-token-missing": "headers",
+  "installation-token-invalid": "headers",
+  "body-too-large": "size",
+  "body-invalid-json": "body",
+  "payload-unsupported": "batch",
+  "batch-empty": "batch",
+  "batch-too-large": "size",
+  "batch-mixed-installations": "batch",
+  "event-not-object": "event",
+  "event-id-invalid": "event",
+  "event-name-invalid": "event",
+  "privacy-level-invalid": "event",
+  "consent-level-invalid": "event",
+  "occurred-at-invalid": "event",
+  "occurred-at-future": "event",
+  "occurred-at-too-old": "event",
+  "distinct-id-invalid": "event",
+  "installation-identity-required": "event",
+  "session-id-invalid": "event",
+  "properties-invalid": "event",
+  "property-key-invalid": "event",
+  "property-value-invalid": "event",
+  "contract-violation": "event",
+  "consent-below-privacy": "privacy",
+  "property-content-key": "privacy",
+  "property-private-value": "privacy",
+  "properties-too-many": "size",
+  "properties-too-large": "size",
+  "request-invalid": "request",
+} as const;
+type RejectionReason = keyof typeof REJECTION_STAGES;
+
+class RequestValidationError extends Error {
+  eventIndex?: number;
+  constructor(
+    message: string,
+    readonly reason: RejectionReason = "request-invalid",
+  ) {
+    super(message);
+  }
+}
 class InstallationAuthenticationError extends Error {}
+
+/** Maps the generated contract guard's messages onto the closed reasons. */
+const CONTRACT_VIOLATION_REASONS: ReadonlyArray<readonly [string, RejectionReason]> = [
+  ["Invalid event name", "event-name-invalid"],
+  ["Invalid privacy level", "privacy-level-invalid"],
+  ["Invalid consent level", "consent-level-invalid"],
+  ["Consent level", "consent-below-privacy"],
+  ["Too many event properties", "properties-too-many"],
+  ["Invalid event property name", "property-key-invalid"],
+  ["Invalid event property", "property-value-invalid"],
+  ["Private event property", "property-content-key"],
+  ["Private value in event property", "property-private-value"],
+  ["Event properties are too large", "properties-too-large"],
+];
+function contractViolationReason(message: string): RejectionReason {
+  return (
+    CONTRACT_VIOLATION_REASONS.find(([prefix]) => message.startsWith(prefix))?.[1] ??
+    "contract-violation"
+  );
+}
 
 function jsonResponse(body: unknown, status = 200, origin?: string | null): Response {
   const headers = new Headers({
@@ -123,38 +188,55 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function requireString(value: unknown, field: string, pattern: RegExp): string {
+function requireString(
+  value: unknown,
+  field: string,
+  pattern: RegExp,
+  reason?: RejectionReason,
+): string {
   if (typeof value !== "string" || !pattern.test(value)) {
-    throw new RequestValidationError(`Invalid ${field}`);
+    throw new RequestValidationError(`Invalid ${field}`, reason);
   }
   return value;
 }
 
 function parseEvent(value: unknown, identityEnabled = false): AcceptedEvent {
-  if (!isRecord(value)) throw new RequestValidationError("Each event must be an object");
+  if (!isRecord(value))
+    throw new RequestValidationError("Each event must be an object", "event-not-object");
 
   const properties = value.properties;
-  if (!isRecord(properties)) throw new RequestValidationError("Invalid event properties");
+  if (!isRecord(properties))
+    throw new RequestValidationError("Invalid event properties", "properties-invalid");
   if (Object.keys(properties).length > 64) {
-    throw new RequestValidationError("Too many event properties");
+    throw new RequestValidationError("Too many event properties", "properties-too-many");
   }
   if (new TextEncoder().encode(JSON.stringify(properties)).byteLength > MAX_PROPERTIES_BYTES) {
-    throw new RequestValidationError("Event properties are too large");
+    throw new RequestValidationError("Event properties are too large", "properties-too-large");
   }
 
-  const privacyLevel = requireString(value.privacy_level, "privacy_level", /^[a-z]+$/);
+  const privacyLevel = requireString(
+    value.privacy_level,
+    "privacy_level",
+    /^[a-z]+$/,
+    "privacy-level-invalid",
+  );
   if (!PRIVACY_LEVELS.includes(privacyLevel as PrivacyLevel)) {
-    throw new RequestValidationError("Invalid privacy_level");
+    throw new RequestValidationError("Invalid privacy_level", "privacy-level-invalid");
   }
 
-  const occurredAtInput = requireString(value.occurred_at, "occurred_at", /^.{10,40}$/);
+  const occurredAtInput = requireString(
+    value.occurred_at,
+    "occurred_at",
+    /^.{10,40}$/,
+    "occurred-at-invalid",
+  );
   const occurredAtDate = new Date(occurredAtInput);
   if (Number.isNaN(occurredAtDate.valueOf())) {
-    throw new RequestValidationError("Invalid occurred_at");
+    throw new RequestValidationError("Invalid occurred_at", "occurred-at-invalid");
   }
   const now = Date.now();
   if (occurredAtDate.valueOf() > now + 24 * 60 * 60 * 1000) {
-    throw new RequestValidationError("occurred_at is too far in the future");
+    throw new RequestValidationError("occurred_at is too far in the future", "occurred-at-future");
   }
   const earliestAllowed = identityEnabled
     ? diagnosticObservation(String(value.name), privacyLevel, properties)
@@ -164,30 +246,54 @@ function parseEvent(value: unknown, identityEnabled = false): AcceptedEvent {
       (privacyLevel === "diagnostic" ? DIAGNOSTIC_EVENT_RETENTION_DAYS : RAW_EVENT_RETENTION_DAYS) *
         86400000;
   if (occurredAtDate.valueOf() < earliestAllowed) {
-    throw new RequestValidationError("occurred_at is too old");
+    throw new RequestValidationError("occurred_at is too old", "occurred-at-too-old");
   }
 
-  const distinctId = requireString(value.distinct_id, "distinct_id", IDENTIFIER_PATTERN);
+  const distinctId = requireString(
+    value.distinct_id,
+    "distinct_id",
+    IDENTIFIER_PATTERN,
+    "distinct-id-invalid",
+  );
   if (!INSTALLATION_ID_PATTERN.test(distinctId)) {
-    throw new RequestValidationError("Desktop events require an installation identity");
+    throw new RequestValidationError(
+      "Desktop events require an installation identity",
+      "installation-identity-required",
+    );
   }
-  const sessionId = requireString(value.session_id, "session_id", SESSION_ID_PATTERN);
-  const consentLevel = requireString(value.consent_level, "consent_level", /^[a-z]+$/);
+  const sessionId = requireString(
+    value.session_id,
+    "session_id",
+    SESSION_ID_PATTERN,
+    "session-id-invalid",
+  );
+  const consentLevel = requireString(
+    value.consent_level,
+    "consent_level",
+    /^[a-z]+$/,
+    "consent-level-invalid",
+  );
   if (!PRIVACY_LEVELS.includes(consentLevel as PrivacyLevel)) {
-    throw new RequestValidationError("Invalid consent_level");
+    throw new RequestValidationError("Invalid consent_level", "consent-level-invalid");
   }
 
-  const name = requireString(value.name, "event name", /^[a-z][a-z0-9_.-]{0,79}$/);
+  const name = requireString(
+    value.name,
+    "event name",
+    /^[a-z][a-z0-9_.-]{0,79}$/,
+    "event-name-invalid",
+  );
   const contractViolation = eventContractViolation({
     name,
     privacyLevel: privacyLevel as PrivacyLevel,
     consentLevel: consentLevel as PrivacyLevel,
     properties,
   });
-  if (contractViolation) throw new RequestValidationError(contractViolation);
+  if (contractViolation)
+    throw new RequestValidationError(contractViolation, contractViolationReason(contractViolation));
 
   return {
-    id: requireString(value.id, "event id", IDENTIFIER_PATTERN),
+    id: requireString(value.id, "event id", IDENTIFIER_PATTERN, "event-id-invalid"),
     name,
     distinctId,
     identityType: "desktop_installation",
@@ -204,27 +310,45 @@ export function validateIngestionPayload(
   identityEnabled = false,
 ): ReadonlyArray<AcceptedEvent> {
   if (!isRecord(value) || value.schema_version !== 1 || value.source !== "desktop") {
-    throw new RequestValidationError("Unsupported event payload");
+    throw new RequestValidationError("Unsupported event payload", "payload-unsupported");
   }
   if (!Array.isArray(value.events) || value.events.length < 1) {
-    throw new RequestValidationError("At least one event is required");
+    throw new RequestValidationError("At least one event is required", "batch-empty");
   }
   if (value.events.length > MAX_BATCH_SIZE) {
-    throw new RequestValidationError(`At most ${MAX_BATCH_SIZE} events are accepted`);
+    throw new RequestValidationError(
+      `At most ${MAX_BATCH_SIZE} events are accepted`,
+      "batch-too-large",
+    );
   }
-  const events = value.events.map((event) => parseEvent(event, identityEnabled));
+  const events = value.events.map((event, index) => {
+    try {
+      return parseEvent(event, identityEnabled);
+    } catch (error) {
+      if (error instanceof RequestValidationError) error.eventIndex = index;
+      throw error;
+    }
+  });
   const installationId = events[0]?.distinctId;
   if (events.some((event) => event.distinctId !== installationId)) {
-    throw new RequestValidationError("A batch must contain one installation identity");
+    throw new RequestValidationError(
+      "A batch must contain one installation identity",
+      "batch-mixed-installations",
+    );
   }
   return events;
 }
 
 function requireInstallationToken(request: Request): string {
+  const token = request.headers.get(INSTALLATION_TOKEN_HEADER);
+  if (token === null) {
+    throw new RequestValidationError("Invalid installation token", "installation-token-missing");
+  }
   return requireString(
-    request.headers.get(INSTALLATION_TOKEN_HEADER),
+    token,
     "installation token",
     INSTALLATION_TOKEN_PATTERN,
+    "installation-token-invalid",
   );
 }
 
@@ -237,12 +361,119 @@ async function readJsonBody(request: Request): Promise<unknown> {
   try {
     return await readBoundedJson(request, MAX_REQUEST_BYTES);
   } catch (error) {
-    throw new RequestValidationError(
-      error instanceof TransportFailure && error.kind === "body-too-large"
-        ? "Request body is too large"
-        : "Request body must be valid JSON",
-    );
+    throw error instanceof TransportFailure && error.kind === "body-too-large"
+      ? new RequestValidationError("Request body is too large", "body-too-large")
+      : new RequestValidationError("Request body must be valid JSON", "body-invalid-json");
   }
+}
+
+const APP_VERSION_PATTERN =
+  /^(?:\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[a-z]{1,16}(?:\.\d{1,14}){0,3})?|unknown)$/;
+const BUILD_CHANNEL_PATTERN = /^(?:stable|beta|nightly|development|unknown)$/;
+const CONTRACT_REVISION_PATTERN = /^\d{1,4}$/;
+const MAX_LOGGED_EVENT_NAMES = 20;
+
+/**
+ * A privacy-safe description of a submitted batch for rejection and failure logs:
+ * its size, event-name counts and the client's release fields when they match
+ * their closed formats. Never property values, identifiers, tokens or IP addresses.
+ */
+function batchDiagnostics(value: unknown, request: Request): Record<string, unknown> {
+  const userAgent = request.headers.get("User-Agent") ?? "";
+  const diagnostics: Record<string, unknown> = {
+    user_agent_family: !userAgent
+      ? "none"
+      : /^node\b/i.test(userAgent)
+        ? "node"
+        : /\bElectron\//.test(userAgent)
+          ? "electron"
+          : /^Mozilla\//.test(userAgent)
+            ? "browser"
+            : /^curl\//i.test(userAgent)
+              ? "curl"
+              : "other",
+  };
+  if (!isRecord(value)) return diagnostics;
+  if (typeof value.schema_version === "number") diagnostics.schema_version = value.schema_version;
+  if (typeof value.source === "string" && /^[a-z]{1,16}$/.test(value.source))
+    diagnostics.source = value.source;
+  if (!Array.isArray(value.events)) return diagnostics;
+  diagnostics.batch_size = value.events.length;
+  const names: Record<string, number> = {};
+  for (const event of value.events.slice(0, MAX_BATCH_SIZE)) {
+    const name = isRecord(event) && typeof event.name === "string" ? event.name : "";
+    const key = !EVENT_NAME_PATTERN.test(name)
+      ? "(invalid)"
+      : name in names || Object.keys(names).length < MAX_LOGGED_EVENT_NAMES
+        ? name
+        : "(other)";
+    names[key] = (names[key] ?? 0) + 1;
+    const properties = isRecord(event) && isRecord(event.properties) ? event.properties : {};
+    for (const [field, logged, pattern] of [
+      ["appVersion", "app_version", APP_VERSION_PATTERN],
+      ["buildChannel", "build_channel", BUILD_CHANNEL_PATTERN],
+      ["contractRevision", "contract_revision", CONTRACT_REVISION_PATTERN],
+    ] as const) {
+      const fieldValue = properties[field];
+      if (!(logged in diagnostics) && typeof fieldValue === "string" && pattern.test(fieldValue))
+        diagnostics[logged] = fieldValue;
+    }
+  }
+  diagnostics.event_names = names;
+  return diagnostics;
+}
+
+/** The offending event's index and name and, for a property rejection, its key, never its value. */
+function rejectionDiagnostics(
+  error: RequestValidationError,
+  body: unknown,
+): Record<string, unknown> {
+  const diagnostics: Record<string, unknown> = {};
+  if (error.eventIndex === undefined) return diagnostics;
+  diagnostics.rejected_event_index = error.eventIndex;
+  const event = isRecord(body) && Array.isArray(body.events) ? body.events[error.eventIndex] : null;
+  if (isRecord(event) && typeof event.name === "string" && EVENT_NAME_PATTERN.test(event.name))
+    diagnostics.rejected_event_name = event.name;
+  const property = /'([^']*)'$/.exec(error.message)?.[1];
+  if (
+    property &&
+    ["property-value-invalid", "property-content-key", "property-private-value"].includes(
+      error.reason,
+    ) &&
+    PROPERTY_KEY_PATTERN.test(property)
+  )
+    diagnostics.rejected_property = property;
+  return diagnostics;
+}
+
+/** Error class, runtime name and a closed storage kind; never the message, which may carry SQL or data. */
+function errorDiagnostics(error: unknown): {
+  readonly error_class: string;
+  readonly error_name: string;
+  readonly error_kind?: string;
+} {
+  const name = error instanceof Error ? error.name : typeof error;
+  const message = error instanceof Error ? error.message : "";
+  const kind = /network connection lost/i.test(message)
+    ? "network-lost"
+    : /timed? ?out/i.test(message)
+      ? "timeout"
+      : /overloaded/i.test(message)
+        ? "overloaded"
+        : /SQLITE_BUSY|database is locked/i.test(message)
+          ? "busy"
+          : /constraint/i.test(message)
+            ? "constraint"
+            : /no such (?:table|column)/i.test(message)
+              ? "schema"
+              : /^D1_/.test(message)
+                ? "d1-other"
+                : null;
+  return {
+    error_class: error instanceof TransportFailure ? error.kind : "internal",
+    error_name: /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name) ? name : "unknown",
+    ...(kind ? { error_kind: kind } : {}),
+  };
 }
 
 async function persistEvents(
@@ -987,7 +1218,7 @@ async function handleIdentityLink(
     console.error(
       JSON.stringify({
         message: "Identity linking failed",
-        error_class: error instanceof TransportFailure ? error.kind : "internal",
+        ...errorDiagnostics(error),
       }),
     );
     return jsonResponse({ error: "Identity linking failed" }, 500);
@@ -1136,7 +1367,12 @@ async function handleInstallationDeletion(request: Request, env: AnalyticsEnv): 
     if (error instanceof RequestValidationError) {
       return jsonResponse({ error: error.message }, 400);
     }
-    console.error(JSON.stringify({ message: "Analytics deletion request failed" }));
+    console.error(
+      JSON.stringify({
+        message: "Analytics deletion request failed",
+        ...errorDiagnostics(error),
+      }),
+    );
     return jsonResponse({ error: "Analytics deletion request failed" }, 500);
   }
 }
@@ -1164,13 +1400,21 @@ async function handleIngestion(request: Request, env: AnalyticsEnv): Promise<Res
     stageStart = now;
   };
   let eventCount = 0;
-  const respond = (response: Response, errorClass?: string) => {
+  let body: unknown;
+  // The ingestion step in progress, so an internal failure names where it happened.
+  let step: "body" | "token" | "validation" | "rate-limit" | "storage" = "body";
+  const respond = (
+    response: Response,
+    errorClass?: string,
+    diagnostics: Record<string, unknown> = {},
+  ) => {
     console.log(
       JSON.stringify({
         message: "Analytics ingestion",
         status: response.status,
         events: eventCount,
         ...(errorClass ? { error_class: errorClass } : {}),
+        ...diagnostics,
         ...Object.fromEntries(Object.entries(stages).map(([name, ms]) => [`${name}_ms`, ms])),
         total_ms: Date.now() - started,
       }),
@@ -1179,28 +1423,34 @@ async function handleIngestion(request: Request, env: AnalyticsEnv): Promise<Res
   };
 
   try {
+    // The body is read before the token check so a rejected upload still logs its batch shape.
+    body = await readJsonBody(request);
+    step = "token";
     const deletionTokenHash = await sha256(requireInstallationToken(request));
-    const events = validateIngestionPayload(
-      await readJsonBody(request),
-      env.IDENTITY_ANALYTICS_ENABLED === "true",
-    );
+    step = "validation";
+    const events = validateIngestionPayload(body, env.IDENTITY_ANALYTICS_ENABLED === "true");
     endStage("read");
     eventCount = events.length;
     const installationId = events[0]?.distinctId;
-    if (!installationId) throw new RequestValidationError("At least one event is required");
+    if (!installationId)
+      throw new RequestValidationError("At least one event is required", "batch-empty");
+    step = "rate-limit";
     if (!env.ANALYTICS_INGESTION_RATE_LIMITER) {
       return respond(
         jsonResponse({ error: "Analytics rate limiting is unavailable" }, 503, origin),
         "rate-limiter-unavailable",
       );
     }
-    const rateLimit = await env.ANALYTICS_INGESTION_RATE_LIMITER.limit({ key: installationId });
+    const rateLimit = await env.ANALYTICS_INGESTION_RATE_LIMITER.limit({
+      key: installationId,
+    });
     endStage("rate_limit");
     if (!rateLimit.success) {
       const response = jsonResponse({ error: "Too many analytics requests" }, 429, origin);
       response.headers.set("Retry-After", "60");
       return respond(response, "rate-limited");
     }
+    step = "storage";
     await persistEvents(
       env.ANALYTICS_DB,
       events,
@@ -1216,13 +1466,27 @@ async function handleIngestion(request: Request, env: AnalyticsEnv): Promise<Res
       return respond(jsonResponse({ error: error.message }, 403, origin), "authentication");
     }
     if (error instanceof RequestValidationError) {
-      return respond(jsonResponse({ error: error.message }, 400, origin), "validation");
+      const rejection = {
+        reason: error.reason,
+        stage: REJECTION_STAGES[error.reason],
+      };
+      return respond(
+        jsonResponse({ error: error.message, ...rejection }, 400, origin),
+        "validation",
+        {
+          ...rejection,
+          ...rejectionDiagnostics(error, body),
+          ...batchDiagnostics(body, request),
+        },
+      );
     }
-    const errorClass = error instanceof TransportFailure ? error.kind : "internal";
-    console.error(
-      JSON.stringify({ message: "Analytics ingestion failed", error_class: errorClass }),
+    const failure = { failed_step: step, ...errorDiagnostics(error) };
+    console.error(JSON.stringify({ message: "Analytics ingestion failed", ...failure }));
+    return respond(
+      jsonResponse({ error: "Analytics ingestion failed" }, 500, origin),
+      failure.error_class,
+      { ...failure, ...batchDiagnostics(body, request) },
     );
-    return respond(jsonResponse({ error: "Analytics ingestion failed" }, 500, origin), errorClass);
   }
 }
 
@@ -1329,15 +1593,21 @@ const worker = {
           let outcome = "ok";
           try {
             await operation();
-          } catch {
+          } catch (error) {
             outcome = "failed";
             console.error(
-              JSON.stringify({ message: "Analytics maintenance failed", operation: name }),
+              JSON.stringify({
+                message: "Analytics maintenance failed",
+                operation: name,
+                ...errorDiagnostics(error),
+              }),
             );
           }
           try {
-            await env.ANALYTICS_DB.prepare(`INSERT INTO analytics_maintenance_status (name, completed_at, outcome)
-              VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET completed_at = excluded.completed_at, outcome = excluded.outcome`)
+            await env.ANALYTICS_DB.prepare(
+              `INSERT INTO analytics_maintenance_status (name, completed_at, outcome)
+              VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET completed_at = excluded.completed_at, outcome = excluded.outcome`,
+            )
               .bind(name, new Date().toISOString(), outcome)
               .run();
           } catch {
