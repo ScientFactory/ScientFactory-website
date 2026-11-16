@@ -10,10 +10,8 @@ import {
 } from "../../../functions/_lib/analyticsPeople";
 import {
   ANALYTICS_CONTRACT_REVISION,
-  EVENT_NAME_PATTERN,
   eventContractViolation,
   PRIVACY_LEVELS,
-  PROPERTY_KEY_PATTERN,
   type PrivacyLevel,
 } from "./eventContract";
 import { posthogEventUuid, posthogRequest, readBoundedJson, TransportFailure } from "./transport";
@@ -371,18 +369,11 @@ const APP_VERSION_PATTERN =
   /^(?:\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[a-z]{1,16}(?:\.\d{1,14}){0,3})?|unknown)$/;
 const BUILD_CHANNEL_PATTERN = /^(?:stable|beta|nightly|development|unknown)$/;
 const CONTRACT_REVISION_PATTERN = /^\d{1,4}$/;
-const MAX_LOGGED_EVENT_NAMES = 20;
-/**
- * Event names come from Scient's code: lowercase words joined by dots. An unverified client can
- * send any name the shape allows, so a name with digits or other characters (an address, an id)
- * is counted as "(other)" and never logged.
- */
-const LOGGED_EVENT_NAME_PATTERN = /^[a-z]+(?:[._][a-z]+){1,5}$/;
 
 /**
  * A privacy-safe description of a submitted batch for rejection and failure logs:
- * its size, event-name counts and the client's release fields when they match
- * their closed formats. Never property values, identifiers, tokens or IP addresses.
+ * its size and the client's release fields when they match their closed formats.
+ * Never event names, property keys or values, identifiers, tokens or IP addresses.
  */
 function batchDiagnostics(value: unknown, request: Request): Record<string, unknown> {
   const userAgent = request.headers.get("User-Agent") ?? "";
@@ -405,16 +396,9 @@ function batchDiagnostics(value: unknown, request: Request): Record<string, unkn
     diagnostics.source = value.source;
   if (!Array.isArray(value.events)) return diagnostics;
   diagnostics.batch_size = value.events.length;
-  const names: Record<string, number> = {};
+  // Nothing is authenticated when a batch is rejected, so no name or key the client chose is
+  // logged: an event name of a valid shape can still carry a name or an address.
   for (const event of value.events.slice(0, MAX_BATCH_SIZE)) {
-    const name = isRecord(event) && typeof event.name === "string" ? event.name : "";
-    const key = !EVENT_NAME_PATTERN.test(name)
-      ? "(invalid)"
-      : LOGGED_EVENT_NAME_PATTERN.test(name) &&
-          (name in names || Object.keys(names).length < MAX_LOGGED_EVENT_NAMES)
-        ? name
-        : "(other)";
-    names[key] = (names[key] ?? 0) + 1;
     const properties = isRecord(event) && isRecord(event.properties) ? event.properties : {};
     for (const [field, logged, pattern] of [
       ["appVersion", "app_version", APP_VERSION_PATTERN],
@@ -426,30 +410,14 @@ function batchDiagnostics(value: unknown, request: Request): Record<string, unkn
         diagnostics[logged] = fieldValue;
     }
   }
-  diagnostics.event_names = names;
   return diagnostics;
 }
 
-/** The offending event's index and name and, for a property rejection, its key, never its value. */
-function rejectionDiagnostics(
-  error: RequestValidationError,
-  body: unknown,
-): Record<string, unknown> {
+/** The offending event's position in the batch, never its name or contents. */
+function rejectionDiagnostics(error: RequestValidationError): Record<string, unknown> {
   const diagnostics: Record<string, unknown> = {};
   if (error.eventIndex === undefined) return diagnostics;
   diagnostics.rejected_event_index = error.eventIndex;
-  const event = isRecord(body) && Array.isArray(body.events) ? body.events[error.eventIndex] : null;
-  if (isRecord(event) && typeof event.name === "string" && EVENT_NAME_PATTERN.test(event.name))
-    diagnostics.rejected_event_name = event.name;
-  const property = /'([^']*)'$/.exec(error.message)?.[1];
-  if (
-    property &&
-    ["property-value-invalid", "property-content-key", "property-private-value"].includes(
-      error.reason,
-    ) &&
-    PROPERTY_KEY_PATTERN.test(property)
-  )
-    diagnostics.rejected_property = property;
   return diagnostics;
 }
 
@@ -1482,7 +1450,7 @@ async function handleIngestion(request: Request, env: AnalyticsEnv): Promise<Res
         "validation",
         {
           ...rejection,
-          ...rejectionDiagnostics(error, body),
+          ...rejectionDiagnostics(error),
           ...batchDiagnostics(body, request),
         },
       );

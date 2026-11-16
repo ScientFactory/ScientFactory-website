@@ -299,13 +299,12 @@ describe("event gateway routes", () => {
         reason,
         stage: "privacy",
         rejected_event_index: 0,
-        rejected_event_name: "feature.viewed",
-        rejected_property: key,
         app_version: "0.6.25",
         build_channel: "stable",
         contract_revision: "6",
       });
       expect(entry).not.toContain("PRIVATE");
+      expect(entry).not.toContain("feature.viewed");
     }
     expect(database.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(3);
   });
@@ -331,7 +330,7 @@ describe("event gateway routes", () => {
     const database = createDatabase();
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const payload = validPayload();
-    // A name of a valid shape that carries an address is counted, never logged.
+    // Nothing is authenticated yet, so no event name is logged, even one of a valid shape.
     const named = {
       ...payload,
       events: [...payload.events, { ...payload.events[0], name: "patient.192.0.2.10" }],
@@ -364,11 +363,18 @@ describe("event gateway routes", () => {
       schema_version: 1,
       source: "desktop",
       batch_size: 2,
-      event_names: { "provider.turn.sent": 1, "(other)": 1 },
       app_version: "0.0.32",
       build_channel: "development",
     });
-    for (const secret of ["installation:", "session:", "8e0ee7d5", "codex", "gpt-5.6", "192.0.2"]) {
+    for (const secret of [
+      "installation:",
+      "session:",
+      "8e0ee7d5",
+      "codex",
+      "gpt-5.6",
+      "192.0.2",
+      "provider.turn.sent",
+    ]) {
       expect(entry).not.toContain(secret);
     }
   });
