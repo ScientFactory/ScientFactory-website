@@ -16,8 +16,8 @@ export interface VisitSource {
 
 const HOST_PATTERN =
   /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/;
-// Campaign tags are short labels. Anything that reads as an address or an email is dropped.
-const TAG_PATTERN = /^[\p{L}\p{N} ._+\-|:/]{1,100}$/u;
+// Campaign tags are short labels: no "/" or "@", so an address, a path or an email is dropped.
+const TAG_PATTERN = /^[\p{L}\p{N} ._+\-|:]{1,100}$/u;
 
 export function cleanReferrerHost(value: unknown, siteHost: string): string | null {
   if (typeof value !== "string") return null;
@@ -33,7 +33,7 @@ export function cleanReferrerHost(value: unknown, siteHost: string): string | nu
 export function cleanCampaignTag(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const tag = value.trim();
-  if (!TAG_PATTERN.test(tag) || tag.includes("://") || tag.startsWith("/")) return null;
+  if (!TAG_PATTERN.test(tag)) return null;
   return tag;
 }
 

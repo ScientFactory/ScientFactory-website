@@ -66,9 +66,11 @@ function limited(value: string | null | undefined, maximum: number): string | nu
   return value.slice(0, maximum);
 }
 
+/** A path on this site: never another host (`//host/...`) or anything with an email in it. */
 export function cleanPath(value: string | null | undefined): string | null {
-  if (!value?.startsWith("/")) return null;
+  if (!value?.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
   const path = value.split(/[?#]/, 1)[0] ?? "/";
+  if (path.includes("@")) return null;
   return limited(path, 512);
 }
 

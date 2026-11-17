@@ -36,45 +36,65 @@ export async function recordGithubReleaseDownloads(
   if (pending.length === 0) return 0;
 
   const fetcher = options.fetcher ?? fetch;
-  const statements: D1PreparedStatement[] = [];
+  let savedFiles = 0;
+  const failures: string[] = [];
   for (const repository of pending) {
-    const response = await fetcher(
-      `https://api.github.com/repos/${repository}/releases?per_page=${RELEASES_PER_REPOSITORY}`,
-      {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "User-Agent": "scientfactory-events",
-          "X-GitHub-Api-Version": "2022-11-28",
-          ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
-        },
+    try {
+      savedFiles += await saveRepository(db, repository, day, now, fetcher, options.token);
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+  // Repositories that answered are saved; the next run retries only the ones that did not.
+  if (failures.length > 0) throw new Error(failures.join("; "));
+  return savedFiles;
+}
+
+async function saveRepository(
+  db: D1Database,
+  repository: string,
+  day: string,
+  now: Date,
+  fetcher: typeof fetch,
+  token: string | undefined,
+): Promise<number> {
+  const statements: D1PreparedStatement[] = [];
+  const response = await fetcher(
+    `https://api.github.com/repos/${repository}/releases?per_page=${RELEASES_PER_REPOSITORY}`,
+    {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": "scientfactory-events",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    );
-    if (!response.ok) throw new Error(`GitHub releases for ${repository}: HTTP ${response.status}`);
-    const releases = (await response.json()) as ReadonlyArray<GithubRelease>;
-    for (const release of Array.isArray(releases) ? releases : []) {
-      if (typeof release.tag_name !== "string") continue;
-      const publishedAt = typeof release.published_at === "string" ? release.published_at : null;
-      for (const asset of release.assets ?? []) {
-        if (typeof asset.name !== "string" || !COUNTED_ASSET.test(asset.name)) continue;
-        if (typeof asset.download_count !== "number") continue;
-        statements.push(
-          db
-            .prepare(
-              `INSERT OR REPLACE INTO github_release_downloads
+    },
+  );
+  if (!response.ok) throw new Error(`GitHub releases for ${repository}: HTTP ${response.status}`);
+  const releases = (await response.json()) as ReadonlyArray<GithubRelease>;
+  for (const release of Array.isArray(releases) ? releases : []) {
+    if (typeof release.tag_name !== "string") continue;
+    const publishedAt = typeof release.published_at === "string" ? release.published_at : null;
+    for (const asset of release.assets ?? []) {
+      if (typeof asset.name !== "string" || !COUNTED_ASSET.test(asset.name)) continue;
+      if (typeof asset.download_count !== "number") continue;
+      statements.push(
+        db
+          .prepare(
+            `INSERT OR REPLACE INTO github_release_downloads
                 (day, repository, release_tag, release_published_at, asset_name, download_count, recorded_at)
               VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            )
-            .bind(
-              day,
-              repository,
-              release.tag_name.slice(0, 80),
-              publishedAt,
-              asset.name.slice(0, 255),
-              asset.download_count,
-              now.toISOString(),
-            ),
-        );
-      }
+          )
+          .bind(
+            day,
+            repository,
+            release.tag_name.slice(0, 80),
+            publishedAt,
+            asset.name.slice(0, 255),
+            asset.download_count,
+            now.toISOString(),
+          ),
+      );
     }
   }
   if (statements.length > 0) await db.batch(statements);

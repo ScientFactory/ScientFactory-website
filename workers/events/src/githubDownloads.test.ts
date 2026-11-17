@@ -58,3 +58,33 @@ it("fails so the next run retries when GitHub does not answer", async () => {
     store.close();
   }
 });
+
+it("saves the repositories that answered when another one fails", async () => {
+  const store = testDatabase();
+  try {
+    const now = new Date("2026-11-17T01:00:00Z");
+    const fetcher = vi.fn(async (url: string | URL | Request) =>
+      String(url).includes("scient-desktop-beta")
+        ? new Response("rate limited", { status: 403 })
+        : Response.json(releases),
+    );
+    await expect(
+      recordGithubReleaseDownloads(store.database, { now, fetcher: fetcher as typeof fetch }),
+    ).rejects.toThrow("scient-desktop-beta: HTTP 403");
+    const saved = () =>
+      store.sqlite
+        .prepare("SELECT DISTINCT repository FROM github_release_downloads")
+        .all()
+        .map((row) => row.repository);
+    expect(saved()).toEqual(["ScientFactory/scient-desktop"]);
+
+    fetcher.mockClear();
+    await expect(
+      recordGithubReleaseDownloads(store.database, { now, fetcher: fetcher as typeof fetch }),
+    ).rejects.toThrow("HTTP 403");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(String(fetcher.mock.calls[0]?.[0])).toContain("scient-desktop-beta");
+  } finally {
+    store.close();
+  }
+});

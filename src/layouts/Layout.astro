@@ -189,7 +189,8 @@ const primaryLinks = [
         const params = new URLSearchParams(window.location.search);
         for (const name of ["utm_source", "utm_medium", "utm_campaign"]) {
           const value = params.get(name)?.trim();
-          if (value) source[name] = value.slice(0, 100);
+          // Short labels only, the same rule the server applies: no addresses, paths or emails.
+          if (value && /^[\p{L}\p{N} ._+\-|:]{1,100}$/u.test(value)) source[name] = value;
         }
         try {
           const host = document.referrer ? new URL(document.referrer).hostname : "";

@@ -20,6 +20,18 @@ describe("visit source", () => {
     expect(cleanCampaignTag("https://example.com")).toBeNull();
     expect(cleanCampaignTag("/private/path")).toBeNull();
     expect(cleanCampaignTag("x".repeat(101))).toBeNull();
+    expect(cleanCampaignTag("example.com/private/path")).toBeNull();
+    expect(cleanCampaignTag("google.com")).toBe("google.com");
+  });
+
+  it("keeps only paths on this site", () => {
+    const read = (landing: string) =>
+      visitSourceFrom((name) => (name === "landing_path" ? landing : null), "scientfactory.com")
+        .landingPath;
+    expect(read("/docs/install?x=1")).toBe("/docs/install");
+    expect(read("//example.com/private")).toBeNull();
+    expect(read("/\\example.com")).toBeNull();
+    expect(read("/people/person@example.com")).toBeNull();
   });
 
   it("reads every field through the same checks", () => {
