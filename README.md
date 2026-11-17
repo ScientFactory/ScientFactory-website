@@ -16,9 +16,8 @@ The source of truth for [scientfactory.com](https://scientfactory.com), includin
 - [`ScientFactory/scient-desktop`](https://github.com/ScientFactory/scient-desktop)
   owns the desktop application and its releases.
 - [`ScientFactory/scient-agent`](https://github.com/ScientFactory/scient-agent)
-  is the planned home for future native Scient-agent work. Its current
-  OpenCode-derived starting repository is not yet an implemented native-agent
-  foundation.
+  owns Scient Agent, the native research agent built from Oh My Pi that the
+  desktop application installs and runs.
 - [`ScientFactory/ScientFactory-website`](https://github.com/ScientFactory/ScientFactory-website)
   owns this website and download experience.
 
@@ -118,13 +117,17 @@ Cloudflare D1 stores four website event types:
 
 Before a visitor chooses analytics, and after choosing **Essential only**, every event receives a new event-specific identifier. Those counts represent events rather than unique people. After explicit **Allow analytics** consent, the site sets a random first-party visitor identifier and creates a session identifier so visits, downloads, sessions, and return behavior can be measured. The identity is not derived from an IP address, browser fingerprint, email address, advertising identifier, referrer, or third-party account. `download_failed` is limited to a failure in ScientFactory's redirect service; the website cannot observe a transfer failure after GitHub begins serving an installer.
 
+Each visit also records where it came from: the referring site's host (never its full address) and the link's `utm_source`, `utm_medium` and `utm_campaign` tags. The browser keeps them for the tab and sends them once on the visit's first page view, and the site's download links carry them with the page the download was clicked on. A download link on another site is credited to that site's host. Values that look like an address or an email are dropped.
+
+Downloads made directly from GitHub never reach this site. Once a day the events Worker saves GitHub's running total for each release file in `github_release_downloads`. GitHub counts every fetch: Mac `.dmg` files are installs only and Mac updates fetch the `.zip`, but Windows `.exe` and Linux `.AppImage` totals also include updates that fell back to GitHub from the update mirror. A token in the optional `GITHUB_TOKEN` Worker secret only raises GitHub's rate limit.
+
 The production binding is `DOWNLOAD_DB`, backed by the `scientfactory-downloads` D1 database. New events use the shared `analytics_events` table; the earlier `site_events` table remains as read-only historical data. Apply new migrations before deploying code that depends on them:
 
 ```sh
 bun run db:migrate
 ```
 
-To view the lifetime event summary plus 30-day identity, consent, session, download, outbound-link, and failure breakdowns:
+To view the lifetime event summary plus 30-day identity, consent, session, download (by source, campaign, place and network, and GitHub's totals), outbound-link, and failure breakdowns:
 
 ```sh
 bun run analytics:report

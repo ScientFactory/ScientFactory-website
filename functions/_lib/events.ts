@@ -4,6 +4,7 @@ import { webObservationStatement } from "./analyticsPeople";
 // Layer: Cloudflare Pages Function utility
 
 import { cleanSessionId, websiteIdentity, websiteSessionId } from "./identity";
+import type { VisitSource } from "./visitSource";
 
 export const SITE_EVENT_NAMES = [
   "page_viewed",
@@ -14,7 +15,8 @@ export const SITE_EVENT_NAMES = [
 
 export type SiteEventName = (typeof SITE_EVENT_NAMES)[number];
 
-export interface SiteEvent {
+/** Page views on landing and downloads also carry where the visit came from. */
+export interface SiteEvent extends VisitSource {
   readonly eventName: SiteEventName;
   readonly pagePath?: string | null;
   readonly assetKey?: string | null;
@@ -123,6 +125,11 @@ export async function insertSiteEvent(
       upstream_elapsed_ms: event.upstreamElapsedMs ?? null,
       upstream_attempts: event.upstreamAttempts ?? null,
       fallback: event.fallback ?? null,
+      referrer_host: limited(event.referrerHost, 253),
+      utm_source: limited(event.utmSource, 100),
+      utm_medium: limited(event.utmMedium, 100),
+      utm_campaign: limited(event.utmCampaign, 100),
+      landing_path: cleanPath(event.landingPath),
     }).filter((entry): entry is [string, string | number] => entry[1] !== null),
   );
 
@@ -165,6 +172,7 @@ export async function insertSiteEvent(
       occurredAt,
       distinctId,
       request,
+      event.referrerHost ?? null,
     );
     if (observation) statements.push(observation);
   }

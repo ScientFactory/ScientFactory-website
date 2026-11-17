@@ -8,7 +8,8 @@ import {
   DESKTOP_LATEST_RELEASE_PAGE_URL,
   isOfficialDesktopReleaseDownload,
 } from "../../../src/lib/release-source";
-import { queueSiteEvent } from "../../_lib/events";
+import { cleanPath, queueSiteEvent } from "../../_lib/events";
+import { cleanReferrerHost, visitSourceFrom, type VisitSource } from "../../_lib/visitSource";
 import {
   LatestReleaseResolutionError,
   resolveLatestDesktopRelease,
@@ -78,12 +79,36 @@ function redirectResponse(location: string): Response {
   });
 }
 
+/**
+ * The site's download links carry the page they were clicked on and where the visit came from
+ * (`page`, `referrer_host`, `landing_path` and the `utm_*` tags). Links from elsewhere have none.
+ */
+function downloadOrigin(request: Request): { pagePath: string; source: VisitSource } {
+  const url = new URL(request.url);
+  const source = visitSourceFrom((name) => url.searchParams.get(name), url.hostname);
+  let linkingHost: string | null = null;
+  try {
+    // A download link on another site sends that site as the Referer.
+    linkingHost = cleanReferrerHost(
+      new URL(request.headers.get("Referer") ?? "").hostname,
+      url.hostname,
+    );
+  } catch {
+    /* optional */
+  }
+  return {
+    pagePath: cleanPath(url.searchParams.get("page")) ?? "/download",
+    source: { ...source, referrerHost: source.referrerHost ?? linkingHost },
+  };
+}
+
 async function handleDownload(
   context: EventContext<Cloudflare.Env, "asset", unknown>,
   track: boolean,
 ): Promise<Response> {
   const key = assetKeyFromContext(context);
   if (!key) return new Response("Not found", { status: 404 });
+  const { pagePath, source } = downloadOrigin(context.request);
 
   try {
     const { release, asset } = await resolveDownload(key, context);
@@ -91,7 +116,8 @@ async function handleDownload(
       const destination = new URL(asset.browser_download_url);
       queueSiteEvent(context, {
         eventName: "download_clicked",
-        pagePath: "/download",
+        pagePath,
+        ...source,
         assetKey: key,
         releaseTag: release.tag_name,
         assetName: asset.name,
@@ -109,7 +135,8 @@ async function handleDownload(
     if (track) {
       queueSiteEvent(context, {
         eventName: "download_failed",
-        pagePath: "/download",
+        pagePath,
+        ...source,
         assetKey: key,
         failureStage: failure.stage,
         failureReason: failure.reason,

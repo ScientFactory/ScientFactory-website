@@ -40,6 +40,46 @@ afterEach(() => {
 });
 
 describe("browser event endpoint", () => {
+  it("records where a visit came from on its first page, without full addresses", async () => {
+    const { context, database } = createContext({
+      event_name: "page_viewed",
+      page_path: "/download",
+      referrer_host: "www.Google.com",
+      utm_source: "newsletter",
+      utm_medium: "email",
+      utm_campaign: "someone@example.com",
+      landing_path: "/download?ref=private",
+    });
+
+    expect((await onRequestPost(context)).status).toBe(204);
+    await context.waitUntil.mock.calls[0]?.[0];
+    const stored = (database.bind.mock.calls as unknown[][]).find(
+      (call) => call[1] === "page_viewed",
+    );
+    expect(JSON.parse(String(stored?.[5]))).toEqual({
+      page_path: "/download",
+      referrer_host: "google.com",
+      utm_source: "newsletter",
+      utm_medium: "email",
+      landing_path: "/download",
+    });
+  });
+
+  it("does not count this website as a referrer", async () => {
+    const { context, database } = createContext({
+      event_name: "page_viewed",
+      page_path: "/docs",
+      referrer_host: "scientfactory.com",
+    });
+
+    await onRequestPost(context);
+    await context.waitUntil.mock.calls[0]?.[0];
+    const stored = (database.bind.mock.calls as unknown[][]).find(
+      (call) => call[1] === "page_viewed",
+    );
+    expect(JSON.parse(String(stored?.[5]))).toEqual({ page_path: "/docs" });
+  });
+
   it("records an anonymous page view", async () => {
     const { context, database } = createContext({
       event_name: "page_viewed",

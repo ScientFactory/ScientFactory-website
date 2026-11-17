@@ -180,12 +180,14 @@ export function webObservationStatement(
   occurredAt: string,
   visitorId: string,
   request: Request,
+  /** The site the visit came from; the request's own Referer is usually this website. */
+  sourceHost: string | null = null,
 ): D1PreparedStatement | null {
   const network = networkObservation(request);
   if (!network) return null;
-  let referrer: string | null = null;
+  let referrer: string | null = sourceHost;
   try {
-    referrer = new URL(request.headers.get("Referer") ?? "").hostname;
+    referrer ??= new URL(request.headers.get("Referer") ?? "").hostname;
   } catch {
     /* optional */
   }

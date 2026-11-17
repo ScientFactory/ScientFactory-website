@@ -15,6 +15,7 @@ import {
 } from "./eventContract";
 import { posthogRequest, readBoundedJson, TransportFailure } from "./transport";
 import { withDeletionLease } from "./deletionLease";
+import { recordGithubReleaseDownloads } from "./githubDownloads";
 
 const ALLOWED_WEB_ORIGINS = new Set(["https://scientfactory.com", "https://www.scientfactory.com"]);
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -50,6 +51,8 @@ type AnalyticsEnv = Omit<
   readonly POSTHOG_PERSONAL_API_KEY?: string;
   readonly POSTHOG_PROJECT_ID?: string;
   readonly IDENTITY_LINK_TOKEN?: string;
+  /** Optional; GitHub's release totals are public, a token only raises the rate limit. */
+  readonly GITHUB_TOKEN?: string;
   readonly IDENTITY_ANALYTICS_ENABLED?: string;
   readonly DESKTOP_INGESTION_ENABLED?: string;
   readonly ANALYTICS_INGESTION_RATE_LIMITER?: RateLimit;
@@ -1202,7 +1205,24 @@ const worker = {
     return jsonResponse({ error: "Not found" }, 404);
   },
 
-  async scheduled(_controller, env, context) {
+  async scheduled(controller, env, context) {
+    // GitHub's release totals, once a day; a failed day retries on the hour. Kept out of the
+    // maintenance status, which tracks the passes that guard retention and deletion.
+    if (new Date(controller.scheduledTime).getUTCMinutes() < 5) {
+      context.waitUntil(
+        recordGithubReleaseDownloads(env.ANALYTICS_DB, {
+          now: new Date(controller.scheduledTime),
+          ...(env.GITHUB_TOKEN ? { token: env.GITHUB_TOKEN } : {}),
+        }).catch((error: unknown) => {
+          console.error(
+            JSON.stringify({
+              message: "GitHub release totals were not saved",
+              ...errorDiagnostics(error),
+            }),
+          );
+        }),
+      );
+    }
     context.waitUntil(
       (async () => {
         for (const [name, operation] of [
