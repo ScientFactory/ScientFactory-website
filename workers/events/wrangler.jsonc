@@ -7,11 +7,12 @@
   "vars": {
     "IDENTITY_ANALYTICS_ENABLED": "true",
     "DESKTOP_INGESTION_ENABLED": "true",
-    "DESKTOP_POSTHOG_EXPORT_ENABLED": "true",
     "POSTHOG_PROJECT_ID": "228610",
   },
+  // PostHog is used only to erase copies sent before 17 November 2026. Remove
+  // POSTHOG_PROJECT_ID and this secret once that PostHog project is deleted.
   "secrets": {
-    "required": ["POSTHOG_PROJECT_TOKEN", "POSTHOG_PERSONAL_API_KEY"],
+    "required": ["POSTHOG_PERSONAL_API_KEY"],
   },
   "version_metadata": {
     "binding": "CF_VERSION_METADATA",

@@ -1,4 +1,4 @@
-/** Bounded transport shared by ingestion and the optional analysis exporter. */
+/** Bounded transport shared by ingestion and PostHog erasure. */
 export class TransportFailure extends Error {
   constructor(readonly kind: "body-too-large" | "invalid-json" | "network" | "timeout" | "http") {
     super(kind);
@@ -40,7 +40,7 @@ export async function readBoundedJson(
   }
 }
 
-/** Never follow redirects with an analysis project token or deletion credential. */
+/** Never follow redirects with the PostHog deletion credential. */
 export async function posthogRequest(url: string, init: RequestInit): Promise<Response> {
   try {
     const response = await fetch(url, {
@@ -48,7 +48,7 @@ export async function posthogRequest(url: string, init: RequestInit): Promise<Re
       // A manual redirect response is never followed, so credentials remain
       // scoped to the configured PostHog origin. Cloudflare's runtime rejects
       // `redirect: "error"` as a failed subrequest before a response is
-      // available, which prevents otherwise valid exports.
+      // available, which prevents otherwise valid requests.
       redirect: "manual",
       signal: AbortSignal.timeout(5_000),
     });
@@ -63,15 +63,4 @@ export async function posthogRequest(url: string, init: RequestInit): Promise<Re
       error instanceof Error && error.name === "TimeoutError" ? "timeout" : "network",
     );
   }
-}
-
-/** Stable UUIDv8 for event IDs that can also come from legacy website writers. */
-export async function posthogEventUuid(id: string): Promise<string> {
-  const hash = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`scient:analytics:event:${id}`)),
-  );
-  hash[6] = (hash[6]! & 0x0f) | 0x80;
-  hash[8] = (hash[8]! & 0x3f) | 0x80;
-  const hex = [...hash.subarray(0, 16)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
