@@ -4,6 +4,7 @@
 
 import type { Release, ReleaseAsset } from "./release-schema";
 import {
+  DESKTOP_BETA_RELEASE_REPOSITORY,
   DESKTOP_RELEASE_REPOSITORY,
   desktopMirrorUrl,
   isOfficialDesktopProvenanceRepository,
@@ -59,6 +60,7 @@ export function releaseAssetContentType(name: string): string {
   if (name.endsWith(".txt")) return "text/plain";
   if (name.endsWith(".json")) return "application/json";
   if (name.endsWith(".tgz")) return "application/gzip";
+  if (name.endsWith(".zip")) return "application/zip";
   return "application/octet-stream";
 }
 
@@ -72,8 +74,68 @@ export function requiredInstallerNames(version: string): readonly string[] {
   ];
 }
 
-export function githubReleaseDownloadUrl(tag: string, name: string): string {
-  return `https://github.com/${DESKTOP_RELEASE_REPOSITORY}/releases/download/${tag}/${encodeURIComponent(name)}`;
+export function githubReleaseDownloadUrl(
+  tag: string,
+  name: string,
+  repository: string = DESKTOP_RELEASE_REPOSITORY,
+): string {
+  return `https://github.com/${repository}/releases/download/${tag}/${encodeURIComponent(name)}`;
+}
+
+function parseHandoffAssets(value: unknown): readonly ReleaseHandoffAsset[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 128) {
+    throw new Error("Release handoff is invalid.");
+  }
+  const assets = value.map(parseAsset);
+  if (new Set(assets.map((asset) => asset.name)).size !== assets.length) {
+    throw new Error("Release handoff contains duplicate assets.");
+  }
+  return assets;
+}
+
+const BETA_VERSION = /^\d+\.\d+\.\d+-beta\.\d{8}\.[1-9]\d*$/u;
+
+/**
+ * A handoff for one update channel: Stable's x.y.z or Beta's x.y.z-beta.YYYYMMDD.N, from the
+ * official source repository, and, when it names its distribution, distributed on that channel
+ * from that channel's repository. Unlike {@link parseReleaseHandoff} it requires no website
+ * installers; the update feed checks the electron-updater manifests instead.
+ */
+export function parseChannelHandoff(value: unknown, channel: "stable" | "beta"): ReleaseHandoff {
+  const versionShape = channel === "stable" ? /^\d+\.\d+\.\d+$/u : BETA_VERSION;
+  const repository =
+    channel === "stable" ? DESKTOP_RELEASE_REPOSITORY : DESKTOP_BETA_RELEASE_REPOSITORY;
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 1 ||
+    value.product !== "Scient" ||
+    typeof value.version !== "string" ||
+    !versionShape.test(value.version) ||
+    value.tag !== `v${value.version}` ||
+    !isRecord(value.source) ||
+    typeof value.source.repository !== "string" ||
+    !isOfficialDesktopProvenanceRepository(value.source.repository) ||
+    typeof value.source.commit !== "string" ||
+    !/^[a-f0-9]{40}$/u.test(value.source.commit)
+  ) {
+    throw new Error(`The ${channel} release handoff is invalid.`);
+  }
+  // Older Stable handoffs predate the distribution record; every Beta handoff carries it.
+  if (value.distribution !== undefined || channel === "beta") {
+    const distribution = value.distribution;
+    if (
+      !isRecord(distribution) ||
+      distribution.repository !== repository ||
+      distribution.channel !== channel
+    ) {
+      throw new Error(`The ${channel} release handoff names another distribution.`);
+    }
+  }
+  return {
+    version: value.version,
+    tag: `v${value.version}`,
+    assets: parseHandoffAssets(value.assets),
+  };
 }
 
 export function parseReleaseHandoff(value: unknown): ReleaseHandoff {
@@ -90,18 +152,12 @@ export function parseReleaseHandoff(value: unknown): ReleaseHandoff {
     typeof value.source.commit !== "string" ||
     !/^[a-f0-9]{40}$/u.test(value.source.commit) ||
     typeof value.source.tree !== "string" ||
-    !/^[a-f0-9]{40}$/u.test(value.source.tree) ||
-    !Array.isArray(value.assets) ||
-    value.assets.length === 0 ||
-    value.assets.length > 128
+    !/^[a-f0-9]{40}$/u.test(value.source.tree)
   ) {
     throw new Error("Release handoff is invalid.");
   }
 
-  const assets = value.assets.map(parseAsset);
-  if (new Set(assets.map((asset) => asset.name)).size !== assets.length) {
-    throw new Error("Release handoff contains duplicate assets.");
-  }
+  const assets = parseHandoffAssets(value.assets);
 
   const names = new Set(assets.map((asset) => asset.name));
   if (!requiredInstallerNames(value.version).every((name) => names.has(name))) {
