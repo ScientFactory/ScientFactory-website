@@ -138,9 +138,82 @@ export const analyticsReportQuery = `
 
   UNION ALL
 
-  SELECT '30_day_desktop_diagnostics',
-    event_name || ':' || COALESCE(json_extract(properties_json, '$.deliveryClass'), 'unknown'),
-    COUNT(*), MAX(occurred_at)
+  SELECT
+    '30_day_download_source' AS report_section,
+    COALESCE(
+      json_extract(properties_json, '$.utm_source'),
+      json_extract(properties_json, '$.referrer_host'),
+      'direct or unknown'
+    ) AS item,
+    COUNT(*) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_events
+  WHERE event_name = 'download_clicked'
+    AND julianday(occurred_at) >= julianday('now', '-30 days')
+  GROUP BY item
+
+  UNION ALL
+
+  SELECT
+    '30_day_download_campaign' AS report_section,
+    COALESCE(json_extract(properties_json, '$.utm_source'), '-') || ' / ' ||
+      COALESCE(json_extract(properties_json, '$.utm_medium'), '-') || ' / ' ||
+      json_extract(properties_json, '$.utm_campaign') AS item,
+    COUNT(*) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_events
+  WHERE event_name = 'download_clicked'
+    AND json_extract(properties_json, '$.utm_campaign') IS NOT NULL
+    AND julianday(occurred_at) >= julianday('now', '-30 days')
+  GROUP BY item
+
+  UNION ALL
+
+  SELECT
+    '30_day_download_place' AS report_section,
+    COALESCE(country, 'unknown') || ' / ' || COALESCE(city, 'unknown') AS item,
+    COUNT(*) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_web_sightings
+  WHERE event_name = 'download_clicked'
+    AND julianday(occurred_at) >= julianday('now', '-30 days')
+  GROUP BY item
+
+  UNION ALL
+
+  SELECT
+    '30_day_download_network' AS report_section,
+    COALESCE(network_name, 'unknown') AS item,
+    COUNT(*) AS event_count,
+    MAX(occurred_at) AS latest_event
+  FROM analytics_web_sightings
+  WHERE event_name = 'download_clicked'
+    AND julianday(occurred_at) >= julianday('now', '-30 days')
+  GROUP BY item
+
+  UNION ALL
+
+  -- GitHub keeps running totals: growth inside the window, or the whole total for a release
+  -- published inside it. Windows and Linux files include updates that fell back to GitHub.
+  SELECT
+    '30_day_github_downloads' AS report_section,
+    repository || ':' || asset_name AS item,
+    CASE
+      WHEN julianday(MAX(release_published_at)) >= julianday('now', '-30 days')
+        THEN MAX(download_count)
+      ELSE MAX(download_count) - MIN(download_count)
+    END AS event_count,
+    MAX(day) AS latest_event
+  FROM github_release_downloads
+  WHERE julianday(day) >= julianday('now', '-30 days')
+  GROUP BY repository, asset_name
+  HAVING event_count > 0
+
+  UNION ALL
+
+  SELECT '30_day_desktop_diagnostics' AS report_section,
+    event_name || ':' || COALESCE(json_extract(properties_json, '$.deliveryClass'), 'unknown') AS item,
+    COUNT(*) AS event_count, MAX(occurred_at) AS latest_event
   FROM analytics_events
   WHERE source = 'desktop' AND privacy_level = 'diagnostic'
     AND julianday(occurred_at) >= julianday('now', '-30 days')
@@ -148,7 +221,8 @@ export const analyticsReportQuery = `
 
   UNION ALL
 
-  SELECT 'deletion_state', posthog_state, COUNT(*), MAX(requested_at)
+  SELECT 'deletion_state' AS report_section, posthog_state AS item,
+    COUNT(*) AS event_count, MAX(requested_at) AS latest_event
   FROM analytics_deletion_requests
   GROUP BY posthog_state
 

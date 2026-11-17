@@ -130,6 +130,46 @@ describe("tracked download redirect", () => {
     );
   });
 
+  it("records the page and the visit's source that the site's download link carries", async () => {
+    const db = createDatabase();
+    const context = createContext("macArm64", db.database);
+    (context as { request: Request }).request = new Request(
+      "https://scientfactory.com/api/download/macArm64?page=/docs/install&referrer_host=news.ycombinator.com&utm_source=hn&utm_campaign=launch&landing_path=/",
+    );
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(handoffResponse()));
+
+    const response = await onRequestGet(context);
+
+    expect(response.headers.get("Location")).toBe(releaseFixture.assets[0]?.browser_download_url);
+    await flushWaitUntil(context);
+    const click = db.bind.mock.calls.find((call) => call[1] === "download_clicked");
+    expect(JSON.parse(String(click?.[5]))).toMatchObject({
+      page_path: "/docs/install",
+      referrer_host: "news.ycombinator.com",
+      utm_source: "hn",
+      utm_campaign: "launch",
+      landing_path: "/",
+    });
+  });
+
+  it("names the other site when its own link starts the download", async () => {
+    const db = createDatabase();
+    const context = createContext("macArm64", db.database);
+    (context as { request: Request }).request = new Request(
+      "https://scientfactory.com/api/download/macArm64",
+      { headers: { Referer: "https://www.reddit.com/r/science/comments/abc" } },
+    );
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(handoffResponse()));
+
+    await onRequestGet(context);
+    await flushWaitUntil(context);
+    const click = db.bind.mock.calls.find((call) => call[1] === "download_clicked");
+    expect(JSON.parse(String(click?.[5]))).toMatchObject({
+      page_path: "/download",
+      referrer_host: "reddit.com",
+    });
+  });
+
   it("does not let a database failure block a valid redirect", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const db = createDatabase(vi.fn().mockRejectedValue(new Error("database unavailable")));

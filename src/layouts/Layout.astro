@@ -112,7 +112,15 @@ const primaryLinks = [
     </aside>
 
     <script>
-      interface SiteEventPayload {
+      interface VisitSource {
+        readonly referrer_host?: string;
+        readonly utm_source?: string;
+        readonly utm_medium?: string;
+        readonly utm_campaign?: string;
+        readonly landing_path?: string;
+      }
+
+      interface SiteEventPayload extends VisitSource {
         readonly event_name: "page_viewed" | "outbound_link_clicked";
         readonly page_path: string;
         readonly destination_url?: string;
@@ -172,12 +180,82 @@ const primaryLinks = [
         });
       }
 
+      const visitSourceKey = "scientfactory:visit-source:v1";
+
+      // Where this visit came from: the referring site's host or a tagged link, never a full
+      // address. Kept for this tab only, so a download can say where its visit started.
+      function arrivalSource(): VisitSource | null {
+        const source: Record<string, string> = {};
+        const params = new URLSearchParams(window.location.search);
+        for (const name of ["utm_source", "utm_medium", "utm_campaign"]) {
+          const value = params.get(name)?.trim();
+          // Short labels only, the same rule the server applies: no addresses, paths or emails.
+          if (value && /^[\p{L}\p{N} ._+\-|:]{1,100}$/u.test(value)) source[name] = value;
+        }
+        try {
+          const host = document.referrer ? new URL(document.referrer).hostname : "";
+          if (host && host !== window.location.hostname) source.referrer_host = host;
+        } catch {
+          // A visit without a readable referrer is a direct visit.
+        }
+        return Object.keys(source).length > 0 ? { ...source, landing_path: pagePath } : null;
+      }
+
+      function storedVisitSource(): VisitSource | null {
+        try {
+          const stored = sessionStorage.getItem(visitSourceKey);
+          return stored ? (JSON.parse(stored) as VisitSource) : null;
+        } catch {
+          return null;
+        }
+      }
+
+      const arrival = arrivalSource();
+      const earlierSource = storedVisitSource();
+      const visitSource: VisitSource = arrival ?? earlierSource ?? { landing_path: pagePath };
+      const isLandingPage = arrival !== null || earlierSource === null;
+      if (isLandingPage) {
+        try {
+          sessionStorage.setItem(visitSourceKey, JSON.stringify(visitSource));
+        } catch {
+          // Storage can be unavailable in hardened browsers.
+        }
+      }
+
       const initialSessionId = analyticsSessionId();
       sendSiteEvent({
         event_name: "page_viewed",
         page_path: pagePath,
+        ...(isLandingPage ? visitSource : {}),
         ...(initialSessionId ? { session_id: initialSessionId } : {}),
       });
+
+      // Download links carry the page they were clicked on and where the visit came from.
+      function tagDownloadLink(event: MouseEvent): void {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const link = target.closest<HTMLAnchorElement>("a[href]");
+        if (!link) return;
+        let destination: URL;
+        try {
+          destination = new URL(link.href, window.location.href);
+        } catch {
+          return;
+        }
+        if (
+          destination.origin !== window.location.origin ||
+          !destination.pathname.startsWith("/api/download/")
+        ) {
+          return;
+        }
+        destination.searchParams.set("page", pagePath);
+        for (const [name, value] of Object.entries(visitSource)) {
+          if (typeof value === "string" && value) destination.searchParams.set(name, value);
+        }
+        link.href = destination.href;
+      }
+      document.addEventListener("click", tagDownloadLink, true);
+      document.addEventListener("auxclick", tagDownloadLink, true);
 
       const consentPanel = document.querySelector<HTMLElement>("[data-analytics-consent]");
       const settingsButtons = document.querySelectorAll<HTMLButtonElement>("[data-analytics-settings]");
