@@ -1,5 +1,4 @@
 import {
-  DIAGNOSTIC_SQL,
   diagnosticObservation,
   usageRetentionCutoff,
   installationObservationStatements,
@@ -14,8 +13,8 @@ import {
   PRIVACY_LEVELS,
   type PrivacyLevel,
 } from "./eventContract";
-import { posthogEventUuid, posthogRequest, readBoundedJson, TransportFailure } from "./transport";
-import { withExportLease } from "./exportLease";
+import { posthogRequest, readBoundedJson, TransportFailure } from "./transport";
+import { withDeletionLease } from "./deletionLease";
 
 const ALLOWED_WEB_ORIGINS = new Set(["https://scientfactory.com", "https://www.scientfactory.com"]);
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -26,10 +25,9 @@ const SESSION_ID_PATTERN = /^session:[0-9a-f-]{36}$/i;
 const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_BATCH_SIZE = 50;
 const MAX_PROPERTIES_BYTES = 16 * 1024;
-const POSTHOG_BATCH_SIZE = 100;
-// The five-minute cron is the only event export; this bounds one run's work.
-const POSTHOG_MAX_BATCHES_PER_EXPORT = 10;
-const POSTHOG_HOST = "https://eu.i.posthog.com";
+// D1 is the only analytics store. Nothing is sent to PostHog any more. Its only
+// remaining use is erasing the copies sent before 17 November 2026; remove this
+// and the deletion code below once that PostHog project is deleted.
 const POSTHOG_API_HOST = "https://eu.posthog.com";
 const POSTHOG_DELETION_BATCH_SIZE = 1;
 const POSTHOG_DELETION_MAX_ATTEMPTS = 10;
@@ -45,19 +43,15 @@ type AnalyticsEnv = Omit<
   | "CF_VERSION_METADATA"
   | "IDENTITY_ANALYTICS_ENABLED"
   | "DESKTOP_INGESTION_ENABLED"
-  | "DESKTOP_POSTHOG_EXPORT_ENABLED"
   | "POSTHOG_PERSONAL_API_KEY"
   | "POSTHOG_PROJECT_ID"
-  | "POSTHOG_PROJECT_TOKEN"
 > & {
   readonly CF_VERSION_METADATA?: WorkerVersionMetadata;
-  readonly POSTHOG_PROJECT_TOKEN?: string;
   readonly POSTHOG_PERSONAL_API_KEY?: string;
   readonly POSTHOG_PROJECT_ID?: string;
   readonly IDENTITY_LINK_TOKEN?: string;
   readonly IDENTITY_ANALYTICS_ENABLED?: string;
   readonly DESKTOP_INGESTION_ENABLED?: string;
-  readonly DESKTOP_POSTHOG_EXPORT_ENABLED?: string;
   readonly ANALYTICS_INGESTION_RATE_LIMITER?: RateLimit;
 };
 
@@ -71,28 +65,6 @@ interface AcceptedEvent {
   readonly privacyLevel: PrivacyLevel;
   readonly consentLevel: PrivacyLevel;
   readonly properties: Record<string, unknown>;
-}
-
-interface PendingEventRow {
-  readonly event_id: string;
-  readonly event_name: string;
-  readonly source: string;
-  readonly privacy_level: string;
-  readonly occurred_at: string;
-  readonly distinct_id: string;
-  readonly canonical_id: string;
-  readonly identity_type: string;
-  readonly session_id: string | null;
-  readonly consent_level: string;
-  readonly properties_json: string;
-  readonly product_first_seen_at?: string | null;
-}
-
-interface PendingIdentityLinkRow {
-  readonly link_id: string;
-  readonly source_identity_id: string;
-  readonly canonical_id: string;
-  readonly linked_at: string;
 }
 
 interface PendingDeletionRow {
@@ -511,12 +483,11 @@ async function persistEvents(
       identity_type,
       canonical_id,
       session_id,
-      consent_level,
-      posthog_state
+      consent_level
     ) SELECT
       ?, ?, 'desktop', ?, ?, ?, ?, 'desktop_installation',
       COALESCE((SELECT canonical_id FROM analytics_identities WHERE identity_id = ?), ?),
-      ?, ?, ?
+      ?, ?
     WHERE EXISTS (
       SELECT 1 FROM analytics_identities
       WHERE identity_id = ? AND deletion_token_hash = ?
@@ -551,7 +522,6 @@ async function persistEvents(
             event.distinctId,
             event.sessionId,
             event.consentLevel,
-            neverExported(event) ? "excluded" : "pending",
             event.distinctId,
             deletionTokenHash,
           ),
@@ -577,303 +547,6 @@ async function persistEvents(
   }
 }
 
-/** The PostHog export never sends these, so they never enter its queue. */
-function neverExported(event: AcceptedEvent): boolean {
-  return event.privacyLevel === "diagnostic" || isIdentityObservation(event);
-}
-
-async function posthogEvent(row: PendingEventRow): Promise<Record<string, unknown>> {
-  let properties: Record<string, unknown> = {};
-  try {
-    const parsed = JSON.parse(row.properties_json) as unknown;
-    if (isRecord(parsed)) properties = parsed;
-  } catch {
-    // The gateway writes valid JSON; retaining an empty object makes a malformed legacy row retryable.
-  }
-  return {
-    uuid: await posthogEventUuid(row.event_id),
-    event: row.event_name,
-    distinct_id: row.canonical_id,
-    timestamp: row.occurred_at,
-    properties: {
-      ...properties,
-      event_id: row.event_id,
-      $insert_id: row.event_id,
-      source: row.source,
-      privacy_level: row.privacy_level,
-      consent_level: row.consent_level,
-      identity_type: row.identity_type,
-      ...(row.product_first_seen_at ? { productFirstSeenAt: row.product_first_seen_at } : {}),
-      ...(row.session_id ? { $session_id: row.session_id } : {}),
-      // A minimal pseudonymous person record is necessary for PostHog's
-      // supported distinct-id event deletion API. No person properties are set.
-      $process_person_profile: true,
-    },
-  };
-}
-
-async function markPosthogFailure(
-  database: D1Database,
-  rows: ReadonlyArray<PendingEventRow>,
-  error: string,
-): Promise<void> {
-  if (rows.length === 0) return;
-  await database.batch(
-    rows.map((row) =>
-      database
-        .prepare(
-          `UPDATE analytics_events
-             SET posthog_attempts = posthog_attempts + 1,
-                 posthog_last_error = ?,
-                 posthog_next_attempt_at = datetime('now', '+' || min(1800, 30 * (1 << min(posthog_attempts, 6))) || ' seconds')
-           WHERE event_id = ? AND posthog_state = 'pending'`,
-        )
-        .bind(error.slice(0, 500), row.event_id),
-    ),
-  );
-}
-
-export async function flushPendingEvents(env: AnalyticsEnv): Promise<number> {
-  if (!env.POSTHOG_PROJECT_TOKEN) return 0;
-  return withExportLease(env.ANALYTICS_DB, async (beforeRequest) => {
-    let exported = 0;
-    for (let batch = 0; batch < POSTHOG_MAX_BATCHES_PER_EXPORT; batch += 1) {
-      const sent = await exportPendingEvents(env, beforeRequest);
-      exported += sent;
-      if (sent < POSTHOG_BATCH_SIZE) break;
-    }
-    return exported;
-  });
-}
-
-async function exportPendingEvents(
-  env: AnalyticsEnv,
-  beforeRequest: () => Promise<void>,
-): Promise<number> {
-  const result = await env.ANALYTICS_DB.prepare(
-    `SELECT
-       event_id,
-       event_name,
-       source,
-       privacy_level,
-       occurred_at,
-       distinct_id,
-       canonical_id,
-       identity_type,
-       session_id,
-       consent_level,
-       properties_json,
-       (SELECT product_first_seen_at FROM analytics_identities WHERE identity_id = analytics_events.distinct_id) AS product_first_seen_at
-     FROM analytics_events
-     WHERE posthog_state = 'pending'
-       AND event_name NOT IN ('install.account_observed', 'install.profile_observed')
-       AND NOT (event_name = 'install.owner_observed' AND CASE WHEN json_valid(properties_json) THEN COALESCE(json_extract(properties_json, '$.ownerSource'), '') ELSE '' END = 'device')
-       AND (source <> 'desktop' OR privacy_level <> 'diagnostic')
-       AND (source <> 'desktop' OR ? = 1)
-       AND (source <> 'desktop' OR (
-         (? = 1 OR julianday(occurred_at) >= julianday('now', CASE WHEN privacy_level = 'diagnostic' THEN '-${DIAGNOSTIC_EVENT_RETENTION_DAYS} days' ELSE '-${RAW_EVENT_RETENTION_DAYS} days' END))
-         AND (? = 1 OR julianday(received_at) >= julianday('now', CASE WHEN privacy_level = 'diagnostic' THEN '-${DIAGNOSTIC_EVENT_RETENTION_DAYS} days' ELSE '-${RAW_EVENT_RETENTION_DAYS} days' END))
-         AND julianday(occurred_at) <= julianday('now', '+1 day')
-       ))
-       AND (? = 0 OR NOT ${DIAGNOSTIC_SQL} OR (julianday(occurred_at) >= julianday('now', '-60 days') AND julianday(received_at) >= julianday('now', '-60 days')))
-       AND posthog_attempts < 20
-       AND (posthog_next_attempt_at IS NULL OR julianday(posthog_next_attempt_at) <= julianday('now'))
-       AND NOT EXISTS (SELECT 1 FROM analytics_deleted_installations WHERE installation_id = analytics_events.distinct_id)
-     ORDER BY received_at, event_id
-     LIMIT ?`,
-  )
-    .bind(
-      env.DESKTOP_POSTHOG_EXPORT_ENABLED === "true" ? 1 : 0,
-      env.IDENTITY_ANALYTICS_ENABLED === "true" ? 1 : 0,
-      env.IDENTITY_ANALYTICS_ENABLED === "true" ? 1 : 0,
-      env.IDENTITY_ANALYTICS_ENABLED === "true" ? 1 : 0,
-      POSTHOG_BATCH_SIZE,
-    )
-    .all<PendingEventRow>();
-  let rows = result.results;
-  if (rows.length === 0) return 0;
-
-  // Revalidate persisted desktop rows too: a legacy/corrupt row must not bypass
-  // today's privacy contract, nor poison every later event in its batch.
-  const rejected: string[] = [];
-  rows = rows.filter((row) => {
-    if (row.source !== "desktop") return true;
-    try {
-      const properties: unknown = JSON.parse(row.properties_json);
-      if (isRecord(properties) && isIdentityObservation({ name: row.event_name, properties }))
-        return false;
-      if (
-        isRecord(properties) &&
-        PRIVACY_LEVELS.includes(row.privacy_level as PrivacyLevel) &&
-        PRIVACY_LEVELS.includes(row.consent_level as PrivacyLevel) &&
-        eventContractViolation({
-          name: row.event_name,
-          privacyLevel: row.privacy_level as PrivacyLevel,
-          consentLevel: row.consent_level as PrivacyLevel,
-          properties,
-        }) === null
-      )
-        return true;
-    } catch {
-      /* Quarantine by a fixed class, never by raw properties/error text. */
-    }
-    rejected.push(row.event_id);
-    return false;
-  });
-  if (rejected.length > 0)
-    await env.ANALYTICS_DB.batch(
-      rejected.map((id) =>
-        env.ANALYTICS_DB.prepare(
-          "UPDATE analytics_events SET posthog_attempts = 20, posthog_last_error = 'contract-rejected' WHERE event_id = ? AND posthog_state = 'pending'",
-        ).bind(id),
-      ),
-    );
-  if (rows.length === 0) return 0;
-
-  // Persist before sending: a concurrent erasure must know about an uncertain export.
-  await env.ANALYTICS_DB.batch(
-    rows.map((row) =>
-      env.ANALYTICS_DB.prepare(
-        "UPDATE analytics_identities SET posthog_attempted = 1 WHERE identity_id = ?",
-      ).bind(row.distinct_id),
-    ),
-  );
-  const surviving = await env.ANALYTICS_DB.prepare(
-    `SELECT event_id FROM analytics_events WHERE event_id IN (${rows.map(() => "?").join(",")})`,
-  )
-    .bind(...rows.map((row) => row.event_id))
-    .all<{ event_id: string }>();
-  const survivingIds = new Set(surviving.results.map((row) => row.event_id));
-  rows = rows.filter((row) => survivingIds.has(row.event_id));
-  if (rows.length === 0) return 0;
-
-  let response: Response;
-  try {
-    const batch = await Promise.all(rows.map(posthogEvent));
-    await beforeRequest();
-    response = await posthogRequest(`${POSTHOG_HOST}/batch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: env.POSTHOG_PROJECT_TOKEN,
-        batch,
-      }),
-    });
-  } catch (error) {
-    const message = error instanceof TransportFailure ? error.kind : "internal";
-    await markPosthogFailure(env.ANALYTICS_DB, rows, message);
-    throw error;
-  }
-
-  await response.body?.cancel();
-
-  await env.ANALYTICS_DB.batch(
-    rows.map((row) =>
-      env.ANALYTICS_DB.prepare(
-        `UPDATE analytics_events
-           SET posthog_state = 'sent',
-               posthog_attempts = posthog_attempts + 1,
-               posthog_last_error = NULL,
-               posthog_sent_at = CURRENT_TIMESTAMP
-         WHERE event_id = ? AND posthog_state = 'pending'`,
-      ).bind(row.event_id),
-    ),
-  );
-  return rows.length;
-}
-
-async function identityIdentifyEvent(
-  row: PendingIdentityLinkRow,
-): Promise<Record<string, unknown>> {
-  return {
-    uuid: await posthogEventUuid(row.link_id),
-    event: "$identify",
-    distinct_id: row.canonical_id,
-    timestamp: row.linked_at,
-    properties: {
-      $anon_distinct_id: row.source_identity_id,
-      $insert_id: row.link_id,
-      link_id: row.link_id,
-      source: "identity_gateway",
-      $process_person_profile: true,
-    },
-  };
-}
-
-export async function flushPendingIdentityLinks(env: AnalyticsEnv): Promise<number> {
-  if (!env.POSTHOG_PROJECT_TOKEN) return 0;
-  return withExportLease(env.ANALYTICS_DB, (beforeRequest) =>
-    exportPendingIdentityLinks(env, beforeRequest),
-  );
-}
-
-async function exportPendingIdentityLinks(
-  env: AnalyticsEnv,
-  beforeRequest: () => Promise<void>,
-): Promise<number> {
-  const result = await env.ANALYTICS_DB.prepare(
-    `SELECT links.link_id, links.source_identity_id, links.canonical_id, links.linked_at
-       FROM analytics_identity_links AS links
-       JOIN analytics_identities AS identities
-         ON identities.identity_id = links.source_identity_id
-      WHERE links.posthog_state = 'pending'
-        AND links.posthog_attempts < 20
-        AND (links.posthog_next_attempt_at IS NULL OR julianday(links.posthog_next_attempt_at) <= julianday('now'))
-        AND identities.identity_type = 'web_visitor'
-        AND identities.consent_level IN ('product', 'diagnostic', 'contribution')
-      ORDER BY links.linked_at, links.link_id
-      LIMIT ?`,
-  )
-    .bind(POSTHOG_BATCH_SIZE)
-    .all<PendingIdentityLinkRow>();
-  const rows = result.results;
-  if (rows.length === 0) return 0;
-
-  let response: Response;
-  try {
-    const batch = await Promise.all(rows.map(identityIdentifyEvent));
-    await beforeRequest();
-    response = await posthogRequest(`${POSTHOG_HOST}/batch`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: env.POSTHOG_PROJECT_TOKEN,
-        batch,
-      }),
-    });
-  } catch (error) {
-    const message = error instanceof TransportFailure ? error.kind : "internal";
-    await env.ANALYTICS_DB.batch(
-      rows.map((row) =>
-        env.ANALYTICS_DB.prepare(
-          `UPDATE analytics_identity_links
-              SET posthog_attempts = posthog_attempts + 1,
-                  posthog_last_error = ?,
-                  posthog_next_attempt_at = datetime('now', '+' || min(1800, 30 * (1 << min(posthog_attempts, 6))) || ' seconds')
-            WHERE link_id = ? AND posthog_state = 'pending'`,
-        ).bind(message.slice(0, 500), row.link_id),
-      ),
-    );
-    throw error;
-  }
-
-  await response.body?.cancel();
-
-  await env.ANALYTICS_DB.batch(
-    rows.map((row) =>
-      env.ANALYTICS_DB.prepare(
-        `UPDATE analytics_identity_links
-            SET posthog_state = 'sent',
-                posthog_attempts = posthog_attempts + 1,
-                posthog_last_error = NULL,
-                posthog_sent_at = CURRENT_TIMESTAMP
-          WHERE link_id = ? AND posthog_state = 'pending'`,
-      ).bind(row.link_id),
-    ),
-  );
-  return rows.length;
-}
-
 async function markPosthogDeletionFailure(
   database: D1Database,
   row: PendingDeletionRow,
@@ -895,10 +568,13 @@ async function markPosthogDeletionFailure(
     .run();
 }
 
-/** A capture acknowledgement is not an erasure acknowledgement. Poll verified status. */
+/**
+ * Erases an installation's copies from PostHog, the only PostHog request left.
+ * A capture acknowledgement is not an erasure acknowledgement. Poll verified status.
+ */
 export async function flushPendingDeletions(env: AnalyticsEnv): Promise<number> {
   if (!env.POSTHOG_PERSONAL_API_KEY || !env.POSTHOG_PROJECT_ID) return 0;
-  return withExportLease(env.ANALYTICS_DB, (beforeRequest) =>
+  return withDeletionLease(env.ANALYTICS_DB, (beforeRequest) =>
     processPendingDeletion(env, beforeRequest),
   );
 }
@@ -974,8 +650,7 @@ async function processPendingDeletion(
             )
             .run();
           // Completion is PostHog's verified asynchronous erasure, not its
-          // submission acknowledgement. The tombstone rejects future uploads;
-          // the shared export lease prevents a later exporter reusing this ID.
+          // submission acknowledgement. The tombstone rejects future uploads.
           if (verified) completed += 1;
           continue;
         }
@@ -1133,12 +808,7 @@ async function persistIdentityLinks(
            ) VALUES (?, ?, ?, ?)
            ON CONFLICT(source_identity_id) DO UPDATE SET
              canonical_id = excluded.canonical_id,
-             linked_at = excluded.linked_at,
-             posthog_state = CASE
-               WHEN analytics_identity_links.canonical_id = excluded.canonical_id
-                 THEN analytics_identity_links.posthog_state
-               ELSE 'pending'
-             END`,
+             linked_at = excluded.linked_at`,
         )
         .bind(crypto.randomUUID(), identityId, accountId, linkedAt),
       database
@@ -1153,11 +823,7 @@ async function persistIdentityLinks(
   await database.batch(statements);
 }
 
-async function handleIdentityLink(
-  request: Request,
-  env: AnalyticsEnv,
-  context: Pick<ExecutionContext, "waitUntil">,
-): Promise<Response> {
+async function handleIdentityLink(request: Request, env: AnalyticsEnv): Promise<Response> {
   if (!env.IDENTITY_LINK_TOKEN) {
     return jsonResponse({ error: "Identity linking is not configured" }, 503);
   }
@@ -1175,16 +841,6 @@ async function handleIdentityLink(
       return jsonResponse({ error: "Desktop account linking is not available" }, 409);
     }
     await persistIdentityLinks(env.ANALYTICS_DB, link.accountId, link.identityIds);
-    context.waitUntil(
-      flushPendingIdentityLinks(env).catch((error: unknown) => {
-        console.error(
-          JSON.stringify({
-            message: "PostHog identity linking failed",
-            error_class: error instanceof TransportFailure ? error.kind : "internal",
-          }),
-        );
-      }),
-    );
     return jsonResponse({ linked: link.identityIds.length, canonical_id: link.accountId }, 200);
   } catch (error) {
     if (error instanceof RequestValidationError) {
@@ -1466,14 +1122,14 @@ async function handleIngestion(request: Request, env: AnalyticsEnv): Promise<Res
 }
 
 const worker = {
-  async fetch(request, env, context: Pick<ExecutionContext, "waitUntil">) {
+  async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
       let storageReady = false;
       let retentionReady = false;
       try {
         // Compile against the required schema without scanning or exposing user rows.
-        await env.ANALYTICS_DB.prepare(`SELECT events.posthog_next_attempt_at, identities.posthog_attempted,
+        await env.ANALYTICS_DB.prepare(`SELECT events.consent_level, identities.posthog_attempted,
           deletions.posthog_person_uuid, tomb.deletion_token_hash, leases.expires_at, maintenance.outcome
           FROM analytics_events AS events, analytics_identities AS identities,
             analytics_deletion_requests AS deletions, analytics_deleted_installations AS tomb,
@@ -1502,7 +1158,6 @@ const worker = {
             storageReady &&
             retentionReady &&
             env.ANALYTICS_INGESTION_RATE_LIMITER &&
-            env.POSTHOG_PROJECT_TOKEN &&
             env.POSTHOG_PERSONAL_API_KEY &&
             env.POSTHOG_PROJECT_ID,
           ),
@@ -1510,9 +1165,6 @@ const worker = {
           rate_limiting: env.ANALYTICS_INGESTION_RATE_LIMITER
             ? "configured"
             : "pending_configuration",
-          posthog_forwarding: env.POSTHOG_PROJECT_TOKEN ? "configured" : "pending_configuration",
-          desktop_posthog_export:
-            env.DESKTOP_POSTHOG_EXPORT_ENABLED === "true" ? "enabled" : "disabled",
           posthog_deletion:
             env.POSTHOG_PERSONAL_API_KEY && env.POSTHOG_PROJECT_ID
               ? "configured"
@@ -1542,7 +1194,7 @@ const worker = {
       return handleIngestion(request, env);
     }
     if (request.method === "POST" && url.pathname === "/v1/identity/link") {
-      return handleIdentityLink(request, env, context);
+      return handleIdentityLink(request, env);
     }
     if (request.method === "POST" && url.pathname === "/v1/installations/delete") {
       return handleInstallationDeletion(request, env);
@@ -1562,8 +1214,6 @@ const worker = {
                 : pruneExpiredAnalyticsEvents(env.ANALYTICS_DB),
           ],
           ["deletion", () => flushPendingDeletions(env)],
-          ["identity-export", () => flushPendingIdentityLinks(env)],
-          ["event-export", () => flushPendingEvents(env)],
         ] as const) {
           let outcome = "ok";
           try {

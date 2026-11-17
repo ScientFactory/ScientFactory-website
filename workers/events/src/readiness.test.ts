@@ -1,12 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import worker, {
-  flushPendingDeletions,
-  flushPendingEvents,
-  pruneExpiredAnalyticsEvents,
-} from "./index";
+import worker, { flushPendingDeletions, pruneExpiredAnalyticsEvents } from "./index";
 import { testDatabase } from "./sqlite.testSupport";
-import { posthogEventUuid, posthogRequest, readBoundedJson } from "./transport";
-import { withExportLease } from "./exportLease";
+import { posthogRequest, readBoundedJson } from "./transport";
+import { withDeletionLease } from "./deletionLease";
 
 const installation = "installation:10000000-0000-4000-8000-000000000001";
 const token = "a".repeat(64);
@@ -33,7 +29,6 @@ function fixture(...hooks: Parameters<typeof testDatabase>) {
         body: JSON.stringify(data),
       }) as Request<unknown, IncomingRequestCfProperties>,
       env,
-      context,
     );
   const event = (id = crypto.randomUUID()) => ({
     schema_version: 1,
@@ -78,70 +73,12 @@ it("does not follow PostHog redirects or turn them into network failures", async
   vi.stubGlobal("fetch", fetcher);
 
   await expect(
-    posthogRequest("https://eu.i.posthog.com/batch", { method: "POST" }),
+    posthogRequest("https://eu.posthog.com/api/projects/1/persons/", { method: "GET" }),
   ).rejects.toThrow("http");
   expect(fetcher.mock.calls[0]![1].redirect).toBe("manual");
 });
 
 describe("inactive gateway readiness with real SQL", () => {
-  it("keeps diagnostic events queryable in D1 without exporting them to PostHog", async () => {
-    const f = fixture();
-    await f.request("/v1/events", f.event());
-    f.sqlite.exec(`UPDATE analytics_events SET event_name = 'app.diagnostics',
-      privacy_level = 'diagnostic', consent_level = 'diagnostic', properties_json =
-      '{"queuedCountBucket":"0","droppedCountBucket":"0","retryCountBucket":"0","deliveryClass":"idle"}'`);
-    const fetcher = vi.fn();
-    vi.stubGlobal("fetch", fetcher);
-    expect(
-      await flushPendingEvents({
-        ...f.env,
-        POSTHOG_PROJECT_TOKEN: "synthetic",
-        DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
-      }),
-    ).toBe(0);
-    expect(fetcher).not.toHaveBeenCalled();
-    expect(f.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(1);
-  });
-  it("keeps desktop export off independently of existing website forwarding", async () => {
-    const f = fixture();
-    await f.request("/v1/events", f.event());
-    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetcher);
-    const env = { ...f.env, POSTHOG_PROJECT_TOKEN: "synthetic" };
-    expect(await flushPendingEvents(env)).toBe(0);
-    expect(fetcher).not.toHaveBeenCalled();
-    f.sqlite.exec("UPDATE analytics_events SET source = 'website', event_name = 'page_viewed'");
-    expect(await flushPendingEvents(env)).toBe(1);
-    expect(fetcher).toHaveBeenCalledOnce();
-  });
-
-  it("quarantines invalid persisted desktop properties without blocking valid rows", async () => {
-    const f = fixture();
-    const invalid = f.event();
-    await f.request("/v1/events", invalid);
-    await f.request("/v1/events", f.event());
-    f.sqlite
-      .prepare("UPDATE analytics_events SET properties_json = ? WHERE event_id = ?")
-      .run(JSON.stringify({ prompt: "private research" }), invalid.events[0]!.id);
-    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetcher);
-    expect(
-      await flushPendingEvents({
-        ...f.env,
-        POSTHOG_PROJECT_TOKEN: "synthetic",
-        DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
-      }),
-    ).toBe(1);
-    expect(String(fetcher.mock.calls[0]?.[1]?.body)).not.toContain("private research");
-    expect(
-      f.sqlite
-        .prepare(
-          "SELECT posthog_attempts, posthog_last_error FROM analytics_events WHERE event_id = ?",
-        )
-        .get(invalid.events[0]!.id),
-    ).toMatchObject({ posthog_attempts: 20, posthog_last_error: "contract-rejected" });
-  });
-
   it("keeps retention bounded and reports an outstanding backlog as unqualified", async () => {
     const f = fixture();
     f.sqlite
@@ -151,61 +88,6 @@ describe("inactive gateway readiness with real SQL", () => {
     await expect(pruneExpiredAnalyticsEvents(f.database)).rejects.toThrow("retention-backlog");
     expect(f.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(1);
     expect(await pruneExpiredAnalyticsEvents(f.database)).toBe(1);
-  });
-
-  it("writes never-exported rows as excluded and leaves export to the cron", async () => {
-    const f = fixture();
-    const session = f.event().events[0]!;
-    const diagnostic = {
-      ...session,
-      id: crypto.randomUUID(),
-      name: "app.diagnostics",
-      privacy_level: "diagnostic",
-      consent_level: "diagnostic",
-      properties: {
-        appVersion: "0.6.8",
-        buildChannel: "stable",
-        queuedCountBucket: "0",
-        droppedCountBucket: "0",
-        retryCountBucket: "0",
-        deliveryClass: "delivered",
-      },
-    };
-    const response = await f.request("/v1/events", {
-      ...f.event(),
-      events: [session, { ...diagnostic, consent_level: "diagnostic" }],
-    });
-    expect(response.status).toBe(202);
-    expect(f.tasks).toHaveLength(0);
-    expect(
-      f.sqlite
-        .prepare("SELECT event_name, posthog_state FROM analytics_events ORDER BY event_name")
-        .all(),
-    ).toEqual([
-      { event_name: "app.diagnostics", posthog_state: "excluded" },
-      { event_name: "app.session.started", posthog_state: "pending" },
-    ]);
-  });
-
-  it("drains several PostHog batches in one cron export", async () => {
-    const f = fixture();
-    for (let batch = 0; batch < 5; batch += 1) {
-      const events = Array.from({ length: 50 }, () => ({
-        ...f.event().events[0]!,
-        id: crypto.randomUUID(),
-      }));
-      expect((await f.request("/v1/events", { ...f.event(), events })).status).toBe(202);
-    }
-    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetcher);
-    expect(
-      await flushPendingEvents({
-        ...f.env,
-        POSTHOG_PROJECT_TOKEN: "synthetic",
-        DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
-      }),
-    ).toBe(250);
-    expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
   it("backfills excluded rows without recounting totals and keeps the table's triggers", async () => {
@@ -260,7 +142,7 @@ describe("inactive gateway readiness with real SQL", () => {
     ).toThrow("deleted-installation");
   });
 
-  it("does not reset diagnostic retention when old offline events arrive or await export", async () => {
+  it("does not reset diagnostic retention when old offline events arrive", async () => {
     const f = fixture();
     const old = new Date(Date.now() - 31 * 86400000).toISOString();
     const diagnostic = {
@@ -296,16 +178,6 @@ describe("inactive gateway readiness with real SQL", () => {
     f.sqlite
       .prepare("UPDATE analytics_events SET privacy_level = 'diagnostic', occurred_at = ?")
       .run(old);
-    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetcher);
-    expect(
-      await flushPendingEvents({
-        ...f.env,
-        POSTHOG_PROJECT_TOKEN: "synthetic",
-        DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
-      }),
-    ).toBe(0);
-    expect(fetcher).not.toHaveBeenCalled();
     expect(await pruneExpiredAnalyticsEvents(f.database)).toBe(1);
   });
 
@@ -345,7 +217,7 @@ describe("inactive gateway readiness with real SQL", () => {
     ).toEqual({ outcome: "ok" });
     expect(
       f.sqlite.prepare("SELECT count(*) AS n FROM analytics_maintenance_status").get()!.n,
-    ).toBe(4);
+    ).toBe(2);
     expect(console.error).not.toHaveBeenCalledWith(
       expect.stringContaining("private remote detail"),
     );
@@ -403,11 +275,11 @@ describe("inactive gateway readiness with real SQL", () => {
     const f = fixture();
     let requests = 0;
     await expect(
-      withExportLease(f.database, async (beforeRequest) => {
+      withDeletionLease(f.database, async (beforeRequest) => {
         await beforeRequest();
         f.sqlite.exec("UPDATE analytics_maintenance_leases SET expires_at = 0");
         expect(
-          await withExportLease(f.database, async (newOwnerRequest) => {
+          await withDeletionLease(f.database, async (newOwnerRequest) => {
             await newOwnerRequest();
             requests += 1;
             return 1;
@@ -417,7 +289,7 @@ describe("inactive gateway readiness with real SQL", () => {
         requests += 1;
         return 1;
       }),
-    ).rejects.toThrow("export-lease-lost");
+    ).rejects.toThrow("deletion-lease-lost");
     expect(requests).toBe(1);
   });
 
@@ -434,7 +306,6 @@ describe("inactive gateway readiness with real SQL", () => {
         }),
       }) as Request<unknown, IncomingRequestCfProperties>,
       { ...f.env, IDENTITY_LINK_TOKEN: "synthetic" },
-      f.context,
     );
     expect(response.status).toBe(409);
     expect(f.sqlite.prepare("SELECT count(*) AS n FROM analytics_identity_links").get()!.n).toBe(0);
@@ -473,75 +344,6 @@ describe("inactive gateway readiness with real SQL", () => {
         .run(installation, installation),
     ).toThrow("deleted-installation");
     expect((await f.request("/v1/events", f.event())).status).toBe(403);
-  });
-
-  it("keeps an in-flight export and deletion truthful and serializes exporters", async () => {
-    const f = fixture();
-    await f.request("/v1/events", f.event());
-    let finish!: (response: Response) => void;
-    let started!: () => void;
-    const signal = new Promise<void>((resolve) => {
-      started = resolve;
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => {
-        started();
-        return new Promise<Response>((resolve) => {
-          finish = resolve;
-        });
-      }),
-    );
-    const env = {
-      ...f.env,
-      POSTHOG_PROJECT_TOKEN: "synthetic",
-      DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
-      POSTHOG_PROJECT_ID: "1",
-      POSTHOG_PERSONAL_API_KEY: "synthetic",
-    };
-    const sending = flushPendingEvents(env);
-    await signal;
-    expect(await flushPendingEvents(env)).toBe(0);
-    const receipt = await (await f.erase()).json();
-    expect(receipt).toMatchObject({ posthog_state: "pending" });
-    expect(await (await f.erase()).json()).toEqual(receipt);
-    expect(await flushPendingDeletions(env)).toBe(0);
-    finish(new Response("{}", { status: 200 }));
-    await sending;
-    expect(f.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(0);
-    expect(
-      f.sqlite.prepare("SELECT posthog_state FROM analytics_deletion_requests").get()!
-        .posthog_state,
-    ).toBe("pending");
-  });
-
-  it("uses a stable UUID and bounded transport for retries, without raw error persistence", async () => {
-    const f = fixture();
-    await f.request("/v1/events", f.event());
-    const fetcher = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("private credential/path"))
-      .mockResolvedValue(new Response("{}"));
-    vi.stubGlobal("fetch", fetcher);
-    const env = {
-      ...f.env,
-      POSTHOG_PROJECT_TOKEN: "synthetic",
-      DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
-    };
-    await expect(flushPendingEvents(env)).rejects.toThrow("network");
-    expect(
-      f.sqlite.prepare("SELECT posthog_last_error FROM analytics_events").get()!.posthog_last_error,
-    ).toBe("network");
-    f.sqlite.exec("UPDATE analytics_events SET posthog_next_attempt_at = NULL");
-    expect(await flushPendingEvents(env)).toBe(1);
-    const first = JSON.parse(fetcher.mock.calls[0]![1].body).batch[0];
-    const second = JSON.parse(fetcher.mock.calls[1]![1].body).batch[0];
-    expect(first).toEqual(second);
-    expect(first.uuid).toMatch(
-      /^[a-f0-9]{8}-[a-f0-9]{4}-8[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/,
-    );
-    expect(fetcher.mock.calls[0]![1].redirect).toBe("manual");
-    expect(fetcher.mock.calls[0]![1].signal).toBeInstanceOf(AbortSignal);
   });
 
   it("completes only after provider-verified erasure and continues rejecting the old identity", async () => {
@@ -630,7 +432,7 @@ describe("inactive gateway readiness with real SQL", () => {
   });
 });
 
-it("bounds unknown-length bodies while streaming and preserves stable legacy IDs", async () => {
+it("bounds unknown-length bodies while streaming", async () => {
   let cancelled = false;
   const body = new ReadableStream({
     pull(controller) {
@@ -642,8 +444,4 @@ it("bounds unknown-length bodies while streaming and preserves stable legacy IDs
   });
   await expect(readBoundedJson(new Response(body), 100)).rejects.toThrow("body-too-large");
   expect(cancelled).toBe(true);
-  expect(await posthogEventUuid("legacy:event-1")).toBe(await posthogEventUuid("legacy:event-1"));
-  expect(await posthogEventUuid("legacy:event-1")).not.toBe(
-    await posthogEventUuid("legacy:event-2"),
-  );
 });

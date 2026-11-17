@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import worker, {
   flushPendingDeletions,
-  flushPendingEvents,
-  flushPendingIdentityLinks,
   validateIdentityLinkPayload,
   validateIngestionPayload,
 } from "./index";
@@ -259,7 +257,6 @@ describe("event gateway routes", () => {
           }),
         ),
         gatewayEnv(database.database),
-        { waitUntil: vi.fn() } as unknown as ExecutionContext,
       );
     const response = await submit(events);
     expect(await response.json()).toEqual({ accepted: 3 });
@@ -319,7 +316,6 @@ describe("event gateway routes", () => {
         }),
       ),
       gatewayEnv(database.database, { enabled: false }),
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(503);
@@ -344,7 +340,6 @@ describe("event gateway routes", () => {
         }),
       ),
       gatewayEnv(database.database),
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(400);
@@ -396,7 +391,6 @@ describe("event gateway routes", () => {
         }),
       ),
       gatewayEnv(database.database),
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(500);
@@ -430,7 +424,6 @@ describe("event gateway routes", () => {
         }),
       ),
       gatewayEnv(database.database),
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(202);
@@ -459,7 +452,6 @@ describe("event gateway routes", () => {
         }),
       ),
       gatewayEnv(database.database, { rateLimitSuccess: false }),
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(429);
@@ -469,7 +461,6 @@ describe("event gateway routes", () => {
 
   it("stores a valid desktop event before accepting it", async () => {
     const database = createDatabase();
-    const waitUntil = vi.fn();
     const response = await worker.fetch!(
       incoming(
         new Request("https://events.scientfactory.com/v1/events", {
@@ -482,7 +473,6 @@ describe("event gateway routes", () => {
         }),
       ),
       gatewayEnv(database.database),
-      { waitUntil } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(202);
@@ -522,12 +512,10 @@ describe("event gateway routes", () => {
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
       "product",
-      "pending",
       "installation:16ace444-e7c3-4b26-893f-98713188ae52",
       expect.any(String),
     );
     // Export runs from the cron, not after every ingest.
-    expect(waitUntil).not.toHaveBeenCalled();
   });
 
   it("rejects browser submissions from unknown origins", async () => {
@@ -544,19 +532,17 @@ describe("event gateway routes", () => {
         }),
       ),
       gatewayEnv(database.database),
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(403);
     expect(database.batch).not.toHaveBeenCalled();
   });
 
-  it("reports whether optional PostHog forwarding is configured", async () => {
+  it("reports storage readiness and which optional services are configured", async () => {
     const database = realDatabase();
     const response = await worker.fetch!(
       incoming(new Request("https://events.scientfactory.com/health")),
       gatewayEnv(database.database),
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(200);
@@ -569,7 +555,7 @@ describe("event gateway routes", () => {
       storage: "ready",
       retention: "pending_verification",
       activation_prerequisites_configured: false,
-      posthog_forwarding: "pending_configuration",
+      posthog_deletion: "pending_configuration",
       identity_linking: "pending_configuration",
     });
   });
@@ -592,7 +578,6 @@ describe("event gateway routes", () => {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
       } as unknown as Cloudflare.Env,
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(401);
@@ -601,7 +586,6 @@ describe("event gateway routes", () => {
 
   it("links consented visitor history to an authenticated account id", async () => {
     const database = createDatabase();
-    const waitUntil = vi.fn();
     const accountId = "account:16ace444-e7c3-4b26-893f-98713188ae52";
     const installationId = "visitor:8e0ee7d5-2c4b-48b6-8209-08f1e536f665";
     const response = await worker.fetch!(
@@ -623,7 +607,6 @@ describe("event gateway routes", () => {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
       } as unknown as Cloudflare.Env,
-      { waitUntil } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(200);
@@ -633,7 +616,6 @@ describe("event gateway routes", () => {
     });
     expect(database.batch).toHaveBeenCalledOnce();
     expect(database.bind).toHaveBeenCalledWith(accountId, installationId);
-    expect(waitUntil).toHaveBeenCalledOnce();
   });
 
   it("refuses to reassign an identity to a different account", async () => {
@@ -657,7 +639,6 @@ describe("event gateway routes", () => {
         ANALYTICS_DB: database.database,
         IDENTITY_LINK_TOKEN: "secret",
       } as unknown as Cloudflare.Env,
-      { waitUntil: vi.fn() } as unknown as ExecutionContext,
     );
 
     expect(response.status).toBe(400);
@@ -683,65 +664,7 @@ describe("identity link validation", () => {
   });
 });
 
-describe("PostHog forwarding", () => {
-  it("forwards stored events with only the deletable pseudonymous person profile", async () => {
-    const row = {
-      event_id: "8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
-      event_name: "provider.turn.sent",
-      source: "desktop",
-      privacy_level: "product",
-      occurred_at: new Date().toISOString(),
-      distinct_id: "installation:16ace444-e7c3-4b26-893f-98713188ae52",
-      canonical_id: "installation:16ace444-e7c3-4b26-893f-98713188ae52",
-      identity_type: "desktop_installation",
-      session_id: "session:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
-      consent_level: "product",
-      properties_json: JSON.stringify(validPayload().events[0]!.properties),
-    };
-    const { database, sqlite } = realDatabase();
-    sqlite
-      .prepare(
-        `INSERT INTO analytics_events
-      (event_id, event_name, source, privacy_level, occurred_at, distinct_id, canonical_id, identity_type, session_id, consent_level, properties_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(...Object.values(row));
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const forwarded = await flushPendingEvents({
-      ANALYTICS_DB: database,
-      POSTHOG_PROJECT_TOKEN: "phc_scientfactory_test",
-      DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
-    });
-
-    expect(forwarded).toBe(1);
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, request] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe("https://eu.i.posthog.com/batch");
-    const payload = JSON.parse(String(request?.body)) as {
-      api_key: string;
-      batch: ReadonlyArray<{ properties: Record<string, unknown> }>;
-    };
-    expect(payload.api_key).toBe("phc_scientfactory_test");
-    expect(payload.batch[0]?.properties).toMatchObject({
-      provider: "codex",
-      appVersion: "0.0.32",
-      buildChannel: "development",
-      event_id: row.event_id,
-      $insert_id: row.event_id,
-      source: "desktop",
-      privacy_level: "product",
-      consent_level: "product",
-      identity_type: "desktop_installation",
-      $session_id: row.session_id,
-      $process_person_profile: true,
-    });
-    expect(sqlite.prepare("SELECT posthog_state FROM analytics_events").get()!.posthog_state).toBe(
-      "sent",
-    );
-  });
-
+describe("PostHog erasure", () => {
   it("resolves the person before submitting an erasure and keeps it pending verification", async () => {
     const row = {
       request_id: "delete-1",
@@ -806,68 +729,6 @@ describe("PostHog forwarding", () => {
     ).toMatchObject({
       posthog_state: "pending",
       posthog_submitted_at: expect.any(String),
-    });
-  });
-
-  it("forwards anonymous-to-account identity events from the first-party link queue", async () => {
-    const row = {
-      link_id: "link-1",
-      source_identity_id: "visitor:16ace444-e7c3-4b26-893f-98713188ae52",
-      canonical_id: "account:8e0ee7d5-2c4b-48b6-8209-08f1e536f665",
-      linked_at: new Date().toISOString(),
-    };
-    const { database, sqlite } = realDatabase();
-    const addIdentity = sqlite.prepare(`INSERT INTO analytics_identities
-      (identity_id, identity_type, canonical_id, consent_level, first_seen_at, last_seen_at)
-      VALUES (?, ?, ?, 'essential', ?, ?)`);
-    addIdentity.run(row.canonical_id, "account", row.canonical_id, row.linked_at, row.linked_at);
-    addIdentity.run(
-      row.source_identity_id,
-      "web_visitor",
-      row.canonical_id,
-      row.linked_at,
-      row.linked_at,
-    );
-    sqlite
-      .prepare(
-        `INSERT INTO analytics_identity_links (link_id, source_identity_id, canonical_id, linked_at)
-      VALUES (?, ?, ?, ?)`,
-      )
-      .run(...Object.values(row));
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const env = {
-      ANALYTICS_DB: database,
-      POSTHOG_PROJECT_TOKEN: "phc_scientfactory_test",
-    };
-    expect(await flushPendingIdentityLinks(env)).toBe(0);
-    expect(fetchMock).not.toHaveBeenCalled();
-    sqlite
-      .prepare("UPDATE analytics_identities SET consent_level = 'product' WHERE identity_id = ?")
-      .run(row.source_identity_id);
-    const forwarded = await flushPendingIdentityLinks(env);
-
-    expect(forwarded).toBe(1);
-    expect(
-      sqlite.prepare("SELECT posthog_state FROM analytics_identity_links").get()!.posthog_state,
-    ).toBe("sent");
-    const [, request] = fetchMock.mock.calls[0] ?? [];
-    const payload = JSON.parse(String(request?.body)) as {
-      batch: ReadonlyArray<{
-        event: string;
-        distinct_id: string;
-        properties: Record<string, unknown>;
-      }>;
-    };
-    expect(payload.batch[0]).toMatchObject({
-      event: "$identify",
-      distinct_id: row.canonical_id,
-      properties: {
-        $anon_distinct_id: row.source_identity_id,
-        $insert_id: row.link_id,
-        $process_person_profile: true,
-      },
     });
   });
 });

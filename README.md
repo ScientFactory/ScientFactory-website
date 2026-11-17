@@ -134,7 +134,16 @@ Local and Cloudflare preview hosts do not write events, which keeps production c
 
 ## Analytics gateway
 
-The Worker under `workers/events` is ScientFactory's first-party telemetry and identity gateway. Desktop clients submit bounded event batches to `https://events.scientfactory.com/v1/events`; the Worker stores them in D1 first and can then forward pseudonymous copies to the ScientFactory EU PostHog project. PostHog is an optional analysis layer rather than the primary event store.
+The Worker under `workers/events` is ScientFactory's first-party telemetry and identity gateway. Desktop clients submit bounded event batches to `https://events.scientfactory.com/v1/events`; the Worker stores them in D1, the only analytics store.
+
+Until 17 November 2026 the Worker also forwarded pseudonymous copies of website
+and desktop usage events, and website identity links, to the ScientFactory EU
+PostHog project. It no longer sends anything there. The only remaining PostHog
+code is erasure: installation deletion requests still delete that
+installation's earlier copies from PostHog. Remove the deletion code,
+`POSTHOG_PERSONAL_API_KEY` and `POSTHOG_PROJECT_ID` once that PostHog project is
+deleted. The `posthog_*` columns of shipped migrations stay; new event and identity
+link rows keep `posthog_state='pending'` forever and nothing reads it.
 
 Desktop ingestion works like T3's: the Worker accepts any event the app records, with no list of
 event or property names. It checks schema version 1, the event's shape and size (an event name,
@@ -157,25 +166,23 @@ limit per opaque installation ID. It does not use or store an IP address as a
 rate-limit key. Keep the variable absent or false during preparation and use it
 as the immediate ingestion kill switch during a selected-user rollout.
 
-Desktop forwarding to PostHog has its own gate,
-`DESKTOP_POSTHOG_EXPORT_ENABLED`, also false by default. Turning off ingress
-does not drain queued data; turning off export prevents queued desktop copies
-from being forwarded. Neither gate affects existing website forwarding.
-
 `POST /v1/installations/delete` authenticates an installation, deletes its D1
-events, consent, identity links, and identity record, and queues the matching
-PostHog person and historical-event deletion by opaque distinct ID. A request from an installation that has never uploaded is
+events, consent, identity links, and identity record, and, if that installation's
+events were ever sent to PostHog, queues the matching PostHog person and
+historical-event deletion by opaque distinct ID. A request from an installation that has never uploaded is
 acknowledged idempotently so the desktop can still clear local data and rotate
 its anonymous identity. A minimal opaque-ID/authentication-hash tombstone blocks
 late uploads from recreating deleted history. Migration 0006 preserves legacy
 erasure tombstones conservatively; missing legacy credentials cannot be guessed.
 No behavioral payload is retained in the tombstone.
 
-Erasure completes without PostHog only if no export was ever attempted. Otherwise
+Erasure completes without PostHog only if no export was ever attempted (every
+installation first seen after the export stopped). Otherwise
 the scheduled Worker submits/polls PostHog's person/event deletion, with bounded
 failure retries and an operator-visible blocked state. Provider verification,
-not submission, completes the gateway request. Export/deletion share a lease;
-deleted identities are tombstoned and never deliberately reused. Completion
+not submission, completes the gateway request. A database lease, renewed before
+each PostHog request, keeps overlapping cron runs from submitting the same
+deletion twice; deleted identities are tombstoned and never deliberately reused. Completion
 records PostHog's verified operation, not a synchronous transaction covering
 every ambiguous capture or a guaranteed physical-deletion deadline.
 Do not claim remote deletion is complete while its state is pending or blocked.
@@ -183,18 +190,14 @@ Do not claim remote deletion is complete while its state is pending or blocked.
 The scheduled Worker prunes canonical raw events older than 180 days in
 bounded batches of 5,000; diagnostics have a 30-day limit. An unfinished backlog
 does not count as a successful retention pass. Desktop occurrence age is also
-enforced during ingestion, export and pruning, so offline delivery does not
-reset its retention clock. D1 remains the source of truth
-for retention and delivery; dashboard filters are not physical retention controls.
-Desktop Diagnostic-class events remain only in Scient's central D1 ledger and
-are never exported to PostHog. `bun run analytics:report` exposes their bounded
-30-day aggregate breakdown alongside maintenance health; no access to a user's
-computer is required. Essential/Product-class events can be exported even when
-the user's consent level is Diagnostic. PostHog retention for those copies is
-provider-managed; its query-access window is not a physical-deletion deadline.
-Do not advertise 13-month or 30-day PostHog deletion guarantees.
+enforced during ingestion and pruning, so offline delivery does not
+reset its retention clock. `bun run analytics:report` exposes the bounded
+30-day aggregate breakdown of desktop diagnostics alongside maintenance health;
+no access to a user's computer is required. Copies already in PostHog follow
+PostHog's own retention until that project is deleted; do not advertise a
+PostHog deletion deadline.
 
-Website visitors, desktop installations, sessions, and future Scient accounts use separate opaque identifiers. The service-authenticated `POST /v1/identity/link` endpoint can connect a website visitor to an account after Scient's account service has authenticated that user. Desktop linking is rejected until its per-installation erasure model is qualified. Browser and desktop clients cannot claim account identity. Website linking preserves consent; the PostHog identity event is forwarded only for Product-or-higher consent.
+Website visitors, desktop installations, sessions, and future Scient accounts use separate opaque identifiers. The service-authenticated `POST /v1/identity/link` endpoint can connect a website visitor to an account after Scient's account service has authenticated that user. Desktop linking is rejected until its per-installation erasure model is qualified. Browser and desktop clients cannot claim account identity. Website linking preserves consent and is stored only in D1.
 
 Generate binding types and validate the Worker with:
 
@@ -211,8 +214,8 @@ candidate, then run:
 SCIENT_ANALYTICS_DESKTOP_ROOT=/absolute/desktop bun run test workers/events/src/desktopPipeline.test.ts
 ```
 
-This test connects the built desktop worker to a loopback gateway and mocked
-PostHog exporter, checks forbidden-data removal and runtime-source metadata,
+This test connects the built desktop worker to a loopback gateway, checks
+forbidden-data removal and the stored runtime-source metadata,
 then exercises consent, deletion, and late-replay rejection. It does not touch
 production and is intentionally skipped when no explicit desktop path is set.
 Record the desktop revision/build as well as the website revision; ordinary
@@ -227,45 +230,35 @@ Deploy the Worker only from an approved production change:
 bun run events:deploy
 ```
 
-`POSTHOG_PROJECT_TOKEN`, `POSTHOG_PERSONAL_API_KEY`, and `IDENTITY_LINK_TOKEN`
-are Cloudflare Worker secrets and must never be committed. The personal key is
-used only for queued deletion and needs the reviewed person read/write scopes
-for lookup, submission, and verification (qualify the exact provider permissions);
-`POSTHOG_PROJECT_ID` selects the project and is committed as non-secret Worker
-configuration. If the project token is absent,
-ingestion continues and events remain queued in D1 for later delivery. If the
+`POSTHOG_PERSONAL_API_KEY` and `IDENTITY_LINK_TOKEN` are Cloudflare Worker
+secrets and must never be committed. The personal key is used only for queued
+PostHog deletion and needs the reviewed person read/write scopes for lookup,
+submission, and verification; `POSTHOG_PROJECT_ID` selects the project and is
+committed as non-secret Worker configuration. The old `POSTHOG_PROJECT_TOKEN`
+secret is no longer read and can be deleted. If the
 deletion key or project ID is absent, accepted erasures remain queued in D1. If
 the identity-link token is absent, account linking returns `503` while ordinary
 ingestion continues.
 
 Before activating an owner-approved rollout:
 
-1. Apply the approved migrations and deploy the reviewed Worker with **both
-   desktop gates false**. Website Pages deployment is not Worker deployment.
+1. Apply the approved migrations and deploy the reviewed Worker with the
+   desktop ingestion gate false. Website Pages deployment is not Worker deployment.
 2. Verify `/health` against the exact deployed revision: required schema and a
    recent successful retention pass are checked, and the Worker version ID, tag,
    and creation time identify the deployed artifact. Configured secrets are not
    proof of valid permissions. Tag production uploads with the reviewed Git commit.
-3. Confirm the approved first-party-only diagnostic routing and truthful
-   PostHog-managed retention wording. Verify asynchronous provider erasure with
-   synthetic identifiers; an arbitrary delay or repeat-delete loop is not proof.
+3. Verify asynchronous PostHog erasure with synthetic identifiers; an arbitrary
+   delay or repeat-delete loop is not proof.
 4. Exercise authorized synthetic end-to-end delivery,
-   rejection, erasure, retry, retention and aggregate reconciliation. Never use
+   rejection, erasure, retry and retention. Never use
    live researchers' records for a test or expose credentials in logs.
 5. Complete human privacy-copy/consent/cohort review. Enable the approved
-   ingress/export gates only after qualification. A desktop release is still needed;
+   ingestion gate only after qualification. A desktop release is still needed;
    packaged apps are on by default, and `SCIENT_ANALYTICS_ENABLED=false` is the
    only off switch.
 
-Export uses stable capture UUIDs and bounded retries, with a database lease
-renewed before each outbound call. This prevents concurrent local exporters;
-it is not a provider-side transactional fence. Persisted desktop properties are
-revalidated so malformed/legacy rows cannot bypass today's privacy contract.
-`posthog_state='sent'` means capture acknowledged, not erasure settled;
-`'excluded'` marks rows written that way because export never sends them (desktop
-diagnostics and identity observations). Event export runs from the five-minute
-cron, up to ten batches of 100 per run, not after each upload, so an upload
-costs one D1 round trip. Each upload logs its status, event count and stage
+An upload costs one D1 round trip. Each upload logs its status, event count and stage
 durations (`read_ms`, `rate_limit_ms`, `d1_ms`, `total_ms`) without identifiers.
 A rejected upload's response and log carry a closed `reason` and `stage`
 (`headers`, `body`, `batch`, `event`, `privacy` or `size`), listed in
@@ -294,7 +287,7 @@ SCIENT_IDENTITY_LINK_TOKEN=... bun run identity:link \
 
 This command is an operational bridge, not a substitute for account authentication. The eventual account service should call the endpoint server-to-server after sign-in; no link token belongs in a client bundle.
 
-## PostHog dashboards
+## Product insights
 
 `bun run analytics:insights` reads an aggregate-only product report from D1:
 feature observations/repeat days, provider/model terminal usage, reported token
@@ -312,84 +305,17 @@ state is the latest observation in the reporting window; an install operation
 count is a separate measure. Historical `other` cannot be attributed to Scient Agent.
 Ready observations are not a current sign-in inventory, installations are not
 people, and observed population is not feature eligibility. See the desktop
-analytics document for producer meanings and omissions. Existing delivery and
-erasure diagnostics remain in `analytics:report`.
+analytics document for producer meanings and omissions.
 
-The companion PostHog query definitions remain prepared, not installed or
-live-qualified. Qualify their execution and project timezone before publishing;
-match UTC to the D1 report when reconciling periods. Deploy the generated
-revision-3 validator before releasing new desktop producers. No database
-migration, collection-gate change or dashboard mutation is part of this extension.
-
-The managed dashboard manifest is `scripts/posthog-dashboard-manifest.mjs`.
-It records all planned product dashboards, their source-backed queries, and the
-exact events each one needs.
-The manager is read-only by default and retrieves the personal API key from the
-`scient-posthog-personal-api-key` macOS Keychain item (or the
-`POSTHOG_PERSONAL_API_KEY` environment variable):
-
-```sh
-bun run analytics:dashboards
-```
-
-Validate every prepared query against PostHog without creating or changing a
-dashboard:
-
-```sh
-bun run analytics:dashboards --validate-queries
-```
-
-Only dashboards marked current and backed by observed events are eligible for
-creation. Planned dashboards are not created as empty or misleading shells.
-After reviewing the readiness output, an authorized operator can idempotently
-create or update ready dashboards:
-
-```sh
-bun run analytics:dashboards --apply-ready
-```
-
-Operator API requests are project-origin restricted, time/body bounded, and do
-not blindly retry ambiguous creates. Pagination is bounded. The script never
-deletes dashboards or insights. D1 delivery state remains the
-operational source of truth and should be reconciled with PostHog using
-`bun run analytics:report` before relying on a dashboard. That aggregate-only
-report includes pending/blocked deletion, exhausted or quarantined delivery,
-and missing/stale maintenance; it is not a claim of end-to-end healthy delivery.
-Maintenance rows have a status and timestamp, not an event count. The exact per-event
-D1-sent and PostHog counts can be checked without exposing the personal API key:
-
-```sh
-bun run analytics:reconcile
-```
-
-Reconciliation defaults to desktop events in the last seven days, excluding
-the newest hour, and compares the same occurrence window and deduplicated event
-IDs in both stores, excluding first-party-only diagnostics. Override it with `ANALYTICS_RECONCILE_SOURCE`,
-`ANALYTICS_RECONCILE_FROM`, and `ANALYTICS_RECONCILE_TO` (maximum 30 days).
-The one-hour delay is a reporting convention, not an erasure guarantee.
-Mismatch, pending events, outstanding deletions, and no data exit non-zero;
-an empty dashboard is not a verified pipeline.
-
-Prepared metrics count consenting installation profiles, not all people. Product
-success rates use a consistent Product/Diagnostic population and exclude terminal
-stops. Activation uses the gateway's first-observed Product cohort anchor,
-excludes unknown legacy anchors, requires ordered steps, and reports immature
-cohorts separately. Retention needs complete follow-up windows. Billing allowances
-are not hardcoded as current facts. Exact HogQL execution and installed-dashboard
-behavior still require authorized provider-side qualification.
-
-Scientific `source-import` outcomes have item-attempt grain, not batch grain.
-Saved source-store results count as completions even when later batch cleanup
-fails; duplicate/possible-match skips are reported separately as
-`scient.operation.skipped` and do not qualify for meaningful-use metrics.
-Retries are new attempts, not a second completion of an already saved source.
-These events do not claim batch-conversion or human-review coverage.
+`bun run analytics:report` lists pending or blocked erasures and missing or
+stale maintenance; it is not a claim of end-to-end healthy delivery.
+Maintenance rows have a status and timestamp, not an event count.
 
 ### Account analytics activation
 
 Revision 11 accepts provider account/profile observations. `IDENTITY_ANALYTICS_ENABLED`
 is committed as `true` in both the Pages and event Worker configurations. Existing
-usage ingestion/export stays independent. With this flag off, new identity events
+usage ingestion stays independent. With this flag off, new identity events
 are acknowledged and discarded rather than queued for later activation.
 
 Migration 0007 must be applied before deploying the compatible gateway. Website
@@ -399,7 +325,7 @@ The owner authorized production migration and activation on 10 November 2026,
 with the public privacy-wording review to follow preparation and activation.
 
 With activation enabled, dedicated account, profile, device-hash and request-network
-observations remain in Cloudflare and are excluded from PostHog. Token-authenticated
+observations remain in Cloudflare. Token-authenticated
 installation deletion removes its observations too. Usage follows two-year inactivity
 retention; diagnostic events expire after 60 days. The fallback 180/30-day
 retention path applies only when identity analytics is disabled. Local desktop outbox retention
