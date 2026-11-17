@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 export const analyticsReportQuery = `
   WITH expected_maintenance(name) AS (
-    VALUES ('retention'), ('deletion'), ('identity-export'), ('event-export')
+    VALUES ('retention'), ('deletion')
   )
   SELECT
     '30_day_identity' AS report_section,
@@ -138,17 +138,6 @@ export const analyticsReportQuery = `
 
   UNION ALL
 
-  SELECT
-    'posthog_delivery' AS report_section,
-    CASE WHEN posthog_state = 'excluded' OR (source = 'desktop' AND privacy_level = 'diagnostic')
-         THEN 'first-party-only' ELSE posthog_state END AS item,
-    COUNT(*) AS event_count,
-    MAX(received_at) AS latest_event
-  FROM analytics_events
-  GROUP BY item
-
-  UNION ALL
-
   SELECT '30_day_desktop_diagnostics',
     event_name || ':' || COALESCE(json_extract(properties_json, '$.deliveryClass'), 'unknown'),
     COUNT(*), MAX(occurred_at)
@@ -156,18 +145,6 @@ export const analyticsReportQuery = `
   WHERE source = 'desktop' AND privacy_level = 'diagnostic'
     AND julianday(occurred_at) >= julianday('now', '-30 days')
   GROUP BY event_name, json_extract(properties_json, '$.deliveryClass')
-
-  UNION ALL
-
-  SELECT
-    'delivery_attention' AS report_section,
-    source || ':' || CASE WHEN posthog_last_error = 'contract-rejected' THEN 'contract-rejected'
-                         ELSE 'retry-exhausted' END AS item,
-    COUNT(*) AS event_count,
-    MAX(received_at) AS latest_event
-  FROM analytics_events
-  WHERE posthog_state = 'pending' AND posthog_attempts >= 20
-  GROUP BY item
 
   UNION ALL
 

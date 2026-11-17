@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, it, vi } from "vitest";
-import worker, { flushPendingEvents } from "./index";
+import worker from "./index";
 import { testDatabase } from "./sqlite.testSupport";
 
 // Opt-in cross-repository qualification, not an implicit sibling-checkout dependency.
@@ -20,7 +20,6 @@ it.skipIf(!desktopRoot)(
     );
     const fixture = mkdtempSync(join(tmpdir(), "scient-pipeline-proof-"));
     const store = testDatabase();
-    const tasks: Promise<unknown>[] = [];
     const uploads: { token: string; body: string }[] = [];
     const env = {
       ANALYTICS_DB: store.database,
@@ -28,9 +27,6 @@ it.skipIf(!desktopRoot)(
       IDENTITY_ANALYTICS_ENABLED: "true",
       ANALYTICS_INGESTION_RATE_LIMITER: { limit: async () => ({ success: true }) },
     };
-    const context = {
-      waitUntil: (task: Promise<unknown>) => tasks.push(task),
-    } as unknown as ExecutionContext;
     const server = createServer((request, response) => {
       void (async () => {
         const chunks: Buffer[] = [];
@@ -45,7 +41,6 @@ it.skipIf(!desktopRoot)(
             body,
           }) as Request<unknown, IncomingRequestCfProperties>,
           env,
-          context,
         );
         response.writeHead(result.status, { "Content-Type": "application/json" });
         response.end(await result.text());
@@ -191,18 +186,6 @@ it.skipIf(!desktopRoot)(
           ),
         ),
       ).toMatchObject({ provider: "codex", serviceTier: "fast", inputTokens: 900 });
-      const exportRequest = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
-      vi.stubGlobal("fetch", exportRequest);
-      expect(
-        await flushPendingEvents({
-          ...env,
-          DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
-          POSTHOG_PROJECT_TOKEN: "synthetic",
-        }),
-      ).toBe(25);
-      expect(exportRequest).toHaveBeenCalledOnce();
-      expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("PRIVATE");
-      expect(String(exportRequest.mock.calls[0]![1].body)).not.toContain("synthetic@scient.test");
       expect(
         store.sqlite.prepare("SELECT email FROM analytics_installation_accounts").get()!.email,
       ).toBe("synthetic@scient.test");
@@ -212,17 +195,30 @@ it.skipIf(!desktopRoot)(
       expect(
         store.sqlite.prepare("SELECT count(*) AS n FROM analytics_installation_devices").get()!.n,
       ).toBe(1);
-      const exported = JSON.parse(String(exportRequest.mock.calls[0]![1].body));
+      // Parsed JSON is untyped, as the exported PostHog batch was before.
+      const stored: { batch: any[] } = {
+        batch: store.sqlite
+          .prepare(
+            `SELECT event_name AS event, properties_json FROM analytics_events
+             WHERE event_name NOT IN ('install.account_observed', 'install.profile_observed')
+               AND privacy_level <> 'diagnostic'`,
+          )
+          .all()
+          .map((row) => ({
+            event: String(row.event),
+            properties: JSON.parse(String(row.properties_json)),
+          })),
+      };
       expect(
-        exported.batch.find((event: { event: string }) => event.event === "install.owner_observed")
+        stored.batch.find((event: { event: string }) => event.event === "install.owner_observed")
           .properties,
       ).toMatchObject({ ownerSource: "openai", ownerId, observedBy: "server" });
       expect(
-        exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
+        stored.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
           .properties,
       ).toMatchObject({ createdBy: "user", creationSource: "web", scheduled: false });
       for (const provider of ["scient", "omp", "muse", "acpRegistry"]) {
-        const events = exported.batch.filter(
+        const events = stored.batch.filter(
           (event: { properties: { provider?: string } }) => event.properties.provider === provider,
         );
         expect(events.map((event: { event: string }) => event.event).sort()).toEqual([
@@ -232,10 +228,10 @@ it.skipIf(!desktopRoot)(
         expect(events[0].properties.contractRevision).toBe("11");
       }
       expect(
-        exported.batch.find((event: { event: string }) => event.event === "feature.viewed")
+        stored.batch.find((event: { event: string }) => event.event === "feature.viewed")
           .properties,
       ).toMatchObject({ feature: "latex-visual", contractRevision: "11" });
-      const visualOutcomes = exported.batch.filter(
+      const visualOutcomes = stored.batch.filter(
         (event: { properties: { operationKind?: string } }) =>
           event.properties.operationKind === "latex-visual-edit",
       );
@@ -248,7 +244,7 @@ it.skipIf(!desktopRoot)(
           contractRevision: "11",
         });
       expect(
-        exported.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
+        stored.batch.find((event: { event: string }) => event.event === "provider.turn.usage")
           .properties,
       ).toMatchObject({
         provider: "codex",
@@ -259,14 +255,13 @@ it.skipIf(!desktopRoot)(
         cachedInputTokens: 200,
       });
       expect(
-        exported.batch.find(
+        stored.batch.find(
           (event: { event: string }) => event.event === "provider.lifecycle.completed",
         ).properties,
       ).toMatchObject({ source: "desktop", runtimeSource: "scient_managed" });
       expect(
-        exported.batch.find(
-          (event: { event: string }) => event.event === "scient.operation.skipped",
-        ).properties,
+        stored.batch.find((event: { event: string }) => event.event === "scient.operation.skipped")
+          .properties,
       ).toMatchObject({ operationKind: "source-import", trigger: "user" });
       await runtime.setConsent("off");
       expect(runtime.record("project.opened")).toBe(false);
@@ -276,7 +271,7 @@ it.skipIf(!desktopRoot)(
       expect(
         store.sqlite.prepare("SELECT posthog_state FROM analytics_deletion_requests").get()!
           .posthog_state,
-      ).toBe("pending");
+      ).toBe("completed");
       // An acknowledged deletion must resist delayed uploads with the old credential.
       const replay = await originalFetch(endpoint, {
         method: "POST",
@@ -292,7 +287,6 @@ it.skipIf(!desktopRoot)(
       await runtime.close();
       server.closeAllConnections();
       await new Promise<void>((done) => server.close(() => done()));
-      await Promise.allSettled(tasks);
       store.close();
       rmSync(fixture, { recursive: true, force: true });
       vi.unstubAllGlobals();

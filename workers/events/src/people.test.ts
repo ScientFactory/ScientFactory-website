@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import worker, { flushPendingEvents } from "./index";
+import worker from "./index";
 import { testDatabase } from "./sqlite.testSupport";
 import { prunePeopleAnalytics } from "../../../functions/_lib/analyticsPeople";
 import { insertSiteEvent } from "../../../functions/_lib/events";
@@ -15,12 +15,10 @@ afterEach(() => {
 function fixture(enabled = true) {
   const store = testDatabase();
   stores.push(store);
-  const tasks: Promise<unknown>[] = [];
   const env = {
     ANALYTICS_DB: store.database,
     DESKTOP_INGESTION_ENABLED: "true",
     IDENTITY_ANALYTICS_ENABLED: String(enabled),
-    DESKTOP_POSTHOG_EXPORT_ENABLED: "true",
     ANALYTICS_INGESTION_RATE_LIMITER: { limit: async () => ({ success: true }) },
   };
   const send = async (
@@ -64,11 +62,7 @@ function fixture(enabled = true) {
         asOrganization: "Synthetic network",
       },
     });
-    return worker.fetch!(request as Request<unknown, IncomingRequestCfProperties>, env, {
-      waitUntil: (task: Promise<unknown>) => {
-        tasks.push(task);
-      },
-    });
+    return worker.fetch!(request as Request<unknown, IncomingRequestCfProperties>, env);
   };
   const erase = () =>
     worker.fetch!(
@@ -78,9 +72,8 @@ function fixture(enabled = true) {
         body: JSON.stringify({ schema_version: 1, installation_id: installation }),
       }) as Request<unknown, IncomingRequestCfProperties>,
       env,
-      { waitUntil: () => {} },
     );
-  return { ...store, env, send, erase, tasks };
+  return { ...store, env, send, erase };
 }
 
 it("keeps collection disabled until activation, while acknowledging newer clients", async () => {
@@ -101,7 +94,7 @@ it("keeps collection disabled until activation, while acknowledging newer client
     expect(f.sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n).toBe(0);
 });
 
-it("stores identity separately and never exports its events or request network", async () => {
+it("stores identity observations and request network in their own tables", async () => {
   const f = fixture();
   expect(
     (
@@ -125,14 +118,6 @@ it("stores identity separately and never exports its events or request network",
   expect(
     f.sqlite.prepare("SELECT ip_address, country FROM analytics_installation_sightings").get(),
   ).toMatchObject({ ip_address: "192.0.2.4", country: "IL" });
-  const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
-  vi.stubGlobal("fetch", fetcher);
-  expect(await flushPendingEvents({ ...f.env, POSTHOG_PROJECT_TOKEN: "synthetic" })).toBe(1);
-  const body = String(fetcher.mock.calls[0]![1].body);
-  expect(body).not.toContain("synthetic@scient.test");
-  expect(body).not.toContain("192.0.2.4");
-  expect(body).not.toContain('"ownerSource":"device"');
-  expect(body).toContain("provider.turn.sent");
 });
 
 it("rejects wrong tokens and ignores event replays without inflating totals or changing identity", async () => {
@@ -278,7 +263,7 @@ it("ignores malformed device hashes without failing an otherwise valid batch", a
   ).toBe(0);
 });
 
-it("expires failure observations after 60 days without dropping old active usage exports", async () => {
+it("expires failure observations after 60 days without dropping old active usage", async () => {
   const f = fixture();
   await f.send("provider.turn.failed", {});
   f.sqlite.exec("UPDATE analytics_events SET occurred_at = datetime('now', '-61 days')");
@@ -288,9 +273,8 @@ it("expires failure observations after 60 days without dropping old active usage
   f.sqlite.exec(
     "UPDATE analytics_events SET occurred_at = datetime('now', '-400 days'), received_at = datetime('now', '-400 days')",
   );
-  const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
-  vi.stubGlobal("fetch", fetcher);
-  expect(await flushPendingEvents({ ...f.env, POSTHOG_PROJECT_TOKEN: "synthetic" })).toBe(1);
+  await prunePeopleAnalytics(f.database);
+  expect(f.sqlite.prepare("SELECT count(*) AS n FROM analytics_events").get()!.n).toBe(1);
 });
 
 it("retains a canonical account while any linked installation or visitor remains active", async () => {

@@ -18,17 +18,13 @@ it("keeps remote report chunks within the D1 compound SELECT limit", () => {
   }
 });
 
-it("reports centrally retained diagnostics separately from PostHog delivery", () => {
+it("reports centrally retained diagnostics", () => {
   const store = testDatabase();
   try {
     store.sqlite.exec(`INSERT INTO analytics_events
       (event_id, event_name, source, privacy_level, occurred_at, distinct_id, properties_json)
       VALUES ('diagnostic', 'app.diagnostics', 'desktop', 'diagnostic', '2026-08-30', 'private-id', '{"deliveryClass":"retrying"}');`);
     const rows = store.sqlite.prepare(fixedQuery).all();
-    expect(rows.find((row) => row.report_section === "posthog_delivery")).toMatchObject({
-      item: "first-party-only",
-      event_count: 1,
-    });
     expect(rows.find((row) => row.report_section === "30_day_desktop_diagnostics")).toMatchObject({
       event_count: 1,
     });
@@ -61,20 +57,14 @@ it("keeps the aggregate report's 30-day window correct across SQLite and ISO tim
   }
 });
 
-it("shows blocked erasure, quarantine and missing or stale maintenance without raw errors", () => {
+it("shows blocked erasure and missing or stale maintenance without identifiers", () => {
   const store = testDatabase();
   try {
-    store.sqlite.exec(`INSERT INTO analytics_events
-      (event_id, event_name, source, privacy_level, occurred_at, distinct_id, properties_json, posthog_attempts, posthog_last_error)
-      VALUES ('retry', 'app.health', 'desktop', 'essential', '2026-08-30', 'private-id', '{}', 20, 'private-error-text');
-      INSERT INTO analytics_deletion_requests (request_id, installation_id, requested_at, posthog_state)
+    store.sqlite
+      .exec(`INSERT INTO analytics_deletion_requests (request_id, installation_id, requested_at, posthog_state)
       VALUES ('erase', 'private-id', '2026-08-30', 'blocked');
       INSERT INTO analytics_maintenance_status VALUES ('retention', '2026-08-31 11:00:00', 'ok');`);
     const rows = store.sqlite.prepare(fixedQuery).all();
-    expect(rows.find((row) => row.report_section === "delivery_attention")).toMatchObject({
-      item: "desktop:retry-exhausted",
-      event_count: 1,
-    });
     expect(rows.find((row) => row.report_section === "deletion_state")).toMatchObject({
       item: "blocked",
       event_count: 1,
@@ -82,11 +72,9 @@ it("shows blocked erasure, quarantine and missing or stale maintenance without r
     const maintenance = rows.filter((row) => row.report_section === "maintenance");
     expect(maintenance.map((row) => row.item).sort()).toEqual([
       "deletion:never-run",
-      "event-export:never-run",
-      "identity-export:never-run",
       "retention:stale-ok",
     ]);
-    expect(JSON.stringify(rows)).not.toMatch(/private-id|private-error-text/);
+    expect(JSON.stringify(rows)).not.toContain("private-id");
   } finally {
     store.close();
   }

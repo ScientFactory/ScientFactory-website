@@ -1,5 +1,8 @@
-/** Serialize PostHog exports and erasures across Worker invocations, not just one isolate. */
-export async function withExportLease(
+/**
+ * Serialize PostHog erasures across Worker invocations, not just one isolate, so
+ * overlapping cron runs never submit the same deletion twice.
+ */
+export async function withDeletionLease(
   database: D1Database,
   operation: (beforeRequest: () => Promise<void>) => Promise<number>,
 ): Promise<number> {
@@ -28,7 +31,7 @@ export async function withExportLease(
         .bind(owner)
         .first<{ expires_at: number }>();
       if (!renewed || renewed.expires_at - Date.now() < 10_000) {
-        throw new Error("export-lease-lost");
+        throw new Error("deletion-lease-lost");
       }
     });
   } finally {

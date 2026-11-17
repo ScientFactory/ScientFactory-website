@@ -68,7 +68,6 @@ it.skipIf(!desktopRoot)(
       DESKTOP_INGESTION_ENABLED: "true",
       ANALYTICS_INGESTION_RATE_LIMITER: { limit: async () => ({ success: true }) },
     };
-    const context = { waitUntil: () => undefined } as unknown as ExecutionContext;
     const uploads: string[] = [];
     const server = createServer((request, response) => {
       void (async () => {
@@ -88,7 +87,6 @@ it.skipIf(!desktopRoot)(
             body,
           }) as Request<unknown, IncomingRequestCfProperties>,
           env,
-          context,
         );
         response.writeHead(result.status, { "Content-Type": "application/json" });
         response.end(await result.text());
