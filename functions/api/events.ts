@@ -3,6 +3,7 @@
 // Layer: Cloudflare Pages Function
 
 import { cleanPath, destinationParts, queueSiteEvent, type SiteEvent } from "../_lib/events";
+import { visitSourceFrom } from "../_lib/visitSource";
 
 const MAX_BODY_BYTES = 4096;
 const RESPONSE_HEADERS = {
@@ -30,10 +31,12 @@ function parseClientEvent(body: unknown, request: Request): SiteEvent | null {
   if (!pagePath) return null;
 
   if (body.event_name === "page_viewed") {
+    // The first page of a visit says where the visit came from.
     return {
       eventName: "page_viewed",
       pagePath,
       sessionId: typeof body.session_id === "string" ? body.session_id : null,
+      ...visitSourceFrom((name) => body[name], new URL(request.url).hostname),
     };
   }
 

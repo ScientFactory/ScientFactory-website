@@ -3,6 +3,8 @@
 // Layer: Shared marketing and Cloudflare utility
 
 export const DESKTOP_RELEASE_REPOSITORY = "ScientFactory/scient-desktop";
+/** Beta builds are published only here, never in the Stable release index. */
+export const DESKTOP_BETA_RELEASE_REPOSITORY = "ScientFactory/scient-desktop-beta";
 const TRANSITIONAL_DESKTOP_RELEASE_REPOSITORY = "ScientFactory/scient-desktop-next";
 
 const TRUSTED_PROVENANCE_REPOSITORIES = new Set([
@@ -25,6 +27,23 @@ export const DESKTOP_MIRROR_STABLE_KEY = `${DESKTOP_MIRROR_PREFIX}stable.json`;
 
 export function desktopMirrorKey(tag: string, name: string): string {
   return `${DESKTOP_MIRROR_PREFIX}${tag}/${name}`;
+}
+
+/**
+ * The desktop app's generic update feeds. Each channel's electron-updater metadata
+ * (`latest*.yml` for Stable, `beta*.yml` for Beta) is promoted here only after every file it
+ * names is in that release's immutable `scient-desktop/<tag>/` directory.
+ */
+export type DesktopUpdateFeedChannel = "stable" | "beta";
+export const DESKTOP_UPDATE_FEED_PREFIX = `${DESKTOP_MIRROR_PREFIX}updates/`;
+
+export function desktopUpdateFeedKey(channel: DesktopUpdateFeedChannel, file: string): string {
+  return `${DESKTOP_UPDATE_FEED_PREFIX}${channel}/${file}`;
+}
+
+/** The URL a desktop client configures as its `generic` provider feed. */
+export function desktopUpdateFeedUrl(channel: DesktopUpdateFeedChannel): string {
+  return `${DESKTOP_MIRROR_ORIGIN}/${DESKTOP_UPDATE_FEED_PREFIX}${channel}`;
 }
 
 export function desktopMirrorUrl(tag: string, name: string): string {

@@ -180,15 +180,14 @@ export function webObservationStatement(
   occurredAt: string,
   visitorId: string,
   request: Request,
+  /** The site the visit came from; the request's own Referer is usually this website. */
+  sourceHost: string | null = null,
 ): D1PreparedStatement | null {
   const network = networkObservation(request);
   if (!network) return null;
-  let referrer: string | null = null;
-  try {
-    referrer = new URL(request.headers.get("Referer") ?? "").hostname;
-  } catch {
-    /* optional */
-  }
+  // The request's own Referer is this website (the page that sent the event), so only the
+  // visit's source, or the other site whose download link was followed, is recorded.
+  const referrer = sourceHost;
   return db
     .prepare(`INSERT OR IGNORE INTO analytics_web_sightings
     (event_id, event_name, occurred_at, visitor_id, ip_address, referrer_host, country, region, city, timezone, asn, network_name)
