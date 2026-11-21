@@ -374,4 +374,36 @@ describe("desktop release mirror", () => {
     await expect(syncDesktopMirror(bucket, NOW)).rejects.toThrow(/back from 0\.6\.29 to 0\.6\.28/);
     expect(objects.get(STABLE)?.body).toBe(promoted);
   });
+
+  it("stops, rather than replace the pointer, when its bytes cannot be read", async () => {
+    const { bucket, objects } = memoryBucket();
+    let latest = handoffFor("0.6.29", "6789");
+    vi.stubGlobal(
+      "fetch",
+      githubFetch(() => latest),
+    );
+    await syncDesktopMirror(bucket, NOW);
+    const promoted = objects.get(STABLE)?.body;
+    type Get = (key: string) => Promise<{ text: () => Promise<string> } | null>;
+    const get = bucket.get as unknown as ReturnType<typeof vi.fn<Get>>;
+    const read = get.getMockImplementation()!;
+    get.mockImplementation(async (key: string) => {
+      const object = await read(key);
+      return key === STABLE && object
+        ? { ...object, text: async () => Promise.reject(new Error("network lost")) }
+        : object;
+    });
+
+    latest = handoff;
+    await expect(syncDesktopMirror(bucket, NOW)).rejects.toThrow(/network lost/);
+    expect(objects.get(STABLE)?.body).toBe(promoted);
+  });
+
+  it("replaces a pointer whose bytes are malformed", async () => {
+    const { bucket, objects } = memoryBucket({ [STABLE]: "not json" });
+    vi.stubGlobal("fetch", githubFetch());
+
+    expect((await syncDesktopMirror(bucket, NOW)).promoted).toBe(true);
+    expect(pointerTag(objects)).toBe("v0.6.28");
+  });
 });

@@ -5,7 +5,7 @@
 
 import { readHandoff } from "../../../functions/_lib/latest-release";
 import {
-  parseMirrorPointerObject,
+  readMirrorPointerSnapshot,
   writeMirrorPointer,
 } from "../../../functions/_lib/release-mirror";
 import {
@@ -209,9 +209,9 @@ export async function syncDesktopMirror(bucket: R2Bucket, now: Date): Promise<Mi
   // The pointer this run may replace, read before anything this run learns from GitHub: a run
   // whose GitHub answer predates another run's promotion must lose its swap.
   const observed = await bucket.get(DESKTOP_MIRROR_STABLE_KEY);
-  // An unreadable pointer is replaced below rather than blocking the mirror.
-  const current =
-    observed === null ? null : await parseMirrorPointerObject(observed).catch(() => null);
+  // A malformed pointer is replaced below rather than blocking the mirror; one whose bytes could
+  // not be read stops the run, since its version is unknown.
+  const current = observed === null ? null : await readMirrorPointerSnapshot(observed);
   const { raw, publishedAt } = await fetchLatestHandoff();
   const handoff = parseReleaseHandoff(raw);
   // GitHub can still answer with the previous release for a while after a newer one was

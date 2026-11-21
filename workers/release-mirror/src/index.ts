@@ -28,7 +28,8 @@ export type MirrorReportLine = Readonly<Record<string, unknown>> & { readonly me
  * step then finds each one already verified. In the other order, the feed step had to read every
  * installer back from R2 to hash it again, which pushed a release past the CPU limit. That still
  * happens once when the feed step fails and the mirror step copies the installers alone (GitHub's
- * release feed not listing the release yet, say): the next feed run reads them back.
+ * release feed not listing the release yet, say): later feed runs read them back until one
+ * publishes the release.
  */
 export async function runMirror(
   bucket: R2Bucket,

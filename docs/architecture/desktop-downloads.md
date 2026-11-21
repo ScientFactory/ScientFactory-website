@@ -35,9 +35,10 @@ soon as a release is published: the desktop release workflow calls its authentic
 `POST /sync?channel=stable|beta` (see [Run on publish](#run-on-publish)). A run publishes the
 Stable update feed first, then the Stable pointer below, then the Beta feed, so the pointer step
 normally finds every Stable installer already verified against both digests instead of hashing
-it again. When the feed step fails and the pointer step copies the installers alone, the next
-feed run reads them back once to check their SHA-512. The pointer step also refuses a GitHub
-handoff older than the pointer it read, so a stale answer cannot move the pointer back.
+it again. When the feed step fails and the pointer step copies the installers alone, later
+feed runs read them back to check their SHA-512 until one publishes the release (the copies keep
+no SHA-512 receipt). The pointer step also refuses a GitHub handoff older than the pointer it
+read, and stops if it cannot read the pointer, so a stale answer cannot move the pointer back.
 GitHub answers of 429 or a gateway error are retried up to three attempts, honoring `Retry-After`
 up to 30 seconds. Each run:
 
