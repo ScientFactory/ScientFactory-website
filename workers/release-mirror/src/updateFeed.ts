@@ -17,6 +17,7 @@ import {
   DESKTOP_UPDATE_FEED_PREFIX,
   type DesktopUpdateFeedChannel,
 } from "../../../src/lib/release-source";
+import { fetchFromGitHub } from "./github";
 import { mirrorReleaseAsset, USER_AGENT } from "./mirror";
 import { fetchReleaseFeed, MAX_RELEASE_NOTES_BYTES, type ReleaseFeedEntry } from "./releaseFeed";
 import { feedUpdateManifest, parseUpdateManifest } from "./updateManifest";
@@ -89,10 +90,11 @@ export function newestBetaEntry(entries: readonly ReleaseFeedEntry[]): ReleaseFe
 }
 
 async function fetchHandoff(url: string): Promise<unknown> {
-  const response = await fetch(url, {
-    headers: { Accept: "application/octet-stream, application/json", "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(HANDOFF_TIMEOUT_MS),
-  });
+  const response = await fetchFromGitHub(
+    url,
+    { Accept: "application/octet-stream, application/json", "User-Agent": USER_AGENT },
+    HANDOFF_TIMEOUT_MS,
+  );
   if (!response.ok) {
     await response.body?.cancel();
     throw new Error(`GitHub returned ${response.status} for the release handoff.`);
@@ -111,10 +113,11 @@ async function fetchManifest(
   asset: ReleaseHandoffAsset,
 ): Promise<string> {
   if (asset.size > MAX_MANIFEST_BYTES) throw new Error(`${asset.name} is too large.`);
-  const response = await fetch(githubReleaseDownloadUrl(tag, asset.name, repository), {
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(MANIFEST_TIMEOUT_MS),
-  });
+  const response = await fetchFromGitHub(
+    githubReleaseDownloadUrl(tag, asset.name, repository),
+    { "User-Agent": USER_AGENT },
+    MANIFEST_TIMEOUT_MS,
+  );
   if (!response.ok) {
     await response.body?.cancel();
     throw new Error(`GitHub returned ${response.status} for ${asset.name}.`);

@@ -3,6 +3,8 @@
 //          GitHub provider reads for prerelease discovery, release names and release notes.
 // Layer: Cloudflare Worker (scheduled)
 
+import { fetchFromGitHub } from "./github";
+
 const FEED_TIMEOUT_MS = 30_000;
 const MAX_FEED_BYTES = 4 * 1024 * 1024;
 /** Notes larger than this are left out of the feed copy rather than truncated mid-markup. */
@@ -61,10 +63,11 @@ export async function fetchReleaseFeed(
   repository: string,
   userAgent: string,
 ): Promise<ReleaseFeedEntry[]> {
-  const response = await fetch(`https://github.com/${repository}/releases.atom`, {
-    headers: { Accept: "application/atom+xml, application/xml", "User-Agent": userAgent },
-    signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
-  });
+  const response = await fetchFromGitHub(
+    `https://github.com/${repository}/releases.atom`,
+    { Accept: "application/atom+xml, application/xml", "User-Agent": userAgent },
+    FEED_TIMEOUT_MS,
+  );
   if (!response.ok) {
     await response.body?.cancel();
     throw new Error(`GitHub returned ${response.status} for the ${repository} release feed.`);

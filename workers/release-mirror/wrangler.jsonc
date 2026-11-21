@@ -3,10 +3,18 @@
   "name": "scientfactory-release-mirror",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-20",
-  "workers_dev": false,
+  // The workers.dev address serves only the release workflow's authenticated `POST /sync`.
+  "workers_dev": true,
   "preview_urls": false,
   "triggers": {
-    "crons": ["*/10 * * * *"],
+    // Three minutes past each ten: crons on the round ten minutes all reach GitHub at once from
+    // Cloudflare's shared addresses, and GitHub answered some of those runs with 429.
+    "crons": ["3-59/10 * * * *"],
+  },
+  // Hashing a whole release (about 1.8 GB per channel) needs about 40 s of CPU; the default
+  // 30 s limit cut runs short, so a release took two or three runs to reach the feeds.
+  "limits": {
+    "cpu_ms": 300000,
   },
   "r2_buckets": [
     {

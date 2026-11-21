@@ -18,6 +18,7 @@ import {
   desktopMirrorKey,
   GITHUB_RELEASE_HANDOFF_URL,
 } from "../../../src/lib/release-source";
+import { fetchFromGitHub } from "./github";
 
 export const USER_AGENT = "ScientFactory-release-mirror";
 const HANDOFF_TIMEOUT_MS = 30_000;
@@ -36,10 +37,11 @@ export interface MirrorSyncResult {
 }
 
 async function fetchLatestHandoff(): Promise<{ raw: unknown; publishedAt: string | null }> {
-  const response = await fetch(GITHUB_RELEASE_HANDOFF_URL, {
-    headers: { Accept: "application/octet-stream, application/json", "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(HANDOFF_TIMEOUT_MS),
-  });
+  const response = await fetchFromGitHub(
+    GITHUB_RELEASE_HANDOFF_URL,
+    { Accept: "application/octet-stream, application/json", "User-Agent": USER_AGENT },
+    HANDOFF_TIMEOUT_MS,
+  );
   if (!response.ok) {
     await response.body?.cancel();
     throw new Error(`GitHub returned ${response.status} for the release handoff.`);
@@ -130,10 +132,11 @@ export async function mirrorReleaseAsset(
   const existing = await bucket.head(key);
   if (existing !== null) return verifyExisting(existing);
 
-  const response = await fetch(githubReleaseDownloadUrl(tag, asset.name, repository), {
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(INSTALLER_TIMEOUT_MS),
-  });
+  const response = await fetchFromGitHub(
+    githubReleaseDownloadUrl(tag, asset.name, repository),
+    { "User-Agent": USER_AGENT },
+    INSTALLER_TIMEOUT_MS,
+  );
   if (!response.ok || response.body === null) {
     await response.body?.cancel();
     throw new Error(`GitHub returned ${response.status} for ${asset.name}.`);

@@ -320,14 +320,43 @@ describe("desktop release mirror", () => {
     expect(objects.size).toBe(0);
   });
 
-  it("does nothing when GitHub's handoff is unavailable", async () => {
+  it("does nothing when GitHub keeps refusing the handoff", async () => {
+    vi.useFakeTimers();
     const { bucket, writes } = memoryBucket();
+    const refusals = vi.fn(() => new Response(null, { status: 429 }));
+    vi.stubGlobal("fetch", githubFetch(undefined, { [HANDOFF_URL]: refusals }));
+
+    const run = expect(syncDesktopMirror(bucket, NOW)).rejects.toThrow(/429/);
+    await vi.runAllTimersAsync();
+    await run;
+    expect(refusals).toHaveBeenCalledTimes(3);
+    expect(writes).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it("tries again when GitHub briefly refuses the handoff", async () => {
+    vi.useFakeTimers();
+    const { bucket, objects } = memoryBucket();
+    let refused = false;
     vi.stubGlobal(
       "fetch",
-      githubFetch(undefined, { [HANDOFF_URL]: () => new Response(null, { status: 429 }) }),
+      githubFetch(undefined, {
+        [HANDOFF_URL]: () => {
+          if (refused) {
+            return Response.json(handoff, {
+              headers: { "Last-Modified": "Tue, 10 Nov 2026 16:14:08 GMT" },
+            });
+          }
+          refused = true;
+          return new Response(null, { status: 429, headers: { "Retry-After": "2" } });
+        },
+      }),
     );
 
-    await expect(syncDesktopMirror(bucket, NOW)).rejects.toThrow(/429/);
-    expect(writes).toEqual([]);
+    const run = syncDesktopMirror(bucket, NOW);
+    await vi.runAllTimersAsync();
+    expect((await run).promoted).toBe(true);
+    expect(pointerTag(objects)).toBe("v0.6.28");
+    vi.useRealTimers();
   });
 });
