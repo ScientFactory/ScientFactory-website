@@ -4,7 +4,10 @@
 // Layer: Cloudflare Worker (scheduled)
 
 import { readHandoff } from "../../../functions/_lib/latest-release";
-import { readMirroredRelease, writeMirrorPointer } from "../../../functions/_lib/release-mirror";
+import {
+  readMirrorPointerSnapshot,
+  writeMirrorPointer,
+} from "../../../functions/_lib/release-mirror";
 import {
   githubReleaseDownloadUrl,
   parseReleaseHandoff,
@@ -18,6 +21,7 @@ import {
   desktopMirrorKey,
   GITHUB_RELEASE_HANDOFF_URL,
 } from "../../../src/lib/release-source";
+import { fetchFromGitHub } from "./github";
 
 export const USER_AGENT = "ScientFactory-release-mirror";
 const HANDOFF_TIMEOUT_MS = 30_000;
@@ -36,10 +40,11 @@ export interface MirrorSyncResult {
 }
 
 async function fetchLatestHandoff(): Promise<{ raw: unknown; publishedAt: string | null }> {
-  const response = await fetch(GITHUB_RELEASE_HANDOFF_URL, {
-    headers: { Accept: "application/octet-stream, application/json", "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(HANDOFF_TIMEOUT_MS),
-  });
+  const response = await fetchFromGitHub(
+    GITHUB_RELEASE_HANDOFF_URL,
+    { Accept: "application/octet-stream, application/json", "User-Agent": USER_AGENT },
+    HANDOFF_TIMEOUT_MS,
+  );
   if (!response.ok) {
     await response.body?.cancel();
     throw new Error(`GitHub returned ${response.status} for the release handoff.`);
@@ -130,10 +135,11 @@ export async function mirrorReleaseAsset(
   const existing = await bucket.head(key);
   if (existing !== null) return verifyExisting(existing);
 
-  const response = await fetch(githubReleaseDownloadUrl(tag, asset.name, repository), {
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(INSTALLER_TIMEOUT_MS),
-  });
+  const response = await fetchFromGitHub(
+    githubReleaseDownloadUrl(tag, asset.name, repository),
+    { "User-Agent": USER_AGENT },
+    INSTALLER_TIMEOUT_MS,
+  );
   if (!response.ok || response.body === null) {
     await response.body?.cancel();
     throw new Error(`GitHub returned ${response.status} for ${asset.name}.`);
@@ -183,18 +189,39 @@ export async function mirrorReleaseAsset(
   return true;
 }
 
+/** Orders `x.y.z` versions numerically; anything else sorts before every such version. */
+export function compareStableVersions(a: string, b: string): number {
+  const parse = (version: string) =>
+    /^\d+\.\d+\.\d+$/u.test(version) ? version.split(".").map(Number) : null;
+  const [x, y] = [parse(a), parse(b)];
+  if (x === null || y === null) return x === y ? 0 : x === null ? -1 : 1;
+  for (let index = 0; index < 3; index += 1) {
+    if (x[index] !== y[index]) return x[index]! - y[index]!;
+  }
+  return 0;
+}
+
 /**
  * Brings the bucket up to GitHub's latest Stable release. Installers are copied (or confirmed)
  * first; the Stable pointer is written last, so it never names bytes that are not there.
  */
 export async function syncDesktopMirror(bucket: R2Bucket, now: Date): Promise<MirrorSyncResult> {
-  // The pointer version this run may replace, captured before anything this run learns from
-  // GitHub: a run whose GitHub answer predates another run's promotion must lose its swap.
-  const observed = await bucket.head(DESKTOP_MIRROR_STABLE_KEY);
+  // The pointer this run may replace, read before anything this run learns from GitHub: a run
+  // whose GitHub answer predates another run's promotion must lose its swap.
+  const observed = await bucket.get(DESKTOP_MIRROR_STABLE_KEY);
+  // A malformed pointer is replaced below rather than blocking the mirror; one whose bytes could
+  // not be read stops the run, since its version is unknown.
+  const current = observed === null ? null : await readMirrorPointerSnapshot(observed);
   const { raw, publishedAt } = await fetchLatestHandoff();
   const handoff = parseReleaseHandoff(raw);
-  // An unreadable pointer is replaced below rather than blocking the mirror.
-  const current = await readMirroredRelease(bucket).catch(() => null);
+  // GitHub can still answer with the previous release for a while after a newer one was
+  // published and mirrored (by the release workflow's trigger, say). The swap alone cannot catch
+  // that: the pointer has not changed since this run read it.
+  if (current !== null && compareStableVersions(handoff.version, current.handoff.version) < 0) {
+    throw new Error(
+      `Refusing to move the Stable pointer back from ${current.handoff.version} to ${handoff.version}.`,
+    );
+  }
 
   const copied: string[] = [];
   for (const name of requiredInstallerNames(handoff.version)) {

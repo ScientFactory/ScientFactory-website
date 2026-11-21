@@ -28,9 +28,19 @@ download path, or `downloads.scientfactory.com/scient-desktop/v<semver>/<install
 
 ## The mirror
 
-The `scientfactory-release-mirror` worker (`workers/release-mirror/`) runs every ten minutes
-against the `scient-downloads` R2 bucket, the same bucket that serves Scient Agent's copies.
-Each run:
+The `scientfactory-release-mirror` worker (`workers/release-mirror/`) runs against the
+`scient-downloads` R2 bucket, the same bucket that serves Scient Agent's copies. It runs at three
+minutes past every ten (off the round minutes, when many Workers reach GitHub at once), and as
+soon as a release is published: the desktop release workflow calls its authenticated
+`POST /sync?channel=stable|beta` (see [Run on publish](#run-on-publish)). A run publishes the
+Stable update feed first, then the Stable pointer below, then the Beta feed, so the pointer step
+normally finds every Stable installer already verified against both digests instead of hashing
+it again. When the feed step fails and the pointer step copies the installers alone, later
+feed runs read them back to check their SHA-512 until one publishes the release (the copies keep
+no SHA-512 receipt). The pointer step also refuses a GitHub handoff older than the pointer it
+read, and stops if it cannot read the pointer, so a stale answer cannot move the pointer back.
+GitHub answers of 429 or a gateway error are retried up to three attempts, honoring `Retry-After`
+up to 30 seconds. Each run:
 
 1. Reads GitHub's latest handoff and validates it.
 2. For each required installer, keeps an existing `scient-desktop/<tag>/<name>` whose size
@@ -93,6 +103,25 @@ how long a 404 is kept (see the runbook in the README).
 
 Deploy the worker with `bun run mirror:deploy`. The Pages project reads the bucket through
 its `DESKTOP_DOWNLOADS` binding in `wrangler.jsonc`.
+
+## Run on publish
+
+The desktop release workflow (`.github/workflows/release.yml` in `scient-desktop`) calls
+`POST https://<worker>.workers.dev/sync?channel=<stable|beta>` right after it publishes a Stable
+or Beta release, with `Authorization: Bearer` and the token held as the worker secret
+`MIRROR_SYNC_TOKEN` and the desktop repository secret `RELEASE_MIRROR_SYNC_TOKEN` (the address is
+`RELEASE_MIRROR_SYNC_URL`). The worker answers 404 while the secret is unset, 401 for any other
+token, and otherwise streams one JSON object per line: each step's result, a heartbeat every 15
+seconds while it copies, and finally `{"message":"Release mirror finished","failures":n}`. The
+run lasts only while the caller stays connected, since an HTTP invocation has no wall-time limit
+but stops when its client leaves; whatever it copied stays, and the next scheduled run continues
+from the bucket. The scheduled runs remain the fallback whenever the call fails.
+
+The worker allows 5 minutes of CPU per invocation (`limits.cpu_ms`). Hashing one channel's
+release (about 1.8 GB, SHA-256 by R2 and SHA-512 while streaming) takes about 40 seconds; with
+the default 30 seconds, and the Stable pointer step's installers hashed a second time by the
+feed step, the first run per release was cut short, and a release reached the feeds two or three
+runs (20–30 minutes) after it was published.
 
 ## Why
 

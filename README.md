@@ -58,21 +58,35 @@ Stable and Beta electron-updater sets; see
 deployments do not deploy it.
 
 1. After merge, from `main`: `bun run mirror:types:check && bun run mirror:deploy`.
-2. Watch the next runs (every ten minutes) with
+2. Watch the next runs (at three minutes past every ten, and whenever a desktop release is
+   published) with
    `bunx wrangler tail scientfactory-release-mirror --config workers/release-mirror/wrangler.jsonc`.
    Expect `Stable update feed synchronized` and `Beta update feed synchronized` with `promoted`
    naming three manifests each. The first run per release copies up to about 1.8 GB per channel and
-   hashes it; on the Workers Free plan (50 external subrequests, 10 ms CPU) it cannot finish,
-   so confirm the account is on Workers Paid. A run cut short resumes from what is already in the
-   bucket.
-3. In the `scientfactory.com` zone, the `Scient download cache policy` ruleset (C1)
+   hashes it in about 40 seconds of CPU. It needs Workers Paid and the configured
+   `limits.cpu_ms` of 300000; on the Workers Free plan (50 external subrequests, 10 ms CPU) it
+   cannot finish. A run cut short resumes from what is already in the bucket.
+3. The release workflow's trigger needs one shared random token, set in both places (never
+   printed or committed):
+
+   ```sh
+   token=$(openssl rand -hex 32)
+   printf %s "$token" | bunx wrangler secret put MIRROR_SYNC_TOKEN --config workers/release-mirror/wrangler.jsonc
+   printf %s "$token" | gh secret set RELEASE_MIRROR_SYNC_TOKEN --repo ScientFactory/scient-desktop
+   gh secret set RELEASE_MIRROR_SYNC_URL --repo ScientFactory/scient-desktop \
+     --body "https://scientfactory-release-mirror.<account subdomain>.workers.dev/sync"
+   ```
+
+   Without the secret, `POST /sync` answers 404 and only the schedule runs.
+
+4. In the `scientfactory.com` zone, the `Scient download cache policy` ruleset (C1)
    applies only to the `downloads.scientfactory.com` hostname:
    - `/scient-desktop/updates/*` and `/scient-desktop/stable.json`: **Bypass cache**.
    - `/scient-desktop/v*`: **Eligible for cache**, edge and browser TTLs **respect origin**,
      with **no-store** for HTTP 300–599. Keep errors and redirects out of immutable caches.
      Without such a rule, Cloudflare caches some 404s and does not cache `.AppImage`,
      `.blockmap` or `.yml` by default. Files above 512 MB are not cached on non-Enterprise plans.
-4. Verify each channel (`stable`/`latest`, then `beta`/`beta`):
+5. Verify each channel (`stable`/`latest`, then `beta`/`beta`):
 
    ```sh
    feed=https://downloads.scientfactory.com/scient-desktop/updates/stable
@@ -90,10 +104,11 @@ deployments do not deploy it.
    curl -sS -o /dev/null -w '%{http_code}\n' https://downloads.scientfactory.com/scient-desktop/v0.0.0/missing.exe  # 404, twice: never HIT
    ```
 
-5. Only then merge the desktop change that makes these feeds the updater's default, and qualify
+6. Only then merge the desktop change that makes these feeds the updater's default, and qualify
    real updates on each platform from a build that uses them.
 
-To stop publishing, remove the cron trigger and redeploy; the bucket's objects stay valid. Never
+To stop publishing, remove the cron trigger, delete the `MIRROR_SYNC_TOKEN` secret and redeploy;
+the bucket's objects stay valid. Never
 delete or rewrite a versioned object: installed clients and caches may still use it.
 
 ## Scient Docs publishing

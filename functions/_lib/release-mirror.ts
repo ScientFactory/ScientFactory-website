@@ -59,9 +59,31 @@ export function parseMirrorPointer(value: unknown): MirroredRelease {
 /** The current Stable pointer, null when nothing has been mirrored yet. Throws when unreadable. */
 export async function readMirroredRelease(bucket: R2Bucket): Promise<MirroredRelease | null> {
   const object = await bucket.get(DESKTOP_MIRROR_STABLE_KEY);
-  if (object === null) return null;
+  return object === null ? null : parseMirrorPointerObject(object);
+}
+
+async function parseMirrorPointerObject(
+  object: Pick<R2ObjectBody, "size" | "text">,
+): Promise<MirroredRelease> {
   if (object.size > MAX_POINTER_BYTES) throw new Error("Mirror pointer is too large.");
   return parseMirrorPointer(JSON.parse(await object.text()) as unknown);
+}
+
+/**
+ * The pointer in an object a run has just read from the bucket, or null when its bytes are
+ * malformed (so the run may replace them). A failed read rejects instead: the run must not
+ * replace a pointer it could not see.
+ */
+export async function readMirrorPointerSnapshot(
+  object: Pick<R2ObjectBody, "size" | "text">,
+): Promise<MirroredRelease | null> {
+  if (object.size > MAX_POINTER_BYTES) return null;
+  const text = await object.text();
+  try {
+    return parseMirrorPointer(JSON.parse(text) as unknown);
+  } catch {
+    return null;
+  }
 }
 
 /**
