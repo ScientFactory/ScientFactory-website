@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchFromGitHub } from "./github";
+import { fetchFromGitHub, retryDelay } from "./github";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -65,5 +65,39 @@ describe("fetchFromGitHub", () => {
 
     expect(response.status).toBe(404);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads Retry-After as an HTTP date too", () => {
+    const now = Date.parse("Sat, 21 Nov 2026 20:00:00 GMT");
+    const at = (value: string) =>
+      retryDelay(new Response(null, { status: 429, headers: { "Retry-After": value } }), 1, now);
+
+    expect(at("Sat, 21 Nov 2026 20:00:25 GMT")).toBe(25_000);
+    expect(at("Sat, 21 Nov 2026 20:05:00 GMT")).toBe(30_000);
+    expect(at("Sat, 21 Nov 2026 19:59:00 GMT")).toBe(0);
+    expect(at("soon")).toBe(5_000);
+  });
+
+  it("retries even when the refused response's body has already failed", async () => {
+    const broken = new ReadableStream({
+      start(controller) {
+        controller.error(new Error("connection reset"));
+      },
+    });
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(broken, { status: 503 }))
+      .mockResolvedValueOnce(new Response("ok"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await fetchFromGitHub(
+      "https://github.com/x",
+      {},
+      1_000,
+      async () => undefined,
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

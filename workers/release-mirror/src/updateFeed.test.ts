@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { desktopMirrorUrl, desktopUpdateFeedUrl } from "../../../src/lib/release-source";
+import { runMirror } from "./index";
 import { syncUpdateFeed } from "./updateFeed";
 
 // The platform's WebCrypto, which both Node and Workers provide, captured before tests stub it.
@@ -586,5 +587,63 @@ describe("desktop update feed", () => {
 
     await expect(syncUpdateFeed(bucket, "beta")).rejects.toThrow(/another distribution/);
     expect(writes).toEqual([]);
+  });
+
+  describe("a whole Stable run", () => {
+    const installers = (version: string) =>
+      [
+        `Scient-${version}-arm64.dmg`,
+        `Scient-${version}-x64.dmg`,
+        `Scient-${version}-x64.exe`,
+        `Scient-${version}-x86_64.AppImage`,
+      ].map((name) => `scient-desktop/v${version}/${name}`);
+    const readBack = (bucket: R2Bucket, version: string) =>
+      (bucket.get as ReturnType<typeof vi.fn>).mock.calls
+        .map(([key]) => String(key))
+        .filter((key) => installers(version).includes(key));
+
+    it("hashes each installer once: the feed copies them, the download pointer reuses them", async () => {
+      const stable = await release("0.6.30");
+      const { bucket, objects } = memoryBucket();
+      vi.stubGlobal(
+        "fetch",
+        github(() => [stable]),
+      );
+      const report: Array<Record<string, unknown>> = [];
+
+      const failures = await runMirror(bucket, new Date(), ["stable"], (line) => report.push(line));
+
+      expect(failures).toBe(0);
+      expect(report.map((line) => line.message)).toEqual([
+        "Stable update feed synchronized",
+        "Desktop mirror synchronized",
+      ]);
+      expect(report[1]).toMatchObject({ tag: "v0.6.30", copied: [], promoted: true });
+      expect(readBack(bucket, "0.6.30")).toEqual([]);
+      expect(objects.has("scient-desktop/stable.json")).toBe(true);
+    });
+
+    it("reads installers back once when the feed could not run first", async () => {
+      const stable = await release("0.6.30");
+      const { bucket } = memoryBucket();
+      let atomListed = false;
+      vi.stubGlobal(
+        "fetch",
+        github(() => [stable], {
+          "https://github.com/ScientFactory/scient-desktop/releases.atom": () =>
+            new Response(atom("ScientFactory/scient-desktop", atomListed ? [stable] : [])),
+        }),
+      );
+
+      // GitHub's feed does not list the release yet: the pointer step copies the installers
+      // with the handoff's SHA-256 alone.
+      expect(await runMirror(bucket, new Date(), ["stable"], () => undefined)).toBe(1);
+      expect(readBack(bucket, "0.6.30")).toEqual([]);
+
+      // The next run's feed step must check each of them against the manifest's SHA-512.
+      atomListed = true;
+      expect(await runMirror(bucket, new Date(), ["stable"], () => undefined)).toBe(0);
+      expect(readBack(bucket, "0.6.30").toSorted()).toEqual(installers("0.6.30").toSorted());
+    });
   });
 });

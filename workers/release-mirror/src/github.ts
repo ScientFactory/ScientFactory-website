@@ -7,13 +7,16 @@ const RETRYABLE = new Set([429, 502, 503, 504]);
 const ATTEMPTS = 3;
 const MAX_RETRY_AFTER_MS = 30_000;
 
-/** How long GitHub asked us to wait, or a short growing pause when it did not say. */
-function retryDelay(response: Response, attempt: number): number {
-  const header = response.headers.get("Retry-After");
-  const seconds = header === null ? Number.NaN : Number(header);
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
-  }
+/**
+ * How long GitHub asked us to wait (`Retry-After` in seconds or as an HTTP date), at most 30
+ * seconds, or a short growing pause when it did not say.
+ */
+export function retryDelay(response: Response, attempt: number, now = Date.now()): number {
+  const header = response.headers.get("Retry-After")?.trim() ?? "";
+  let delay = Number.NaN;
+  if (/^\d+$/u.test(header)) delay = Number(header) * 1000;
+  else if (header !== "") delay = Date.parse(header) - now;
+  if (Number.isFinite(delay)) return Math.min(Math.max(delay, 0), MAX_RETRY_AFTER_MS);
   return 5_000 * attempt;
 }
 
@@ -31,7 +34,8 @@ export async function fetchFromGitHub(
   for (let attempt = 1; ; attempt += 1) {
     const response = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
     if (!RETRYABLE.has(response.status) || attempt >= ATTEMPTS) return response;
-    await response.body?.cancel();
+    // Only frees the connection; a body that already failed must not stop the retry.
+    await response.body?.cancel().catch(() => undefined);
     await sleep(retryDelay(response, attempt));
   }
 }

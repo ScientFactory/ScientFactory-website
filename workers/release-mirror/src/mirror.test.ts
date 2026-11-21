@@ -359,4 +359,19 @@ describe("desktop release mirror", () => {
     expect(pointerTag(objects)).toBe("v0.6.28");
     vi.useRealTimers();
   });
+
+  it("never moves the pointer back when GitHub still answers with an older release", async () => {
+    const { bucket, objects } = memoryBucket();
+    let latest = handoffFor("0.6.29", "6789");
+    vi.stubGlobal(
+      "fetch",
+      githubFetch(() => latest),
+    );
+    await syncDesktopMirror(bucket, NOW);
+    const promoted = objects.get(STABLE)?.body;
+
+    latest = handoff;
+    await expect(syncDesktopMirror(bucket, NOW)).rejects.toThrow(/back from 0\.6\.29 to 0\.6\.28/);
+    expect(objects.get(STABLE)?.body).toBe(promoted);
+  });
 });

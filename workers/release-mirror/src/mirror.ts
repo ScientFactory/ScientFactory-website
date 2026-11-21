@@ -4,7 +4,10 @@
 // Layer: Cloudflare Worker (scheduled)
 
 import { readHandoff } from "../../../functions/_lib/latest-release";
-import { readMirroredRelease, writeMirrorPointer } from "../../../functions/_lib/release-mirror";
+import {
+  parseMirrorPointerObject,
+  writeMirrorPointer,
+} from "../../../functions/_lib/release-mirror";
 import {
   githubReleaseDownloadUrl,
   parseReleaseHandoff,
@@ -186,18 +189,39 @@ export async function mirrorReleaseAsset(
   return true;
 }
 
+/** Orders `x.y.z` versions numerically; anything else sorts before every such version. */
+export function compareStableVersions(a: string, b: string): number {
+  const parse = (version: string) =>
+    /^\d+\.\d+\.\d+$/u.test(version) ? version.split(".").map(Number) : null;
+  const [x, y] = [parse(a), parse(b)];
+  if (x === null || y === null) return x === y ? 0 : x === null ? -1 : 1;
+  for (let index = 0; index < 3; index += 1) {
+    if (x[index] !== y[index]) return x[index]! - y[index]!;
+  }
+  return 0;
+}
+
 /**
  * Brings the bucket up to GitHub's latest Stable release. Installers are copied (or confirmed)
  * first; the Stable pointer is written last, so it never names bytes that are not there.
  */
 export async function syncDesktopMirror(bucket: R2Bucket, now: Date): Promise<MirrorSyncResult> {
-  // The pointer version this run may replace, captured before anything this run learns from
-  // GitHub: a run whose GitHub answer predates another run's promotion must lose its swap.
-  const observed = await bucket.head(DESKTOP_MIRROR_STABLE_KEY);
+  // The pointer this run may replace, read before anything this run learns from GitHub: a run
+  // whose GitHub answer predates another run's promotion must lose its swap.
+  const observed = await bucket.get(DESKTOP_MIRROR_STABLE_KEY);
+  // An unreadable pointer is replaced below rather than blocking the mirror.
+  const current =
+    observed === null ? null : await parseMirrorPointerObject(observed).catch(() => null);
   const { raw, publishedAt } = await fetchLatestHandoff();
   const handoff = parseReleaseHandoff(raw);
-  // An unreadable pointer is replaced below rather than blocking the mirror.
-  const current = await readMirroredRelease(bucket).catch(() => null);
+  // GitHub can still answer with the previous release for a while after a newer one was
+  // published and mirrored (by the release workflow's trigger, say). The swap alone cannot catch
+  // that: the pointer has not changed since this run read it.
+  if (current !== null && compareStableVersions(handoff.version, current.handoff.version) < 0) {
+    throw new Error(
+      `Refusing to move the Stable pointer back from ${current.handoff.version} to ${handoff.version}.`,
+    );
+  }
 
   const copied: string[] = [];
   for (const name of requiredInstallerNames(handoff.version)) {
