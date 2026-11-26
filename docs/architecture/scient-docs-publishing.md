@@ -3,7 +3,7 @@
 Status: Active
 Owner: Yaacov
 Created: 2026-08-28
-Last updated: 2026-09-06
+Last updated: 2026-11-26
 Purpose: Defines the website-owned transport, provenance, failure, correction, and rollback contract for publishing canonical Scient Desktop Help.
 Doc type: Architecture decision
 
@@ -73,6 +73,21 @@ website manifest PR and deployment, without requiring a new app binary. Its
 applicability text continues to name the releases the corrected prose
 describes.
 
+`.github/workflows/scient-help-release.yml` opens the release PR. Every hour it
+compares the manifest with the newest stable desktop release; when they differ,
+`scripts/update-scient-docs-pin.mjs repin` re-pins the same page selection to the
+release tag's commit and the workflow opens `docs/scient-help-<tag>`, closing
+any older open pin PR. A tag that already has a PR, open or closed, is left
+alone; a branch without a PR is rebuilt. A selected page missing at the release
+fails the run, because changing the selection stays a reviewed decision. Pull
+requests opened by the Actions token start no workflows, so the job dispatches
+Website CI on the branch itself; this relies on the organization and repository
+setting that lets Actions create pull requests. Once a day `check-live` fails
+when the live pin does not name the newest release and the live text of some
+page still differs from that release's text after `maximumLagHours`; a stale
+label over identical text does not count, and a reviewed correction under a pin
+that names the release is current.
+
 Rollback reverts the manifest pin or website publishing change. It never
 rewrites canonical desktop Help. A reverted or failed deployment leaves the
 last successful public corpus in place and visible through ordinary website
@@ -80,8 +95,8 @@ deployment history.
 
 ## Current corpus and deferred scope
 
-The stable manifest selects all 36 desktop-first Help pages from the
-Scient Desktop v0.6.10 release's exact source revision. Scient
+The stable manifest selects 37 desktop-first Help pages, pinned to the newest
+stable release's exact source revision. Scient
 has no public mobile-specific Help corpus. Directory membership still does not
 imply publication, and future Help owners require factual qualification before
 entering the manifest.

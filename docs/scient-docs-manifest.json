@@ -3,13 +3,13 @@
   "channel": "stable",
   "source": {
     "repository": "ScientFactory/scient-desktop",
-    "revision": "5a9cd5f4ee179638a5a97a563a70285b14c9795e",
-    "reviewedAt": "2026-11-10"
+    "revision": "d757abd124dbac2e41b1aa1098c6ff8748d2d9e7",
+    "reviewedAt": "2026-11-26"
   },
   "version": {
-    "label": "Scient v0.6.28",
-    "appliesTo": "Scient Desktop v0.6.28",
-    "stableReleaseTags": ["v0.6.28"]
+    "label": "Scient v0.6.34",
+    "appliesTo": "Scient Desktop v0.6.34",
+    "stableReleaseTags": ["v0.6.34"]
   },
   "corpusDefaults": {
     "product": "Scient Desktop",
@@ -47,7 +47,7 @@
       "summary": "Send messages, attach files and manage ongoing work.",
       "topic": "Essentials",
       "sourcePath": "docs/user/composer.md",
-      "sha256": "8a8ac55481f1a198cd46e846185c3bca9dff8c4f28e095864b24f1ca44bdbb63"
+      "sha256": "c4e93bf88bddc8fb73a19e3ef3245ab674edb4444ec2a43a1cb69ec6a4b29f54"
     },
     {
       "slug": "providers",
@@ -55,7 +55,7 @@
       "summary": "Connect an AI provider and manage its installation.",
       "topic": "Essentials",
       "sourcePath": "docs/user/providers.md",
-      "sha256": "a72aa97bcc3b87daa0d3b3d615ca3e09a6e28e8b47574b0ed1cac1954f50377a"
+      "sha256": "518c1e442503ff78e38b96bdde38c60ff5608ab5c85bef262fc481296127f7de"
     },
     {
       "slug": "file-previews",
@@ -63,7 +63,7 @@
       "summary": "Open and preview project files.",
       "topic": "Essentials",
       "sourcePath": "docs/user/file-previews.md",
-      "sha256": "bc4d50f35a695e2a7147eec2c684f66e40f2a1f6242e1c041f922c27c80b7423"
+      "sha256": "1b2363eb5b7ec75bf2ca31bef1de20d48faaa41a04c40fa96ce9222ce506cb98"
     },
     {
       "slug": "thread-sidebar",
@@ -71,7 +71,7 @@
       "summary": "Organize and find your conversations.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/thread-sidebar.md",
-      "sha256": "d9d14c3c667140096ede279bfcc8624b56988024e75892957fb21089e220a7bd"
+      "sha256": "520378d88104682d14a52d7841124766b54960a1e00fd23206bff72152ffd80c"
     },
     {
       "slug": "permission-modes",
@@ -79,7 +79,7 @@
       "summary": "Choose what your agent may do.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/permission-modes.md",
-      "sha256": "9a5da59a478fb7921c0ed7aeadf1837050eb606ce2a2a2039f18485884364113"
+      "sha256": "286087a93dce3e380e4aa1cfa4901a9cc0f2b8e98ef5edf451c945d8839aa69f"
     },
     {
       "slug": "project-settings",
@@ -87,7 +87,7 @@
       "summary": "Set project-specific preferences.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/project-settings.md",
-      "sha256": "fd5e8b3efd6660825821088a4b48740c1ab17a95e77bdbe58df77f66d8529b64"
+      "sha256": "49e0f1a429339d9cbe80b384d351bdd6ff3393c88a5d32412c134906a4bb48c4"
     },
     {
       "slug": "environment-theme",
@@ -95,7 +95,7 @@
       "summary": "Use a shared environment theme.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/environment-theme.md",
-      "sha256": "0ac98a5c5f13eb8e06bbdd91d70b27911e468001c1a598cc651b87403c3bfbff",
+      "sha256": "51d6235b8814a5f9295cf61568bd8ec27ac892c04eed6af8c793a7ed01354df2",
       "secondary": true
     },
     {
@@ -104,7 +104,7 @@
       "summary": "Dictate messages instead of typing.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/voice-dictation.md",
-      "sha256": "c3e1a312ac815bfb0b16fc9a7b08d0b68907f9060be33e1585b6104eb64500de"
+      "sha256": "04ee5d86b3f268bea1720b93f7847cc79bafd6374f24118c7e8d6de1829ccc1d"
     },
     {
       "slug": "keybindings",
@@ -112,7 +112,7 @@
       "summary": "Find and customize keyboard shortcuts.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/keybindings.md",
-      "sha256": "d3438ba4f2f6ed35b2a503f69ddb41c96aac342a9a87acebd61d2599a5eeee3d",
+      "sha256": "e21c209a35c4a4a8c157a867980592ca35176635702ea6c135b81ce5030e756f",
       "secondary": true
     },
     {
@@ -121,7 +121,7 @@
       "summary": "Check usage and limits.",
       "topic": "Work in Scient",
       "sourcePath": "docs/user/usage.md",
-      "sha256": "50f68e4c3f497efe75a9d5111ded838a12a2cd781772e5d23a6316c21f33b83a",
+      "sha256": "a4097a74e8996a909f999be630c8b671255221e68cd82e13f45a544ce30547f8",
       "secondary": true
     },
     {
@@ -130,7 +130,7 @@
       "summary": "Import references and manage citations.",
       "topic": "Research & files",
       "sourcePath": "docs/user/sources.md",
-      "sha256": "767fe4d4f26f971017f1d953a6dd81cff2dd35cc214492b47bcf6ee721720c30"
+      "sha256": "8a3c256d96959ed0a966b81087f6019a6c011cf734594ede41732b5c6ee68ccc"
     },
     {
       "slug": "pdf-reader",
@@ -138,7 +138,7 @@
       "summary": "Read and annotate PDFs.",
       "topic": "Research & files",
       "sourcePath": "docs/user/pdf-reader.md",
-      "sha256": "b1e51cc3eba637ec0be22d0f43b086433d2e86a851ab94232f0ed0411e4212e7"
+      "sha256": "dbae8db147c092ada878e518c1086cb176988fd84dd9ce59cc5288c0e5210a0e"
     },
     {
       "slug": "latex",
@@ -146,7 +146,7 @@
       "summary": "Build LaTeX documents and review errors.",
       "topic": "Research & files",
       "sourcePath": "docs/user/latex.md",
-      "sha256": "054ac6ab210272271dc94bcb9af97b6ccf91b8f34cb7a6b46c08e81a16d562f1",
+      "sha256": "13c120f20590fa1809f750ca7018bca72061c6bb944862911504330860bb2d20",
       "secondary": true
     },
     {
@@ -155,7 +155,7 @@
       "summary": "Run Python and review results.",
       "topic": "Research & files",
       "sourcePath": "docs/user/scientific-computing.md",
-      "sha256": "f4298db65fd10734e844ee141157daf74b34e5a7453d15ffd32640c1efac285e"
+      "sha256": "31cb57dbae7c3014576c604d406ae00b5742620737040e69387d6b8a5fffb75c"
     },
     {
       "slug": "matlab-run-file",
@@ -172,7 +172,7 @@
       "summary": "Review changes and manage pull requests.",
       "topic": "Research & files",
       "sourcePath": "docs/user/source-control.md",
-      "sha256": "93589d04b2cca98b6d292eca8ff69f4f5e9891427e7acc34f05182afa7cb3ff1",
+      "sha256": "b9e60fe79719d168a1e509af4dc9c953f25f8f8fec52e451e255c8581a34f623",
       "secondary": true
     },
     {
@@ -197,7 +197,7 @@
       "summary": "Explore interactive charts.",
       "topic": "Rich responses",
       "sourcePath": "docs/user/charts-in-chat.md",
-      "sha256": "87698092d6cf156665fc16722e79499e9cba66bd937f98bea5fbcc2fa577fda1"
+      "sha256": "b47dc9821b0cbc5ca39889019e84550040b264f19604e789f19f88797dcb9cbd"
     },
     {
       "slug": "content-direction",
@@ -223,7 +223,7 @@
       "summary": "Connect and use Codex.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-codex.md",
-      "sha256": "9f50a2e485ddc69036dfc0699b26fe56283358cedf3cfd3a3b2399949fd193d5"
+      "sha256": "8271f3e665db72f8c74c3b7421b3200a3c7e69ef3cf48b6e5a2346ff5583ccaa"
     },
     {
       "slug": "providers-claude",
@@ -231,7 +231,7 @@
       "summary": "Connect and use Claude Code.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-claude.md",
-      "sha256": "bdf5b8b6338e29c113fd53f1b36432bf3ca0321fc63cf5c16b94e3ef069d9aab"
+      "sha256": "b5e3036faefa8b3e4580294f3f7369028f48949165890093ca548d1de95f46b8"
     },
     {
       "slug": "providers-antigravity",
@@ -239,7 +239,7 @@
       "summary": "Connect and use Antigravity.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-antigravity.md",
-      "sha256": "170be6d0934426b5b48112947b24205199fb9147b845ffb6fc610b320e5dc84b",
+      "sha256": "fd104376c44547ce063b623c9630a1347ae25fe86f510751aca02dc0f93cbf19",
       "secondary": true
     },
     {
@@ -275,7 +275,7 @@
       "summary": "Connect and use OpenCode.",
       "topic": "Provider guides",
       "sourcePath": "docs/user/providers-opencode.md",
-      "sha256": "f7d5d111e23b89704d3ebf100c8c1349071c38e9cd9e5b077a5381a374e1f235",
+      "sha256": "03a2d14352fd37a8205da7ab06ec6a65e48ee10038efe252f0835863d01a6ea1",
       "secondary": true
     },
     {
@@ -284,7 +284,7 @@
       "summary": "Install Scient on your computer.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/install.md",
-      "sha256": "a0c735d57bbb23353b4cf6e169c6dfa2853edc2f5ff9c06baab8f38bf6fe39f4"
+      "sha256": "52357802dc92cde7e44a79b28d0560f2d292b3611f6809c1ac679758a22135ee"
     },
     {
       "slug": "updating",
@@ -292,7 +292,7 @@
       "summary": "Update Scient and troubleshoot installation.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/updating.md",
-      "sha256": "e2a2a51d54b342459ebfb386873648da6512154e8ae07ef756a874d9d839f872"
+      "sha256": "16f46077598cd83214c8c15a845571002723ec5ea7e593ebfc1db472120cf9da"
     },
     {
       "slug": "remote-access",
@@ -300,7 +300,7 @@
       "summary": "Connect to Scient on another machine.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/remote-access.md",
-      "sha256": "5d3dd7a8d5a45890216c5a41d88bf5458f94ee706ea012cb7d9f592efe5d2df6"
+      "sha256": "746e57267be58ceeb6e73569912caadb3628685f2ed27bd94e41d4834088ebcc"
     },
     {
       "slug": "scient-connect-troubleshooting",
@@ -308,7 +308,7 @@
       "summary": "Find and fix the part of a Scient Connect connection that failed.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/scient-connect-troubleshooting.md",
-      "sha256": "42cb0b4631b3b0446fd9e45b403d930ab51a191d494e9a62c88350c11994455a"
+      "sha256": "11099034155d6607c79b9b074eef06401b1aa8fbfe3886affeb58339c0a5028c"
     },
     {
       "slug": "background-service",
@@ -316,7 +316,7 @@
       "summary": "Manage Scient in the background.",
       "topic": "Installation & environments",
       "sourcePath": "docs/user/background-service.md",
-      "sha256": "f11a3e9229e67e37db540b322e76f7f5149f16616058834e90549fab32cafea4"
+      "sha256": "5d967a75c79e3eda4f1058fbeaec6860b76f264fb94ad5bacab1afb9266c82a4"
     },
     {
       "slug": "browser-import",
@@ -325,7 +325,7 @@
       "topic": "Work in Scient",
       "sourcePath": "docs/user/browser-import.md",
       "secondary": true,
-      "sha256": "12b95ca557419dc2d13034e00258147de063757fbaa442c6e755512da218cf42"
+      "sha256": "137bd9fbaff5b273e3e507d4f1932b44af9c322dd0ce79eb3d343c1132d73494"
     },
     {
       "slug": "tool-activity",
