@@ -76,7 +76,8 @@ jobs:
         run: |
           branch="docs/scient-help-$TAG"
           title="docs: publish Scient help from $TAG"
-          state="$(gh pr list --head "$branch" --state all --json state --jq '.[0].state // ""')"
+          state="$(gh pr list --head "$branch" --state all --json state,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0].state // ""')"
           if [[ -n "$state" ]]; then
             echo "$branch already has a pull request ($state)."
             exit 0
@@ -98,8 +99,8 @@ jobs:
           echo "Opened $url"
           # Only the newest release supersedes older pins; a hand-picked tag closes nothing.
           if [[ -n "$EXPLICIT_TAG" ]]; then exit 0; fi
-          gh pr list --state open --json number,headRefName \
-            --jq ".[] | select(.headRefName | startswith(\"docs/scient-help-\")) | select(.headRefName != \"$branch\") | .number" |
+          gh pr list --state open --json number,headRefName,isCrossRepository \
+            --jq ".[] | select(.isCrossRepository | not) | select(.headRefName | startswith(\"docs/scient-help-\")) | select(.headRefName != \"$branch\") | .number" |
             while read -r number; do
               gh pr close "$number" --delete-branch --comment "Superseded by $url."
             done
