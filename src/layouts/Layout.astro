@@ -5,6 +5,8 @@
 // Depends on: release repo metadata from ../lib/releases and bundled Scient brand assets.
 
 import "@fontsource-variable/dm-sans";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+
 interface Props {
   title?: string;
   description?: string;
@@ -21,6 +23,10 @@ const {
 
 const canonicalURL = new URL(Astro.url.pathname, "https://scientfactory.com");
 const currentPath = Astro.url.pathname;
+const [whatsappIconWidth, whatsappIconHeight, , , whatsappIconPathData] = faWhatsapp.icon;
+const whatsappIconPaths = Array.isArray(whatsappIconPathData)
+  ? whatsappIconPathData
+  : [whatsappIconPathData];
 
 const primaryLinks = [
   { href: "/", label: "Home", active: currentPath === "/" },
@@ -93,7 +99,18 @@ const primaryLinks = [
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
           <a href="/support">Support</a>
-          <a href="https://chat.whatsapp.com/Cewlzu6iLQFBa025tftLNF?s=cl&p=i&iam=2">
+          <a
+            class="footer-whatsapp-link"
+            href="https://chat.whatsapp.com/Cewlzu6iLQFBa025tftLNF?s=cl&p=i&iam=2">
+            <svg
+              width="14"
+              height="16"
+              viewBox={`0 0 ${whatsappIconWidth} ${whatsappIconHeight}`}
+              fill="currentColor"
+              aria-hidden="true"
+              focusable="false">
+              {whatsappIconPaths.map((path) => <path d={path} />)}
+            </svg>
             Join our WhatsApp group
           </a>
         </div>
@@ -567,6 +584,12 @@ const primaryLinks = [
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem 1.25rem;
+  }
+
+  .footer-whatsapp-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
   }
 
   .footer-link-button {
