@@ -82,7 +82,7 @@ describe("repinManifest", () => {
 describe("liveLag", () => {
   const index = {
     source: { revision: "a".repeat(40) },
-    version: { label: "Scient v1.0.0" },
+    version: { label: "Scient v1.0.0", stableReleaseTags: ["v1.0.0"] },
     publication: { maximumLagHours: 24 },
     pages: [
       { slug: "a", sourcePath: "docs/user/a.md" },
@@ -90,9 +90,9 @@ describe("liveLag", () => {
     ],
   };
   const live = { a: pinned["docs/user/a.md"], b: pinned["docs/user/b.md"] };
-  const check = (releaseSource, hoursAfterRelease) =>
+  const check = (releaseSource, hoursAfterRelease, served = index) =>
     liveLag({
-      index,
+      index: served,
       release,
       loadReleaseSource: async (path) => releaseSource[path] ?? null,
       loadLiveRaw: async (slug) => live[slug] ?? null,
@@ -117,5 +117,16 @@ describe("liveLag", () => {
     const result = await check({ "docs/user/a.md": pinned["docs/user/a.md"] }, 25);
     assert.deepEqual(result.stalePages, ["docs/user/b.md"]);
     assert.equal(result.overdue, true);
+  });
+
+  it("treats a live pin naming the release as current, even with corrected text", async () => {
+    const corrected = { ...pinned, "docs/user/a.md": "# A\n\nBefore the correction.\n" };
+    const covering = {
+      ...index,
+      version: { label: "Scient v1.1.0", stableReleaseTags: ["v1.1.0"] },
+    };
+    const result = await check(corrected, 72, covering);
+    assert.deepEqual(result.stalePages, []);
+    assert.equal(result.overdue, false);
   });
 });

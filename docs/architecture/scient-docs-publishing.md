@@ -77,13 +77,16 @@ describes.
 compares the manifest with the newest stable desktop release; when they differ,
 `scripts/update-scient-docs-pin.mjs repin` re-pins the same page selection to the
 release tag's commit and the workflow opens `docs/scient-help-<tag>`, closing
-any older open pin PR. A selected page missing at the release fails the run,
-because changing the selection stays a reviewed decision. Pull requests opened
-by the Actions token start no workflows, so the job dispatches Website CI on the
-branch itself; this relies on the repository setting that lets Actions create
-pull requests. Once a day `check-live` hashes every page the live site serves
-against the release's text and fails once differing text outlives
-`maximumLagHours`; a stale label alone does not count.
+any older open pin PR. A tag that already has a PR, open or closed, is left
+alone; a branch without a PR is rebuilt. A selected page missing at the release
+fails the run, because changing the selection stays a reviewed decision. Pull
+requests opened by the Actions token start no workflows, so the job dispatches
+Website CI on the branch itself; this relies on the organization and repository
+setting that lets Actions create pull requests. Once a day `check-live` fails
+when the live pin does not name the newest release and the live text of some
+page still differs from that release's text after `maximumLagHours`; a stale
+label over identical text does not count, and a reviewed correction under a pin
+that names the release is current.
 
 Rollback reverts the manifest pin or website publishing change. It never
 rewrites canonical desktop Help. A reverted or failed deployment leaves the

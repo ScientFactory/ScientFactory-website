@@ -72,12 +72,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.pin.outputs.tag }}
+          EXPLICIT_TAG: ${{ inputs.tag }}
         run: |
           branch="docs/scient-help-$TAG"
           title="docs: publish Scient help from $TAG"
-          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
-            echo "$branch already exists; its pull request carries $TAG."
+          state="$(gh pr list --head "$branch" --state all --json state --jq '.[0].state // ""')"
+          if [[ -n "$state" ]]; then
+            echo "$branch already has a pull request ($state)."
             exit 0
+          fi
+          # A branch without a pull request is left from a run that failed part-way; rebuild it.
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
           fi
           gh api "repos/$GITHUB_REPOSITORY/git/refs" \
             -f ref="refs/heads/$branch" -f sha="$(git rev-parse HEAD)" >/dev/null
@@ -86,10 +92,12 @@ jobs:
             -f branch="$branch" -f message="$title" \
             -f sha="$(git rev-parse HEAD:docs/scient-docs-manifest.json)" \
             -f content="$(base64 -w0 docs/scient-docs-manifest.json)" >/dev/null
-          url="$(gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/pr-body.md")"
-          echo "Opened $url"
           # A pull request opened with this token starts no workflows, so start its required check.
           gh workflow run ci.yml --ref "$branch"
+          url="$(gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/pr-body.md")"
+          echo "Opened $url"
+          # Only the newest release supersedes older pins; a hand-picked tag closes nothing.
+          if [[ -n "$EXPLICIT_TAG" ]]; then exit 0; fi
           gh pr list --state open --json number,headRefName \
             --jq ".[] | select(.headRefName | startswith(\"docs/scient-help-\")) | select(.headRefName != \"$branch\") | .number" |
             while read -r number; do

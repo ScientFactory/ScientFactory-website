@@ -97,19 +97,24 @@ export async function repinManifest({ manifest, release, loadSource, reviewedAt 
 /**
  * Compares the Help the live site serves with the Help of the newest stable release,
  * page by page, so a stale label alone with identical content does not count as lag.
+ * A live pin that already names the release is current, including a reviewed Help
+ * correction published after it.
  */
 export async function liveLag({ index, release, loadReleaseSource, loadLiveRaw, now }) {
-  const comparisons = await Promise.all(
-    index.pages.map(async (page) => {
-      const [live, current] = await Promise.all([
-        loadLiveRaw(page.slug),
-        loadReleaseSource(page.sourcePath),
-      ]);
-      const same =
-        live !== null && current !== null && hashMarkdown(live) === hashMarkdown(current);
-      return same ? null : page.sourcePath;
-    }),
-  );
+  const covered = index.version.stableReleaseTags?.includes(release.tag) === true;
+  const comparisons = covered
+    ? []
+    : await Promise.all(
+        index.pages.map(async (page) => {
+          const [live, current] = await Promise.all([
+            loadLiveRaw(page.slug),
+            loadReleaseSource(page.sourcePath),
+          ]);
+          const same =
+            live !== null && current !== null && hashMarkdown(live) === hashMarkdown(current);
+          return same ? null : page.sourcePath;
+        }),
+      );
   const stalePages = comparisons.filter((path) => path !== null);
   const lagHours = (now - Date.parse(release.publishedAt)) / 3_600_000;
   const maximumLagHours = index.publication.maximumLagHours;
