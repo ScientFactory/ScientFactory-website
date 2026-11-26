@@ -1,0 +1,119 @@
+name: Scient Help release pin
+
+on:
+  schedule:
+    # Hourly: open the Help pin PR soon after a stable desktop release.
+    - cron: "23 * * * *"
+    # Daily: fail when the live site still serves older Help than the newest release allows.
+    - cron: "41 7 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable desktop release tag to pin (default newest stable release)
+        required: false
+        type: string
+
+concurrency:
+  group: scient-help-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  repin:
+    name: Open Help pin PR
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '23 * * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.13.1
+
+      - name: Pin Help to the release
+        id: pin
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          args=(repin --body "$RUNNER_TEMP/pr-body.md")
+          if [[ -n "$TAG" ]]; then args+=(--tag "$TAG"); fi
+          node scripts/update-scient-docs-pin.mjs "${args[@]}"
+          if git diff --quiet -- docs/scient-docs-manifest.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          bun install --frozen-lockfile
+          bunx oxfmt docs/scient-docs-manifest.json
+          tag="$(node -p 'require("./docs/scient-docs-manifest.json").version.stableReleaseTags[0]')"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.pin.outputs.tag }}
+        run: |
+          branch="docs/scient-help-$TAG"
+          title="docs: publish Scient help from $TAG"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "$branch already exists; its pull request carries $TAG."
+            exit 0
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/heads/$branch" -f sha="$(git rev-parse HEAD)" >/dev/null
+          # The contents API commits as the Actions bot, so the commit is signed by GitHub.
+          gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/docs/scient-docs-manifest.json" \
+            -f branch="$branch" -f message="$title" \
+            -f sha="$(git rev-parse HEAD:docs/scient-docs-manifest.json)" \
+            -f content="$(base64 -w0 docs/scient-docs-manifest.json)" >/dev/null
+          url="$(gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/pr-body.md")"
+          echo "Opened $url"
+          # A pull request opened with this token starts no workflows, so start its required check.
+          gh workflow run ci.yml --ref "$branch"
+          gh pr list --state open --json number,headRefName \
+            --jq ".[] | select(.headRefName | startswith(\"docs/scient-help-\")) | select(.headRefName != \"$branch\") | .number" |
+            while read -r number; do
+              gh pr close "$number" --delete-branch --comment "Superseded by $url."
+            done
+
+  check-live:
+    name: Live Help matches the newest release
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '41 7 * * *'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.13.1
+
+      - name: Compare live Help with the release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/update-scient-docs-pin.mjs check-live
