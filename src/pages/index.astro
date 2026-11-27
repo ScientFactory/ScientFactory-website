@@ -58,12 +58,22 @@ const capabilities = [
     label: "Compare models",
     description: "Give several models the same task and keep the best result.",
   },
+  {
+    kind: "development",
+    label: "Software development",
+    description: "Write and test code with AI, review changes, and manage pull requests from your project.",
+  },
+  {
+    kind: "connectors",
+    label: "MCP and connectors",
+    description: "Give your AI access to the tools and data you already use, or connect your own MCP server.",
+  },
 ] as const;
 ---
 
 <Layout
   theme="light"
-  title="ScientFactory — One intelligent workspace for research"
+  title="ScientFactory — One intelligent workspace for research and development"
   description="Scient is an agentic workspace that brings your research tools and AI agents together—from the first question to final publication."
 >
   <section class="hero" aria-labelledby="hero-title">
@@ -83,7 +93,8 @@ const capabilities = [
       <h1 id="hero-title" class="headline reveal" style="--reveal-delay: 90ms">
         <span>One intelligent</span>
         <span>workspace for every</span>
-        <span>stage of your research.</span>
+        <span>stage of research</span>
+        <span>and development.</span>
       </h1>
 
       <p class="description reveal" style="--reveal-delay: 160ms">

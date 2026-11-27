@@ -6,11 +6,13 @@ import {
   faCircleCheck,
   faClone,
   faCompass,
+  faFileCode,
   faFileLines,
   faFilePdf,
   faImage,
   faPenToSquare,
 } from "@fortawesome/free-regular-svg-icons";
+import { faPlug } from "@fortawesome/free-solid-svg-icons";
 
 interface Props {
   kind:
@@ -23,7 +25,9 @@ interface Props {
     | "citations"
     | "review"
     | "skills"
-    | "compare";
+    | "compare"
+    | "development"
+    | "connectors";
   label: string;
   description: string;
 }
@@ -40,6 +44,8 @@ const icons = {
   review: faCircleCheck,
   skills: faCompass,
   compare: faClone,
+  development: faFileCode,
+  connectors: faPlug,
 };
 const icon = icons[kind];
 const [iconWidth, iconHeight, , , iconPathData] = icon.icon;
