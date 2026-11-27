@@ -91,7 +91,6 @@ const primaryLinks = [
       </main>
 
       <footer class="footer">
-        <span class="footer-copy">&copy; {new Date().getFullYear()} ScientFactory · GENORE PREV LTD</span>
         <div class="footer-links">
           <button type="button" class="footer-link-button" data-analytics-settings>
             Cookie settings
@@ -114,6 +113,7 @@ const primaryLinks = [
             Join our WhatsApp group
           </a>
         </div>
+        <span class="footer-copy">&copy; {new Date().getFullYear()} ScientFactory · GENORE PREV LTD</span>
       </footer>
     </div>
 
@@ -571,6 +571,7 @@ const primaryLinks = [
   .footer {
     min-height: 5rem;
     display: flex;
+    flex-direction: row-reverse;
     align-items: center;
     justify-content: space-between;
     gap: 1.5rem;
@@ -700,6 +701,13 @@ const primaryLinks = [
     opacity: 0.6;
   }
 
+  @media (max-width: 860px) {
+    .footer {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+
   /* The brand already links home; this leaves room for Sign in on phones. */
   @media (max-width: 480px) {
     .nav-link--home {
@@ -733,12 +741,6 @@ const primaryLinks = [
 
     .nav-link {
       font-size: 0.9rem;
-    }
-
-    .footer {
-      align-items: flex-start;
-      flex-direction: column;
-      padding-block: 1.5rem;
     }
 
     .footer-links {
