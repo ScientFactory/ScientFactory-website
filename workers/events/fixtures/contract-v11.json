@@ -183,6 +183,38 @@
       }
     },
     {
+      "case": "app.startup.timing:fallbacks",
+      "name": "app.startup.timing",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "launchKind": "unknown",
+        "platform": "unknown",
+        "architecture": "unknown",
+        "uiReadyBucket": "unknown",
+        "projectRestored": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "app.startup.timing:representative",
+      "name": "app.startup.timing",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "launchKind": "unknown",
+        "platform": "macos",
+        "architecture": "arm64",
+        "uiReadyBucket": "unknown",
+        "projectRestored": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
       "case": "server.boot.heartbeat:fallbacks",
       "name": "server.boot.heartbeat",
       "privacyLevel": "essential",
@@ -666,6 +698,8 @@
         "provider": "antigravity",
         "modelKey": "gpt-5.6-sol",
         "retryAttempts": 2,
+        "toolServerOwner": "connector",
+        "customEndpoint": true,
         "failureCode": "retry_stalled",
         "httpStatus": 400,
         "failureClass": "permission",
@@ -868,6 +902,34 @@
       }
     },
     {
+      "case": "provider.readiness.observed:fallbacks",
+      "name": "provider.readiness.observed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "unknown",
+        "state": "unknown",
+        "runtimeSource": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "provider.readiness.observed:representative",
+      "name": "provider.readiness.observed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "antigravity",
+        "state": "ready",
+        "runtimeSource": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
       "case": "provider.readiness.changed:fallbacks",
       "name": "provider.readiness.changed",
       "privacyLevel": "product",
@@ -1003,6 +1065,7 @@
         "downloadAttempts": 5,
         "networkKind": "stalled",
         "compressedFailure": "checksum",
+        "signInPage": "manual_fallback",
         "resumedBucket": "10-50mb",
         "progressBucket": "25-49",
         "throughputBucket": "1-5mbps",
@@ -1049,6 +1112,9 @@
         "downloadAttempts": 5,
         "networkKind": "stalled",
         "compressedFailure": "checksum",
+        "failedCheck": "rpc_start",
+        "failureReason": "no_signin_page",
+        "signInPage": "manual_fallback",
         "resumedBucket": "10-50mb",
         "progressBucket": "25-49",
         "throughputBucket": "1-5mbps",
@@ -1093,6 +1159,7 @@
         "downloadAttempts": 5,
         "networkKind": "stalled",
         "compressedFailure": "checksum",
+        "signInPage": "manual_fallback",
         "resumedBucket": "10-50mb",
         "progressBucket": "25-49",
         "throughputBucket": "1-5mbps",
@@ -1703,6 +1770,54 @@
       }
     },
     {
+      "case": "latex.visual.opened:fallbacks",
+      "name": "latex.visual.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "latex.visual.opened:representative",
+      "name": "latex.visual.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "latex.visual.source-fallback:fallbacks",
+      "name": "latex.visual.source-fallback",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "latex.visual.source-fallback:representative",
+      "name": "latex.visual.source-fallback",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
       "case": "provider.turn.usage:fallbacks",
       "name": "provider.turn.usage",
       "privacyLevel": "product",
@@ -2252,6 +2367,59 @@
       }
     },
     {
+      "case": "app.startup.timing:startup-first-after-install",
+      "name": "app.startup.timing",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "launchKind": "first-after-install",
+        "platform": "windows",
+        "architecture": "x64",
+        "uiReadyBucket": "30-60s",
+        "backendReadyBucket": "30-60s",
+        "windowShownBucket": "30-60s",
+        "projectRestored": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "app.startup.timing:startup-later",
+      "name": "app.startup.timing",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "launchKind": "later",
+        "platform": "macos",
+        "architecture": "arm64",
+        "uiReadyBucket": "under-2s",
+        "backendReadyBucket": "under-2s",
+        "windowShownBucket": "under-2s",
+        "projectRestored": true,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "app.startup.timing:startup-hostile",
+      "name": "app.startup.timing",
+      "privacyLevel": "essential",
+      "consentLevel": "essential",
+      "properties": {
+        "launchKind": "unknown",
+        "platform": "unknown",
+        "architecture": "unknown",
+        "uiReadyBucket": "unknown",
+        "backendReadyBucket": "unknown",
+        "projectRestored": false,
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
       "case": "scient.operation.completed:capture-v2-retained",
       "name": "scient.operation.completed",
       "privacyLevel": "product",
@@ -2555,6 +2723,98 @@
       }
     },
     {
+      "case": "provider.readiness.observed:provider-initial-warning",
+      "name": "provider.readiness.observed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "claudeAgent",
+        "state": "warning",
+        "runtimeSource": "system",
+        "checkFailure": "not_authenticated",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "provider.readiness.observed:provider-unrecognized-values",
+      "name": "provider.readiness.observed",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "provider": "unknown",
+        "state": "unknown",
+        "runtimeSource": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "latex.visual.opened:visual-editable",
+      "name": "latex.visual.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "editable",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "latex.visual.opened:visual-source-only",
+      "name": "latex.visual.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "source-only-content",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "latex.visual.opened:visual-unavailable",
+      "name": "latex.visual.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "unavailable",
+        "reason": "source-truncated",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "latex.visual.opened:visual-private-input",
+      "name": "latex.visual.opened",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "open-error",
+        "reason": "unknown",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
+      "case": "latex.visual.source-fallback:visual-source-fallback",
+      "name": "latex.visual.source-fallback",
+      "privacyLevel": "product",
+      "consentLevel": "product",
+      "properties": {
+        "outcome": "open-error",
+        "reason": "projection",
+        "appVersion": "0.6.8",
+        "buildChannel": "stable",
+        "contractRevision": "11"
+      }
+    },
+    {
       "case": "panel.viewed:file-csv",
       "name": "panel.viewed",
       "privacyLevel": "product",
@@ -2699,6 +2959,7 @@
         "downloadAttempts": 5,
         "networkKind": "stalled",
         "compressedFailure": "checksum",
+        "signInPage": "manual_fallback",
         "resumedBucket": "10-50mb",
         "progressBucket": "25-49",
         "throughputBucket": "1-5mbps",
@@ -2813,6 +3074,7 @@
         "downloadAttempts": 5,
         "networkKind": "stalled",
         "compressedFailure": "checksum",
+        "signInPage": "manual_fallback",
         "resumedBucket": "10-50mb",
         "progressBucket": "25-49",
         "throughputBucket": "1-5mbps",
@@ -2927,6 +3189,7 @@
         "downloadAttempts": 5,
         "networkKind": "stalled",
         "compressedFailure": "checksum",
+        "signInPage": "manual_fallback",
         "resumedBucket": "10-50mb",
         "progressBucket": "25-49",
         "throughputBucket": "1-5mbps",
@@ -3041,6 +3304,7 @@
         "downloadAttempts": 5,
         "networkKind": "stalled",
         "compressedFailure": "checksum",
+        "signInPage": "manual_fallback",
         "resumedBucket": "10-50mb",
         "progressBucket": "25-49",
         "throughputBucket": "1-5mbps",
