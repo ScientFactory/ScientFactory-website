@@ -5,6 +5,8 @@
 // Depends on: release repo metadata from ../lib/releases and bundled Scient brand assets.
 
 import "@fontsource-variable/dm-sans";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+
 interface Props {
   title?: string;
   description?: string;
@@ -21,6 +23,10 @@ const {
 
 const canonicalURL = new URL(Astro.url.pathname, "https://scientfactory.com");
 const currentPath = Astro.url.pathname;
+const [whatsappIconWidth, whatsappIconHeight, , , whatsappIconPathData] = faWhatsapp.icon;
+const whatsappIconPaths = Array.isArray(whatsappIconPathData)
+  ? whatsappIconPathData
+  : [whatsappIconPathData];
 
 const primaryLinks = [
   { href: "/", label: "Home", active: currentPath === "/" },
@@ -85,7 +91,6 @@ const primaryLinks = [
       </main>
 
       <footer class="footer">
-        <span class="footer-copy">&copy; {new Date().getFullYear()} ScientFactory · GENORE PREV LTD</span>
         <div class="footer-links">
           <button type="button" class="footer-link-button" data-analytics-settings>
             Cookie settings
@@ -93,7 +98,22 @@ const primaryLinks = [
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
           <a href="/support">Support</a>
+          <a
+            class="footer-whatsapp-link"
+            href="https://chat.whatsapp.com/Cewlzu6iLQFBa025tftLNF?s=cl&p=i&iam=2">
+            <svg
+              width="14"
+              height="16"
+              viewBox={`0 0 ${whatsappIconWidth} ${whatsappIconHeight}`}
+              fill="currentColor"
+              aria-hidden="true"
+              focusable="false">
+              {whatsappIconPaths.map((path) => <path d={path} />)}
+            </svg>
+            Join our WhatsApp group
+          </a>
         </div>
+        <span class="footer-copy">&copy; {new Date().getFullYear()} ScientFactory · GENORE PREV LTD</span>
       </footer>
     </div>
 
@@ -551,6 +571,7 @@ const primaryLinks = [
   .footer {
     min-height: 5rem;
     display: flex;
+    flex-direction: row-reverse;
     align-items: center;
     justify-content: space-between;
     gap: 1.5rem;
@@ -562,7 +583,14 @@ const primaryLinks = [
 
   .footer-links {
     display: flex;
-    gap: 1.25rem;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+  }
+
+  .footer-whatsapp-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
   }
 
   .footer-link-button {
@@ -673,6 +701,13 @@ const primaryLinks = [
     opacity: 0.6;
   }
 
+  @media (max-width: 860px) {
+    .footer {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+
   /* The brand already links home; this leaves room for Sign in on phones. */
   @media (max-width: 480px) {
     .nav-link--home {
@@ -708,14 +743,7 @@ const primaryLinks = [
       font-size: 0.9rem;
     }
 
-    .footer {
-      align-items: flex-start;
-      flex-direction: column;
-      padding-block: 1.5rem;
-    }
-
     .footer-links {
-      flex-wrap: wrap;
       gap: 0.75rem 1.1rem;
     }
 
